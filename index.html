@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Colorificio a Padova | Colorificio Pigmenti — Montegrotto Terme e Selvazzano Dentro</title>
+<meta name="description" content="Colorificio Pigmenti: colorificio a Padova con due sedi a Montegrotto Terme e Selvazzano Dentro. Tintometro, pitture professionali, carte da parati, antinfortunistica, prodotti per restauro CIR. Vieni a trovarci.">
+<link rel="icon" href="assets/logo-pigmenti.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+html{scroll-behavior:smooth}
+body{margin:0;font-family:'Archivo',system-ui,sans-serif;color:#1C1C1C;background:#ffffff;-webkit-font-smoothing:antialiased}
+a{color:#003087;text-decoration:none}
+a:hover{color:#012169;text-decoration:underline}
+img{max-width:100%}
+details summary::-webkit-details-marker{display:none}
+details[open] .faq-chev{transform:rotate(45deg)}
+
+/* Layout */
+.wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+section[id]{scroll-margin-top:80px}
+
+/* Kickers & headings */
+.kicker{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#003087}
+.section-head{display:flex;flex-direction:column;gap:12px;margin-bottom:40px}
+.section-head h2{margin:0;font-size:36px;font-weight:800;letter-spacing:-.02em}
+
+/* Buttons */
+.btn{display:inline-block;border-radius:999px;font-weight:700;text-decoration:none}
+.btn:hover{text-decoration:none}
+.btn-dark{background:#1C1C1C;color:#fff;padding:9px 18px;font-weight:600}
+.btn-dark:hover{background:#0071CE;color:#fff}
+.btn-primary{background:#0071CE;color:#fff;padding:14px 26px;font-size:15px}
+.btn-primary:hover{background:#003087;color:#fff}
+.btn-outline{border:2px solid #1C1C1C;color:#1C1C1C;padding:12px 20px;font-size:14px}
+.btn-outline:hover{background:#1C1C1C;color:#fff}
+.btn-white-sm{background:#fff;color:#003087;padding:10px 22px;font-size:14px;white-space:nowrap}
+.btn-white-sm:hover{background:#1C1C1C;color:#fff}
+.btn-white-lg{background:#fff;color:#003087;padding:14px 26px;font-size:15px}
+.btn-white-lg:hover{background:#1C1C1C;color:#fff}
+.btn-directions{display:block;background:#1C1C1C;color:#fff;padding:13px;font-size:14.5px;text-align:center;margin-top:auto}
+.btn-directions:hover{background:#0071CE;color:#fff}
+
+/* Header */
+.site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid rgba(29,29,31,.1)}
+.header-inner{max-width:1140px;margin:0 auto;padding:0 24px;height:64px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.brand{display:flex;align-items:center;gap:10px;color:#1C1C1C;text-decoration:none}
+.brand img{height:42px;display:block}
+.main-nav{display:flex;gap:22px;align-items:center;font-size:14px;font-weight:500}
+.main-nav > a:not(.btn){color:#1C1C1C}
+.nav-phones{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:700;line-height:1.3;text-align:right}
+.nav-phones a{color:#1C1C1C}
+
+/* Hero */
+.hero{max-width:1140px;margin:0 auto;padding:64px 24px 48px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+.hero-copy{display:flex;flex-direction:column;gap:22px}
+.hero-copy h1{margin:0;font-size:52px;line-height:1.05;font-weight:800;letter-spacing:-.03em;text-wrap:balance}
+.hero-copy .lead{margin:0;font-size:18px;line-height:1.6;color:#2A2B2A;text-wrap:pretty}
+.hero-ctas{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+.hero-checks{display:flex;gap:26px;flex-wrap:wrap;margin-top:10px;font-size:13.5px;font-weight:600;color:#2A2B2A}
+.hero-media{position:relative}
+.hero-media::before{content:"";position:absolute;inset:auto -14px -14px auto;width:70%;height:70%;border-radius:20px;background:repeating-linear-gradient(135deg,#0071CE 0 14px,#00A2E5 14px 28px,#059DA4 28px 42px,#ffffff 42px 56px);opacity:.9;z-index:0}
+.hero-media img{position:relative;z-index:1;width:100%;height:auto;border-radius:20px;display:block;box-shadow:0 20px 50px rgba(29,29,31,.18);object-fit:cover;aspect-ratio:4/3}
+
+/* Descrizione */
+.intro{background:#1C1C1C;color:#ffffff;padding:72px 24px}
+.intro-inner{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.intro h2{margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance}
+.intro p{margin:0;font-size:17px;line-height:1.75;color:rgba(255,255,255,.82);text-wrap:pretty}
+.intro strong{color:#fff}
+
+/* Servizi */
+.services{max-width:1140px;margin:0 auto;padding:80px 24px}
+.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.service-card{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:10px}
+.service-card .dot{width:14px;height:14px;border-radius:50%;display:block}
+.service-card h3{margin:0;font-size:18px;font-weight:700}
+.service-card p{margin:0;font-size:14.5px;line-height:1.6;color:#2A2B2A}
+.delivery-banner{margin-top:20px;background:linear-gradient(90deg,#0071CE,#003087);border-radius:16px;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.delivery-banner p{margin:0;color:#fff;font-size:16px;font-weight:600}
+
+/* Sedi */
+.locations{background:#eef1f4;padding:80px 24px}
+.locations-inner{max-width:1140px;margin:0 auto}
+.locations-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
+.location-card{background:#fff;border-radius:20px;overflow:hidden;border:1px solid rgba(29,29,31,.08);display:flex;flex-direction:column}
+.location-card > img{width:100%;height:220px;object-fit:cover;display:block}
+.location-body{padding:28px;display:flex;flex-direction:column;gap:16px;flex:1}
+.location-title{display:flex;flex-direction:column;gap:6px}
+.location-title h3{margin:0;font-size:24px;font-weight:800}
+.location-title p{margin:0;font-size:14.5px;line-height:1.6;color:#2A2B2A}
+.location-contacts{display:flex;flex-direction:column;gap:8px;font-size:14.5px}
+.location-hours{background:#f2f5f8;border-radius:12px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13.5px;line-height:1.6}
+.location-hours .hours-title{grid-column:1/-1;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#003087;margin-bottom:4px}
+.location-hours .day{font-weight:600}
+.location-card iframe{width:100%;height:200px;border:0;border-radius:12px}
+
+/* Marchi */
+.brands{max-width:1140px;margin:0 auto;padding:80px 24px}
+.brands .section-head{margin-bottom:36px}
+.brands-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
+.brand-tile{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:12px;aspect-ratio:2/1;display:flex;align-items:center;justify-content:center;padding:10px}
+.brand-tile img{max-width:85%;max-height:70%;object-fit:contain;display:block}
+
+/* Recensioni */
+.reviews{background:#1C1C1C;padding:80px 24px}
+.reviews-inner{max-width:1140px;margin:0 auto}
+.reviews .kicker{color:#00A2E5}
+.reviews h2{color:#ffffff}
+.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
+.review-card{background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.3);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:12px}
+.review-card .stars{color:#00A2E5;font-size:16px;letter-spacing:2px}
+.review-card blockquote{margin:0;font-size:15px;line-height:1.65;color:rgba(255,255,255,.85);font-style:italic}
+.review-card .who{font-size:13.5px;font-weight:600;color:rgba(255,255,255,.6)}
+
+/* FAQ */
+.faq{max-width:860px;margin:0 auto;padding:80px 24px}
+.faq .section-head{margin-bottom:36px}
+.faq-list{display:flex;flex-direction:column;gap:12px}
+.faq-list details{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:14px;padding:20px 24px}
+.faq-list summary{cursor:pointer;font-size:16.5px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:16px;list-style:none}
+.faq-chev{color:#0071CE;font-size:22px;font-weight:400;transition:transform .2s}
+.faq-list details p{margin:14px 0 0;font-size:15px;line-height:1.7;color:#2A2B2A}
+
+/* CTA finale */
+.final-cta{max-width:1140px;margin:0 auto;padding:0 24px 80px}
+.final-cta-box{background:linear-gradient(120deg,#0071CE,#003087 60%,#012169);border-radius:24px;padding:56px 48px;display:flex;flex-direction:column;gap:18px;align-items:flex-start}
+.final-cta-box h2{margin:0;font-size:34px;font-weight:800;letter-spacing:-.02em;color:#fff;text-wrap:balance}
+.final-cta-box p{margin:0;font-size:17px;line-height:1.6;color:rgba(255,255,255,.9);max-width:640px}
+.final-cta-box .cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
+
+/* Footer */
+.site-footer{background:#1C1C1C;color:rgba(255,255,255,.75);padding:56px 24px 32px}
+.footer-grid{max-width:1140px;margin:0 auto;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:40px}
+.footer-col{display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.7}
+.footer-col.about{gap:14px}
+.footer-col .footer-brand{font-weight:800;font-size:17px;color:#ffffff}
+.footer-col strong{color:#ffffff;font-size:14px}
+.footer-col p{margin:0;font-size:14px;line-height:1.7}
+.footer-col a{color:rgba(255,255,255,.75)}
+.footer-col a:hover{color:#ffffff}
+.footer-bottom{max-width:1140px;margin:36px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.15);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px}
+.footer-bottom .policies{display:flex;gap:18px}
+.footer-bottom .policies a{color:rgba(255,255,255,.6)}
+.footer-bottom .policies a:hover{color:#ffffff}
+
+/* Responsive */
+@media (max-width:1000px){
+  .hero{grid-template-columns:1fr;gap:40px;padding-top:48px}
+  .hero-copy h1{font-size:44px}
+  .services-grid{grid-template-columns:repeat(2,1fr)}
+  .brands-grid{grid-template-columns:repeat(4,1fr)}
+  .reviews-grid{grid-template-columns:repeat(2,1fr)}
+}
+@media (max-width:920px){
+  .main-nav > a:not(.btn),.nav-phones{display:none}
+}
+@media (max-width:768px){
+  .section-head h2{font-size:28px}
+  .hero-copy h1{font-size:36px}
+  .hero-copy .lead{font-size:16.5px}
+  .intro{padding:56px 24px}
+  .intro h2{font-size:26px}
+  .services,.brands,.faq{padding:56px 24px}
+  .locations,.reviews{padding:56px 24px}
+  .locations-grid{grid-template-columns:1fr}
+  .reviews-grid{grid-template-columns:1fr}
+  .final-cta{padding-bottom:56px}
+  .final-cta-box{padding:40px 28px}
+  .final-cta-box h2{font-size:27px}
+  .footer-grid{grid-template-columns:1fr;gap:28px}
+}
+@media (max-width:520px){
+  .brands-grid{grid-template-columns:repeat(2,1fr)}
+  .services-grid{grid-template-columns:1fr}
+  .brand img{height:36px}
+}
+</style>
+<script type="application/ld+json">
+{"@context":"https://schema.org","@graph":[
+{"@type":"HomeAndConstructionBusiness","@id":"#montegrotto","name":"Colorificio Pigmenti — Montegrotto Terme","description":"Colorificio a Montegrotto Terme (Padova): pitture professionali, tintometro, prodotti per restauro, antinfortunistica e attrezzatura per imprese e privati.","telephone":"+39049795580","email":"pigmentisrl@gmail.com","address":{"@type":"PostalAddress","streetAddress":"Via del Commercio, 9","addressLocality":"Montegrotto Terme","postalCode":"35036","addressRegion":"PD","addressCountry":"IT"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"07:30","closes":"12:15"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"14:15","closes":"18:30"},{"@type":"OpeningHoursSpecification","dayOfWeek":"Saturday","opens":"08:00","closes":"12:00"}],"priceRange":"€€"},
+{"@type":"HomeAndConstructionBusiness","@id":"#selvazzano","name":"Colorificio Pigmenti — Selvazzano Dentro","description":"Colorificio a Selvazzano Dentro (Padova): pittura decorativa, carte da parati, finiture d'interni, tintometro e consulenza personalizzata.","telephone":"+390497387332","email":"pigmentisrl@gmail.com","address":{"@type":"PostalAddress","streetAddress":"Via Monte Grappa, 28","addressLocality":"Selvazzano Dentro","postalCode":"35030","addressRegion":"PD","addressCountry":"IT"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"08:30","closes":"12:30"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"14:30","closes":"18:30"},{"@type":"OpeningHoursSpecification","dayOfWeek":"Saturday","opens":"08:30","closes":"12:30"}],"priceRange":"€€"},
+{"@type":"FAQPage","mainEntity":[
+{"@type":"Question","name":"Fate tinte su misura con il tintometro?","acceptedAnswer":{"@type":"Answer","text":"Sì, in entrambe le sedi disponiamo di tintometro professionale: riproduciamo qualsiasi tinta da campione, mazzetta o codice colore per pitture da interno, esterno e smalti."}},
+{"@type":"Question","name":"Servite anche imprese edili e cantieri?","acceptedAnswer":{"@type":"Answer","text":"Sì, la sede di Montegrotto Terme è specializzata in soluzioni tecniche per cantieri e ristrutturazioni: prodotti professionali, assistenza specializzata e forniture continuative per imprese e applicatori."}},
+{"@type":"Question","name":"Avete prodotti per il restauro di cotto e pietra?","acceptedAnswer":{"@type":"Answer","text":"Siamo CIR Point ufficiale: trovi la gamma completa di prodotti CIR Chimica Italiana Restauri per il recupero, la protezione e la manutenzione di cotto, pietra e materiali naturali."}},
+{"@type":"Question","name":"Consegnate in zona Padova?","acceptedAnswer":{"@type":"Answer","text":"Sì, effettuiamo consegne in zona Padova e Colli Euganei. Contattaci per concordare tempi e modalità di consegna in cantiere o a domicilio."}},
+{"@type":"Question","name":"Vendete abbigliamento da lavoro e antinfortunistica?","acceptedAnswer":{"@type":"Answer","text":"Sì, trattiamo workwear e DPI dei migliori marchi: Snickers Workwear, Diadora Utility, Dike, Solid Gear. Scarpe antinfortunistiche, guanti, caschi, protezioni e alta visibilità."}}
+]}]}
+</script>
+</head>
+<body>
+
+<header class="site-header">
+  <div class="header-inner">
+    <a href="#top" class="brand">
+      <img src="assets/logo-pigmenti.svg" alt="Colorificio Pigmenti">
+    </a>
+    <nav class="main-nav" aria-label="Navigazione principale">
+      <a href="#servizi">Servizi</a>
+      <a href="#sedi">Le sedi</a>
+      <a href="#marchi">Marchi</a>
+      <a href="#faq">FAQ</a>
+      <div class="nav-phones">
+        <a href="tel:+39049795580">Montegrotto 049 795580</a>
+        <a href="tel:+390497387332">Selvazzano 049 738 7332</a>
+      </div>
+      <a href="#sedi" class="btn btn-dark">Vieni a trovarci</a>
+    </nav>
+  </div>
+</header>
+
+<main>
+
+<section id="top" class="hero">
+  <div class="hero-copy">
+    <span class="kicker">Montegrotto Terme · Selvazzano Dentro · Padova</span>
+    <h1>Il tuo colorificio a Padova, da oltre una generazione</h1>
+    <p class="lead">Pitture professionali, tinte su misura, carte da parati, attrezzatura e antinfortunistica. Due sedi ai piedi dei Colli Euganei al servizio di imprese, artigiani e appassionati di fai-da-te.</p>
+    <div class="hero-ctas">
+      <a href="#sedi" class="btn btn-primary">Indicazioni stradali</a>
+      <a href="tel:+39049795580" class="btn btn-outline">☎ Montegrotto 049 795580</a>
+      <a href="tel:+390497387332" class="btn btn-outline">☎ Selvazzano 049 738 7332</a>
+    </div>
+    <div class="hero-checks">
+      <span>✓ Tintometro in sede</span>
+      <span>✓ CIR Point ufficiale</span>
+      <span>✓ Consegna in zona</span>
+    </div>
+  </div>
+  <div class="hero-media">
+    <img src="uploads/photos-1785479527365.webp" width="875" height="656" alt="Interno del negozio Colorificio Pigmenti a Padova: pitture, pavimenti e attrezzatura">
+  </div>
+</section>
+
+<section class="intro">
+  <div class="intro-inner">
+    <h2>Il punto di riferimento per il colore tra Padova e i Colli Euganei</h2>
+    <p>Colorificio Pigmenti è il partner di fiducia per chi cerca un <strong>colorificio in provincia di Padova</strong>: pitture da interno ed esterno, smalti, decorativi, impermeabilizzanti e prodotti tecnici delle migliori marche. Nelle nostre sedi di <strong>Montegrotto Terme</strong> e <strong>Selvazzano Dentro</strong> trovi consulenza specializzata, tinte realizzate al momento con il tintometro e uno showroom dedicato a carte da parati e pavimenti.</p>
+    <p>Serviamo imprese edili, applicatori, restauratori e privati di tutta la zona: Abano Terme, Selvazzano, Montegrotto, Albignasego, Rubano, Teolo e Padova città. Passa in negozio: ti aiutiamo a scegliere il prodotto giusto per il tuo progetto.</p>
+  </div>
+</section>
+
+<section id="servizi" class="services">
+  <div class="section-head">
+    <span class="kicker">Cosa facciamo</span>
+    <h2>Servizi in negozio</h2>
+  </div>
+  <div class="services-grid">
+    <div class="service-card">
+      <span class="dot" style="background:#0071CE"></span>
+      <h3>Tintometro e colori su misura</h3>
+      <p>Riproduciamo qualsiasi tinta da campione, mazzetta o codice colore. Pitture, smalti e decorativi pronti in pochi minuti.</p>
+    </div>
+    <div class="service-card">
+      <span class="dot" style="background:#00A2E5"></span>
+      <h3>Consulenza tecnica per imprese</h3>
+      <p>Soluzioni per cantieri e ristrutturazioni: cicli applicativi, isolanti, impermeabilizzanti e assistenza specializzata.</p>
+    </div>
+    <div class="service-card">
+      <span class="dot" style="background:#059DA4"></span>
+      <h3>Consulenza decorativa per privati</h3>
+      <p>Idee, ispirazioni e consigli personalizzati per rinnovare casa: dalla pittura decorativa alle finiture d'interni.</p>
+    </div>
+    <div class="service-card">
+      <span class="dot" style="background:#142FBD"></span>
+      <h3>Showroom carte da parati e pavimenti</h3>
+      <p>Collezioni London Art, Creative Space, Klamoo e pavimenti VIRAG da vedere e toccare dal vivo a Selvazzano.</p>
+    </div>
+    <div class="service-card">
+      <span class="dot" style="background:#34A853"></span>
+      <h3>Antinfortunistica e workwear</h3>
+      <p>Scarpe antinfortunistiche, abbigliamento da lavoro e DPI: Snickers, Diadora Utility, Dike, Solid Gear.</p>
+    </div>
+    <div class="service-card">
+      <span class="dot" style="background:#0E73B9"></span>
+      <h3>Restauro — CIR Point ufficiale</h3>
+      <p>Gamma completa CIR per recupero, protezione e manutenzione di cotto, pietra e materiali naturali.</p>
+    </div>
+  </div>
+  <div class="delivery-banner">
+    <p>🚚 Consegniamo in zona Padova e Colli Euganei — in cantiere o a domicilio.</p>
+    <a href="tel:+390497387332" class="btn btn-white-sm">Chiama per la consegna</a>
+  </div>
+</section>
+
+<section id="sedi" class="locations">
+  <div class="locations-inner">
+    <div class="section-head">
+      <span class="kicker">Dove siamo</span>
+      <h2>Due sedi in provincia di Padova</h2>
+    </div>
+    <div class="locations-grid">
+
+      <article class="location-card">
+        <img src="https://colorificiopigmenti.com/cdn/shop/files/sede-colorificio-pigmenti.jpg?v=1732786103&amp;width=700" alt="Sede Colorificio Pigmenti di Montegrotto Terme, Via del Commercio 9" loading="lazy">
+        <div class="location-body">
+          <div class="location-title">
+            <h3>Montegrotto Terme</h3>
+            <p>Soluzioni tecniche, prodotti professionali e assistenza specializzata per cantieri e ristrutturazioni.</p>
+          </div>
+          <div class="location-contacts">
+            <span><strong>📍</strong> Via del Commercio, 9 — 35036 Montegrotto Terme (PD)</span>
+            <span><strong>☎</strong> <a href="tel:+39049795580">049 795580</a></span>
+            <span><strong>✉</strong> <a href="mailto:pigmentisrl@gmail.com">pigmentisrl@gmail.com</a></span>
+          </div>
+          <div class="location-hours">
+            <strong class="hours-title">Orari di apertura</strong>
+            <span class="day">Lun–Ven</span><span>07:30–12:15 · 14:15–18:30</span>
+            <span class="day">Sabato</span><span>08:00–12:00</span>
+            <span class="day">Domenica</span><span>Chiuso</span>
+          </div>
+          <iframe title="Mappa sede Montegrotto Terme" src="https://www.google.com/maps?q=Colorificio+Pigmenti+Via+del+Commercio+9+Montegrotto+Terme&amp;output=embed" loading="lazy"></iframe>
+          <a href="https://www.google.com/maps/dir/?api=1&amp;destination=Colorificio+Pigmenti+Via+del+Commercio+9+35036+Montegrotto+Terme+PD" target="_blank" rel="noopener" class="btn btn-directions">Indicazioni stradali →</a>
+        </div>
+      </article>
+
+      <article class="location-card">
+        <img src="https://colorificiopigmenti.com/cdn/shop/files/20250612_084334.jpg?v=1749722444&amp;width=700" alt="Sede Colorificio Pigmenti di Selvazzano Dentro, Via Monte Grappa 28" loading="lazy">
+        <div class="location-body">
+          <div class="location-title">
+            <h3>Selvazzano Dentro</h3>
+            <p>Colore e stile per la tua casa: pittura decorativa, carte da parati, finiture d'interni e consulenza personalizzata.</p>
+          </div>
+          <div class="location-contacts">
+            <span><strong>📍</strong> Via Monte Grappa, 28 — 35030 Selvazzano Dentro (PD)</span>
+            <span><strong>☎</strong> <a href="tel:+390497387332">049 738 7332</a></span>
+            <span><strong>✉</strong> <a href="mailto:pigmentisrl@gmail.com">pigmentisrl@gmail.com</a></span>
+          </div>
+          <div class="location-hours">
+            <strong class="hours-title">Orari di apertura</strong>
+            <span class="day">Lun–Ven</span><span>08:30–12:30 · 14:30–18:30</span>
+            <span class="day">Sabato</span><span>08:30–12:30</span>
+            <span class="day">Domenica</span><span>Chiuso</span>
+          </div>
+          <iframe title="Mappa sede Selvazzano Dentro" src="https://www.google.com/maps?q=Colorificio+Pigmenti+Via+Monte+Grappa+28+Selvazzano+Dentro&amp;output=embed" loading="lazy"></iframe>
+          <a href="https://www.google.com/maps/dir/?api=1&amp;destination=Colorificio+Pigmenti+Via+Monte+Grappa+28+35030+Selvazzano+Dentro+PD" target="_blank" rel="noopener" class="btn btn-directions">Indicazioni stradali →</a>
+        </div>
+      </article>
+
+    </div>
+  </div>
+</section>
+
+<section id="marchi" class="brands">
+  <div class="section-head">
+    <span class="kicker">I nostri marchi</span>
+    <h2>Solo brand di cui ci fidiamo</h2>
+  </div>
+  <div class="brands-grid">
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/snickers.jpg?v=1733483341&amp;width=240" alt="Snickers Workwear" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/caparol.jpg?v=1733487153&amp;width=240" alt="Caparol" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/borma-wachs.jpg?v=1733487273&amp;width=240" alt="Borma Wachs" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/hultafors.jpg?v=1733487358&amp;width=240" alt="Hultafors" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/mirka.jpg?v=1733487485&amp;width=240" alt="Mirka" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/storch.jpg?v=1733487605&amp;width=240" alt="Storch" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/base.jpg?v=1738313980&amp;width=240" alt="Base" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/calce-brenta.jpg?v=1738314010&amp;width=240" alt="La Calce del Brenta" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/cir.jpg?v=1738314024&amp;width=240" alt="CIR Chimica Italiana Restauri" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/dike.jpg?v=1738314039&amp;width=240" alt="Dike" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/dosteba.jpg?v=1738314051&amp;width=240" alt="Dosteba" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/linvea.jpg?v=1738314068&amp;width=240" alt="Linvea" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/solid-gear.jpg?v=1738314079&amp;width=240" alt="Solid Gear" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/spektra.jpg?v=1738314094&amp;width=240" alt="Spektra" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/tassani.jpg?v=1738314110&amp;width=240" alt="Tassani" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/utility-diadora.jpg?v=1738314140&amp;width=240" alt="Diadora Utility" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/valpaint.jpg?v=1738314152&amp;width=240" alt="Valpaint" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/virag.jpg?v=1738314164&amp;width=240" alt="Virag" loading="lazy"></div>
+    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/wagner.jpg?v=1738314172&amp;width=240" alt="Wagner" loading="lazy"></div>
+  </div>
+</section>
+
+<section id="recensioni" class="reviews">
+  <div class="reviews-inner">
+    <div class="section-head">
+      <span class="kicker">Dicono di noi</span>
+      <h2>Recensioni dei clienti</h2>
+    </div>
+    <div class="reviews-grid">
+      <div class="review-card">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
+        <span class="who">— Nome cliente · Google</span>
+      </div>
+      <div class="review-card">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
+        <span class="who">— Nome cliente · Google</span>
+      </div>
+      <div class="review-card">
+        <span class="stars" aria-hidden="true">★★★★★</span>
+        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
+        <span class="who">— Nome cliente · Google</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="faq" class="faq">
+  <div class="section-head">
+    <span class="kicker">Domande frequenti</span>
+    <h2>FAQ</h2>
+  </div>
+  <div class="faq-list">
+    <details>
+      <summary>Fate tinte su misura con il tintometro?<span class="faq-chev">+</span></summary>
+      <p>Sì, in entrambe le sedi disponiamo di tintometro professionale: riproduciamo qualsiasi tinta da campione, mazzetta o codice colore per pitture da interno, esterno e smalti.</p>
+    </details>
+    <details>
+      <summary>Servite anche imprese edili e cantieri?<span class="faq-chev">+</span></summary>
+      <p>Sì, la sede di Montegrotto Terme è specializzata in soluzioni tecniche per cantieri e ristrutturazioni: prodotti professionali, assistenza specializzata e forniture continuative per imprese e applicatori.</p>
+    </details>
+    <details>
+      <summary>Avete prodotti per il restauro di cotto e pietra?<span class="faq-chev">+</span></summary>
+      <p>Siamo CIR Point ufficiale: trovi la gamma completa di prodotti CIR Chimica Italiana Restauri per il recupero, la protezione e la manutenzione di cotto, pietra e materiali naturali.</p>
+    </details>
+    <details>
+      <summary>Consegnate in zona Padova?<span class="faq-chev">+</span></summary>
+      <p>Sì, effettuiamo consegne in zona Padova e Colli Euganei. Contattaci per concordare tempi e modalità di consegna in cantiere o a domicilio.</p>
+    </details>
+    <details>
+      <summary>Vendete abbigliamento da lavoro e antinfortunistica?<span class="faq-chev">+</span></summary>
+      <p>Sì, trattiamo workwear e DPI dei migliori marchi: Snickers Workwear, Diadora Utility, Dike, Solid Gear. Scarpe antinfortunistiche, guanti, caschi, protezioni e alta visibilità.</p>
+    </details>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="final-cta-box">
+    <h2>Passa a trovarci: il colore giusto si sceglie dal vivo.</h2>
+    <p>Montegrotto Terme o Selvazzano Dentro: in entrambe le sedi ti aspettano consulenza, tintometro e i migliori marchi.</p>
+    <div class="cta-row">
+      <a href="#sedi" class="btn btn-white-lg">Trova la sede più vicina</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="footer-grid">
+    <div class="footer-col about">
+      <span class="footer-brand">Colorificio Pigmenti</span>
+      <p>Colorificio a Padova con due sedi: pitture, vernici, carte da parati, attrezzatura, antinfortunistica e prodotti per il restauro.</p>
+    </div>
+    <div class="footer-col">
+      <strong>Montegrotto Terme</strong>
+      <span>Via del Commercio, 9 — 35036 (PD)</span>
+      <a href="tel:+39049795580">Tel. 049 795580</a>
+      <a href="mailto:pigmentisrl@gmail.com">pigmentisrl@gmail.com</a>
+    </div>
+    <div class="footer-col">
+      <strong>Selvazzano Dentro</strong>
+      <span>Via Monte Grappa, 28 — 35030 (PD)</span>
+      <a href="tel:+390497387332">Tel. 049 738 7332</a>
+      <a href="mailto:pigmentisrl@gmail.com">pigmentisrl@gmail.com</a>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2026 Colorificio Pigmenti S.r.l.</span>
+    <div class="policies">
+      <a href="https://colorificiopigmenti.com/policies/privacy-policy" target="_blank" rel="noopener">Privacy Policy</a>
+      <a href="https://colorificiopigmenti.com/policies/privacy-policy" target="_blank" rel="noopener">Cookie Policy</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
