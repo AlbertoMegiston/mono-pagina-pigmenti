@@ -7,3 +7,4 @@ Sito a pagina singola, senza build step: `index.html` autonomo con CSS incorpora
 ## Deploy
 
 Qualsiasi hosting statico. Su Coolify: build pack **Static**, publish directory `/`.
+test
