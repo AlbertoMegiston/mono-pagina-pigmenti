@@ -1064,7 +1064,7 @@ footer {
                 <div class="field" id="code-field">
                   <span class="field__prefix" aria-hidden="true">AUT</span>
                   <input id="code" name="codice" type="text" inputmode="numeric" pattern="[0-9 ]*"
-                         maxlength="15" required autocomplete="off" autocorrect="off"
+                         required autocomplete="off" autocorrect="off"
                          autocapitalize="off" spellcheck="false" enterkeyhint="go"
                          placeholder="000 000 000 000"
                          aria-describedby="code-hint code-error"
@@ -1609,7 +1609,7 @@ footer {
         why: {
           title: "Perché questo esito?",
           body: "Questa pagina non interroga alcun archivio: l'esito è calcolato dal browser con una regola pubblica, a scopo dimostrativo.",
-          calc: "{code} → {sum} → {sum} mod 3 = {mod} → {verdict} (simulato)"
+          calc: "{code} → {work} → {total} mod 3 = {mod} → {verdict} (simulato)"
         },
         tips: {
           title: "Come riconoscere un prodotto originale",
@@ -1833,7 +1833,7 @@ footer {
         why: {
           title: "Why this result?",
           body: "This page queries no archive: the result is computed by your browser with a public rule, for demonstration purposes.",
-          calc: "{code} → {sum} → {sum} mod 3 = {mod} → {verdict} (simulated)"
+          calc: "{code} → {work} → {total} mod 3 = {mod} → {verdict} (simulated)"
         },
         tips: {
           title: "How to spot an original",
@@ -1999,6 +1999,11 @@ footer {
     detail: null,
     verdict: null,
     error: null,
+    /* Post-verdict UI state. It lives here and not in the DOM only, because the
+       result panel is rebuilt from scratch on every language switch. */
+    ack: false,
+    tipsShown: false,
+    tipsOpen: false,
     phase: 1,
     timers: [],
     runId: 0,
@@ -2107,6 +2112,12 @@ footer {
     }, T.HINT);
   }
 
+  /* The completion announcement is debounced, so it can outlive the entry step:
+     whoever leaves that step has to disarm it. */
+  function clearCompleteTimer() {
+    if (ctx.completeTimer) { clearTimeout(ctx.completeTimer); ctx.completeTimer = null; }
+  }
+
   input.addEventListener("input", function (e) {
     if (e && e.isComposing) return;
     var raw = input.value;
@@ -2128,9 +2139,11 @@ footer {
     if (hadJunk) showTransientHint("validation.invalidChars");
     if (ctx.error) clearError();
 
-    if (ctx.completeTimer) clearTimeout(ctx.completeTimer);
+    clearCompleteTimer();
     if (digits.length === 12) {
       ctx.completeTimer = setTimeout(function () {
+        ctx.completeTimer = null;
+        if (ctx.step !== "entry") return; // the field is no longer on screen
         $("#live-polite").textContent = t("a11y.codeComplete");
       }, T.COMPLETE);
     } else {
@@ -2156,17 +2169,30 @@ footer {
     }
   });
 
-  // Long pastes (e.g. a scanned URL) need a run-of-12 heuristic; stripping all
-  // non-digits from a URL would pick up port numbers and path segments.
+  /* Every paste is handled here, not just the long ones. The most natural thing
+     to paste is the code as printed — "AUT 123 456 789 012" — and letting that
+     land natively left a length limit free to cut the tail off before the input
+     listener could strip the prefix, silently losing digits. The value is spliced
+     by hand and normalised through the input listener instead, so the paste path
+     and the typing path cannot drift apart (that listener is also what caps the
+     value at 12 digits, so no attribute has to).
+     A long paste is a scanned URL: take the run of 12 rather than every digit in
+     it, or port numbers and path segments would join in. */
   input.addEventListener("paste", function (e) {
     var cd = e.clipboardData || window.clipboardData;
     if (!cd) return;
     var text = cd.getData("text") || "";
-    if (text.length <= 24) return;
     e.preventDefault();
-    var run = text.match(/\d{12}/);
-    setCode(run ? run[0] : text.replace(/\D/g, "").slice(0, 12));
-    clearError();
+    var run = text.length > 24 ? text.match(/\d{12}/) : null;
+    var pasted = run ? run[0] : text.replace(/\D/g, "");
+    var v = input.value;
+    var s = input.selectionStart == null ? v.length : input.selectionStart;
+    var en = input.selectionEnd == null ? v.length : input.selectionEnd;
+    input.value = v.slice(0, s) + pasted + v.slice(en);
+    input.setSelectionRange(s + pasted.length, s + pasted.length);
+    // One normalisation path for typing and pasting: the input listener caps at
+    // 12 digits, reformats, repositions the caret and refreshes the counter.
+    input.dispatchEvent(new Event("input", { bubbles: true }));
   });
 
   codeField.addEventListener("mousedown", function (e) {
@@ -2184,7 +2210,14 @@ footer {
      ====================================================================== */
   function digitSum(d) { var s = 0, i; for (i = 0; i < d.length; i++) s += +d[i]; return s; }
   function isUnknown(d) { return /^(\d)\1{11}$/.test(d); }
-  function computeVerdict(d) { return ["genuine", "suspicious", "fake"][digitSum(d) % 3]; }
+  function isComplete(d) { return /^\d{12}$/.test(d); }
+
+  /* Refuses to answer rather than inventing one: an empty code used to sum to 0,
+     and 0 % 3 landed on "genuine". Callers must treat null as "no verdict". */
+  function computeVerdict(d) {
+    if (!isComplete(d) || isUnknown(d)) return null;
+    return ["genuine", "suspicious", "fake"][digitSum(d) % 3];
+  }
 
   function channelOf(id) {
     var i;
@@ -2193,6 +2226,17 @@ footer {
   }
   function needsDetail(id) { var c = channelOf(id); return !!(c && c.detail); }
   function groupOf(id) { var c = channelOf(id); return c ? c.group : "grey"; }
+
+  /* A step restored from history — or replayed by "edit answers" — may describe a
+     run that no longer exists. Anything past the entry step needs a complete,
+     registered code; the answer steps and the verdict need their own state too. */
+  function stepAllowed(step) {
+    if (step === "entry") return true;
+    if (!isComplete(ctx.digits) || isUnknown(ctx.digits)) return false;
+    if (step === "detail") return !!ctx.channel && needsDetail(ctx.channel);
+    if (step === "result") return !!ctx.verdict;
+    return true; // channel, processing
+  }
 
   /* ======================================================================
      7. ERRORS
@@ -2277,6 +2321,13 @@ footer {
     });
   }
 
+  /* Clearing an answer in ctx has to clear the widget too, or the step re-opens
+     with an option that looks chosen while the model says nothing is. */
+  function uncheckGroup(sel) {
+    var r = $(sel + " input:checked");
+    if (r) r.checked = false;
+  }
+
   function renderDemoCodes() {
     var host = $("#demo-codes");
     host.innerHTML = "";
@@ -2348,6 +2399,12 @@ footer {
      and loses the screen reader's reading position. */
   function showStep(step, focusSel) {
     var prev = ctx.step;
+    // Both goto() and startProcessing() route through here, so this is the one
+    // place that has to disarm the entry step's pending announcement.
+    if (prev === "entry" && step !== "entry") {
+      clearCompleteTimer();
+      $("#live-polite").textContent = "";
+    }
     panels[step].hidden = false;
     ctx.step = step;
     app.dataset.step = step;
@@ -2380,6 +2437,10 @@ footer {
     if (step === "processing") step = needsDetail(ctx.channel) ? "detail" : "channel";
     if (ctx.step === "processing") { cancelTimers(); ctx.runId++; }
     if (step === "detail" && !needsDetail(ctx.channel)) step = "channel";
+    // A finished or abandoned run leaves its steps in the stack: never restore a
+    // screen whose state is gone. Order matters — the rewrites above run first.
+    if (!stepAllowed(step)) step = "entry";
+    if (step === "result") renderResult(); // the panel may hold another run's text
     goto(step, { push: false, focus: step === "entry" ? "#code" : null });
     if (step === "entry") { input.focus(); input.select(); }
   });
@@ -2394,11 +2455,33 @@ footer {
 
   function setPhase(n) { ctx.phase = n; renderProcessingPhase(); }
 
+  /* Sends an unusable code back to the field instead of guessing an outcome, and
+     drops the answers with it: they belonged to a run that cannot complete. */
+  function rejectCode() {
+    cancelTimers();
+    ctx.runId++;
+    ctx.channel = null; ctx.detail = null; ctx.verdict = null;
+    ctx.ack = false; ctx.tipsShown = false; ctx.tipsOpen = false;
+    uncheckGroup("#channel-group");
+    uncheckGroup("#detail-group");
+    app.dataset.verdict = "";
+    clearResult();
+    var n = ctx.digits.length;
+    var key = n === 0 ? "validation.empty" : n < 12 ? "validation.tooShort" : "validation.notFound";
+    goto("entry", { focus: "#code" });          // goto() clears the error…
+    raiseError(key, key === "validation.tooShort" ? { n: 12 - n } : null); // …so raise it after
+  }
+
   function startProcessing() {
+    // The one choke point every path to a verdict funnels through.
+    if (!isComplete(ctx.digits) || isUnknown(ctx.digits)) { rejectCode(); return; }
+    ctx.ack = false; ctx.tipsShown = false; ctx.tipsOpen = false;
     var run = ++ctx.runId;
     showStep("processing");
     panels.processing.setAttribute("aria-busy", "true");
-    replaceHistory("processing"); // transient: never restored by the Back button
+    // Relabels the last question's entry rather than adding one: the transient
+    // step owns no slot, and popstate maps it back to that question.
+    replaceHistory("processing");
     setPhase(1);
     ctx.timers = [
       setTimeout(function () { if (run === ctx.runId) setPhase(2); }, T.PHASE_2),
@@ -2407,8 +2490,10 @@ footer {
         if (run !== ctx.runId) return;
         ctx.timers = [];
         panels.processing.removeAttribute("aria-busy");
-        ctx.verdict = computeVerdict(ctx.digits);
+        var v = computeVerdict(ctx.digits);
         $("#processing-status").textContent = ""; // avoid a duplicate announcement
+        if (!v) { rejectCode(); return; }         // unreachable via the guard above
+        ctx.verdict = v;
         renderResult();
         goto("result");
       }, T.DONE)
@@ -2451,7 +2536,8 @@ footer {
     var sum = digitSum(ctx.digits);
     $("#result-why-calc").textContent = t("result.why.calc", {
       code: formatDigits(ctx.digits),
-      sum: ctx.digits.split("").join(" + ") + " = " + sum,
+      work: ctx.digits.split("").join(" + ") + " = " + sum,
+      total: sum,
       mod: sum % 3,
       verdict: t("result." + v + ".badge").toUpperCase()
     });
@@ -2495,7 +2581,16 @@ footer {
     var host = $("#result-actions");
     host.innerHTML = "";
     var v = ctx.verdict, group = groupOf(ctx.channel);
-    $("#result-tips").hidden = true;
+
+    /* Re-rendering must not roll the user back to the moment the verdict
+       appeared, so the disclosure and the acknowledgement are restored from ctx.
+       The offersTips guard stops a stale flag surfacing the panel under a verdict
+       whose actions never offer it. */
+    var offersTips = (v === "genuine" && group !== "official");
+    var tips = $("#result-tips");
+    tips.hidden = !(offersTips && ctx.tipsShown);
+    tips.open = offersTips && ctx.tipsShown && ctx.tipsOpen;
+    if (ctx.ack) { showAck({ focus: false }); return; }
 
     if (v === "genuine") {
       host.appendChild(makeBtn("btn-restart", "btn--primary", t("result.checkAnother")));
@@ -2513,7 +2608,10 @@ footer {
     }
   }
 
-  function showAck() {
+  /* opts.focus === false when re-rendering (e.g. a language switch): the
+     acknowledgement is being restored, not raised, so it must not steal focus. */
+  function showAck(opts) {
+    ctx.ack = true;
     var host = $("#result-actions");
     host.innerHTML = "";
     var box = document.createElement("div");
@@ -2529,13 +2627,27 @@ footer {
     box.appendChild(h); box.appendChild(p); box.appendChild(r);
     box.appendChild(makeBtn("btn-restart", "btn--secondary", t("result.checkAnother")));
     host.appendChild(box);
-    h.focus();
+    if (!opts || opts.focus !== false) h.focus();
+  }
+
+  /* Leaves nothing of the finished run behind, so no navigation — foreseen or
+     not — can unhide a panel still describing a check the app has forgotten. */
+  function clearResult() {
+    ["#result-badge", "#result-tag", "#result-title", "#result-lede", "#result-code",
+     "#result-answers", "#result-advice", "#result-steps", "#result-actions",
+     "#result-why-calc", "#result-tips-list"].forEach(function (sel) { $(sel).innerHTML = ""; });
+    var tips = $("#result-tips");
+    tips.hidden = true;
+    tips.open = false;
   }
 
   function restart() {
+    clearCompleteTimer();
     ctx.digits = ""; ctx.channel = null; ctx.detail = null;
     ctx.verdict = null; ctx.error = null;
+    ctx.ack = false; ctx.tipsShown = false; ctx.tipsOpen = false;
     app.dataset.verdict = "";
+    clearResult();
     input.value = "";
     renderCounter();
     clearError();
@@ -2571,7 +2683,7 @@ footer {
       goto("detail");
     } else {
       ctx.detail = null;
-      pushHistory("channel");
+      uncheckGroup("#detail-group"); // a price answered on an earlier pass is void
       startProcessing();
     }
   });
@@ -2581,7 +2693,6 @@ footer {
     if (ctx.step === "processing") return;
     if (!ctx.detail) { raiseError("validation.detailRequired"); return; }
     clearError();
-    pushHistory("detail");
     startProcessing();
   });
 
@@ -2615,6 +2726,7 @@ footer {
     if (b.id === "btn-support" || b.id === "btn-report") { showAck(); return; }
     if (b.id === "btn-tips") {
       var d = $("#result-tips");
+      ctx.tipsShown = true; ctx.tipsOpen = true;
       d.hidden = false; d.open = true;
       d.querySelector("summary").focus();
       return;
@@ -2628,12 +2740,21 @@ footer {
       ctx.verdict = null;
       app.dataset.verdict = "";
       var back = needsDetail(ctx.channel) ? "detail" : "channel";
+      // Replaying a step whose preconditions are gone would walk the user into a
+      // question with no code behind it.
+      if (!stepAllowed(back)) { restart(); return; }
       goto(back);
       var sel = (back === "detail" ? "#detail-group" : "#channel-group") + ' input[value="' +
                 (back === "detail" ? ctx.detail : ctx.channel) + '"]';
       var radio = $(sel);
       if (radio) radio.focus();
     }
+  });
+
+  /* Bound once: <details id="result-tips"> is static markup, only #result-actions
+     is rebuilt. Keeps ctx honest when the user collapses the panel by hand. */
+  $("#result-tips").addEventListener("toggle", function () {
+    if (!this.hidden) ctx.tipsOpen = this.open;
   });
 
   /* ======================================================================
