@@ -64,10 +64,12 @@
   --surface-hover:    #EDEFF3;
   --surface-disabled: #EFF1F4;
 
-  /* text */
+  /* text — `--text-disabled` is used for genuinely inactive controls, but it is
+     still read (the app-badge labels), so it is held at >= 4.5:1 on both the
+     disabled fill and the raised surface rather than at the usual grey. */
   --text:             #111418;
   --text-muted:       #5B6472;
-  --text-disabled:    #8A919B;
+  --text-disabled:    #646C7A;
   --text-on-accent:   #FFFFFF;
 
   /* lines */
@@ -95,7 +97,6 @@
 
   /* effects */
   --focus-ring: #1B4DD1;
-  --shimmer:    rgba(17, 20, 24, .06);
   --shadow-1: 0 1px 2px rgba(16,24,40,.06), 0 1px 1px rgba(16,24,40,.04);
   --shadow-2: 0 2px 4px -1px rgba(16,24,40,.06), 0 10px 20px -8px rgba(16,24,40,.12);
   --shadow-3: 0 2px 6px -2px rgba(16,24,40,.08), 0 20px 44px -12px rgba(16,24,40,.18);
@@ -116,15 +117,17 @@
   --fs-sm:      0.875rem;
   --fs-xs:      0.8125rem;
   --fs-eyebrow: 0.75rem;
-  /* min lowered from the spec's 22px to 20px so `AUT 000 000 000 000` plus the
-     in-field QR affordance still fits a 360px viewport without shrinking. */
-  --fs-code:    clamp(1.25rem, 0.90rem + 1.60vw, 2rem);
+  /* The card stops growing at --w-card (560px), so the code must stop growing
+     with it: this ramp is sized so `AUT 000 000 000 000` fits the field whole at
+     every width, 320px upward. 18px is the floor, not lower — under 16px iOS
+     Safari zooms the page on focus, and this is a code read digit by digit. */
+  --fs-code:    clamp(1.125rem, 0.95rem + 0.85vw, 1.5rem);
 
   --lh-tight: 1.12;  --lh-snug: 1.30;  --lh-normal: 1.55;
   --lh-relaxed: 1.65; --lh-code: 1.20;
 
   --ls-display: -0.021em; --ls-h2: -0.014em; --ls-h3: -0.008em;
-  --ls-sm: 0.002em; --ls-eyebrow: 0.085em; --ls-button: 0.005em; --ls-code: 0.09em;
+  --ls-sm: 0.002em; --ls-eyebrow: 0.085em; --ls-button: 0.005em; --ls-code: 0.04em;
 
   --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
 
@@ -148,7 +151,12 @@
   --ease-out: cubic-bezier(.16, 1, .3, 1);
   --ease-in: cubic-bezier(.4, 0, 1, 1);
 
+  /* --header-h is the design floor of the sticky bar; --scroll-offset is what the
+     scroll targets clear. They are kept apart on purpose: init() measures the
+     header and overwrites --scroll-offset only, so a taller header (bigger UI
+     font, narrow viewport) cannot feed back into its own min-height. */
   --header-h: 64px;
+  --scroll-offset: calc(var(--header-h) + 16px);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -161,7 +169,7 @@
 
     --text:           #E9EDF2;
     --text-muted:     #A2ADBA;
-    --text-disabled:  #616A76;
+    --text-disabled:  #8A919B;
     --text-on-accent: #FFFFFF;
 
     --border:        #2A313A;
@@ -180,7 +188,6 @@
     --danger:       #FF8A7E;  --danger-soft:  #331613;
 
     --focus-ring: #7FA9FF;
-    --shimmer: rgba(233, 237, 242, .07);
     --shadow-1: 0 1px 2px rgba(0,0,0,.5);
     --shadow-2: 0 2px 4px -1px rgba(0,0,0,.5), 0 10px 20px -8px rgba(0,0,0,.6);
     --shadow-3: 0 2px 6px -2px rgba(0,0,0,.55), 0 20px 44px -12px rgba(0,0,0,.7);
@@ -196,7 +203,7 @@
   --surface-disabled: #1C2229;
   --text:           #E9EDF2;
   --text-muted:     #A2ADBA;
-  --text-disabled:  #616A76;
+  --text-disabled:  #8A919B;
   --text-on-accent: #FFFFFF;
   --border:        #2A313A;
   --border-strong: #6A7380;
@@ -211,7 +218,6 @@
   --warning: #F0C05A; --warning-soft: #2C2210;
   --danger:  #FF8A7E; --danger-soft:  #331613;
   --focus-ring: #7FA9FF;
-  --shimmer: rgba(233, 237, 242, .07);
   --shadow-1: 0 1px 2px rgba(0,0,0,.5);
   --shadow-2: 0 2px 4px -1px rgba(0,0,0,.5), 0 10px 20px -8px rgba(0,0,0,.6);
   --shadow-3: 0 2px 6px -2px rgba(0,0,0,.55), 0 20px 44px -12px rgba(0,0,0,.7);
@@ -296,14 +302,22 @@ a:hover { color: var(--accent-hover); text-decoration-thickness: .12em; }
 /* --------------------------------------------------------------------------
    3. HEADER / DEMO RIBBON
    -------------------------------------------------------------------------- */
-#va-header {
+/* The header carries the DEMO badge, so keeping it pinned is a safety property,
+   not a styling nicety: matched on the id AND on the structure so that dropping
+   either one cannot silently un-stick it. z-index stays under the skip link's 60. */
+#va-header,
+#va-app > header {
   position: sticky; top: 0; z-index: 40;
   background: var(--surface);
   border-bottom: var(--bw-hair) solid var(--border);
 }
 @supports (backdrop-filter: blur(8px)) or (-webkit-backdrop-filter: blur(8px)) {
-  #va-header {
-    background: color-mix(in srgb, var(--surface) 88%, transparent);
+  #va-header,
+  #va-app > header {
+    /* 94%, not 88%: now that the bar really is sticky, content passes under it,
+       and at 88% the service line fell to 4.32:1 over the darkest thing that can
+       scroll beneath. 94% holds >= 4.88:1 in that worst case, blur intact. */
+    background: color-mix(in srgb, var(--surface) 94%, transparent);
     -webkit-backdrop-filter: saturate(140%) blur(8px);
     backdrop-filter: saturate(140%) blur(8px);
   }
@@ -321,7 +335,12 @@ a:hover { color: var(--accent-hover); text-decoration-thickness: .12em; }
   letter-spacing: var(--ls-eyebrow); text-transform: uppercase; color: var(--text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.brand__service { font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.3; }
+.brand__service {
+  font-size: var(--fs-xs); color: var(--text-muted); line-height: 1.3;
+  /* Same treatment as its sibling: degrade to one clipped line rather than
+     silently reflowing the header to two rows on a user font-size bump. */
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
 .header__right { display: flex; align-items: center; gap: var(--sp-3); flex: none; }
 
 .demo-badge {
@@ -355,10 +374,38 @@ a:hover { color: var(--accent-hover); text-decoration-thickness: .12em; }
   /* not colour-only: the pressed item also carries an underline */
   text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 3px;
 }
+/* The long labels are ~54px wider than IT/EN, which is more than the header row
+   has to spare until the rail stops growing: below 560px they pushed the brand
+   placeholder into an ellipsis (measured: 6px short at 480px in Italian). */
 .lang-switch .lang-long { display: none; }
-@media (min-width: 480px) {
+@media (min-width: 560px) {
   .lang-switch .lang-long { display: inline; }
   .lang-switch .lang-short { display: none; }
+}
+
+/* Narrow-width header, kept together and last so every override lands after the
+   component rule it modifies. Below ~420px the fixed-width right cluster starves
+   the brand placeholder — the one slot a rebranding client looks at first — and
+   `IL TUO BRAND` ellipsises. Reclaim the width from the chrome around the text
+   and from its own tracking, NOT from the DEMO badge (the demo marker this
+   sticky header exists to keep on screen) and not from the language buttons,
+   whose 44px is a touch-target floor rather than slack. */
+@media (max-width: 419px) {
+  .header__inner { gap: var(--sp-2); }
+  .brand { gap: var(--sp-2); }
+  .brand__mark { width: 24px; height: 24px; }
+  .brand__rule { display: none; }
+  .brand__name { font-size: var(--fs-xs); letter-spacing: .04em; }
+  .brand__service { font-size: var(--fs-eyebrow); }
+  .header__right { gap: var(--sp-2); }
+  .demo-badge { padding: 0 var(--sp-1); letter-spacing: .04em; }
+}
+/* 320px is the narrowest realistic viewport and the placeholder still does not
+   fit there. The generic mark goes rather than the name: a rebranding client
+   reads the name first, and the mark is decorative (aria-hidden). */
+@media (max-width: 359px) {
+  .brand__mark { display: none; }
+  .brand__name { font-size: var(--fs-eyebrow); }
 }
 
 #demo-ribbon {
@@ -373,7 +420,12 @@ a:hover { color: var(--accent-hover); text-decoration-thickness: .12em; }
 /* --------------------------------------------------------------------------
    4. SECTIONS
    -------------------------------------------------------------------------- */
-main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
+/* Everything the page scrolls or focuses programmatically has to clear the
+   sticky header — the section anchors and the two headings that are themselves
+   scroll targets (#come-h) or focus targets after a step change. */
+main > section,
+main h2[tabindex="-1"],
+#main { scroll-margin-top: var(--scroll-offset); }
 
 #verifica { padding-block: var(--sp-section) var(--sp-12); }
 .hero__head { text-align: center; }
@@ -437,10 +489,18 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
 }
 @media (min-width: 720px) { .field { min-height: 68px; } }
 .field:hover:not(:focus-within) { border-color: var(--text-muted); }
+/* The wrapper carries the ring, not #code: the input opts out below so the ring
+   is not drawn inside the flex row. Same recipe (and same tokens) as every other
+   control, because a 26%-alpha halo was a ~1.5:1 indicator and vanished entirely
+   under forced colours, where box-shadow is forced to none. */
 .field:focus-within {
   border-color: var(--accent);
-  box-shadow: 0 0 0 var(--bw-ring) color-mix(in srgb, var(--accent) 26%, transparent);
+  outline: var(--bw-ring) solid var(--focus-ring);
+  outline-offset: var(--ring-offset);
 }
+/* The in-field QR button draws its own ring; the wrapper's would double up.
+   Dropped silently — and harmlessly — by engines without :has(). */
+.field:has(.field__qr:focus-visible) { outline: none; }
 .field__prefix {
   font-family: var(--font-mono); font-size: var(--fs-h3); font-weight: var(--fw-semibold);
   line-height: 1; letter-spacing: .12em; color: var(--text-muted);
@@ -459,7 +519,10 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
 }
 #code:focus, #code:focus-visible { outline: none; }
 #code::placeholder { color: var(--text-muted); opacity: 1; }
-.field__ok { flex: none; width: 20px; height: 20px; color: var(--success); opacity: 0;
+/* Stays in flow (never absolutely positioned): it is revealed at exactly 12
+   digits, i.e. when the string is longest, so overlaying it would cover the last
+   digit it confirms. 16px instead of 20px to give those digits the room back. */
+.field__ok { flex: none; width: 16px; height: 16px; color: var(--success); opacity: 0;
              transition: opacity var(--dur-2) var(--ease-standard); }
 .field.is-complete .field__ok { opacity: 1; }
 .field__qr {
@@ -470,16 +533,31 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
 }
 .field__qr:hover { background: var(--surface-hover); }
 .field__qr svg { width: 20px; height: 20px; }
-/* Below 420px the field must hold AUT + 12 digits at a legible size; the QR
-   shortcut is dropped there because the "Dove trovo il codice?" link directly
-   below opens exactly the same disclosure. */
-@media (max-width: 419px) { .field__qr { display: none; } }
+/* Below 560px the field must hold AUT + 12 digits at a legible size, and the
+   40px shortcut is what does not fit: it is dropped there because the
+   "Dove trovo il codice?" link directly below opens exactly the same
+   disclosure, so no affordance is lost. Measured, not approximate — at 480px
+   the field still clips with the button in place. */
+@media (max-width: 559px) { .field__qr { display: none; } }
 
 .field.is-error {
   border-color: var(--danger); border-width: var(--bw-emph);
   background: var(--danger-soft);
   padding-inline: calc(var(--sp-4) - 1px);
   animation: shake calc(var(--dur-2) * 2) var(--ease-standard) 1;
+}
+/* Same reason as the QR breakpoint, from the other end: at the narrowest widths
+   the gaps and the prefix are the only slack left. Placed after `.field.is-error`
+   so the error padding is trimmed too. Below 360px even that is not enough — the
+   prefix goes, since it is decorative (aria-hidden) and the field's label,
+   placeholder and hint all still spell the format out. */
+@media (max-width: 479px) {
+  .field { gap: var(--sp-2); padding-inline: var(--sp-3); }
+  .field__prefix { font-size: var(--fs-body); letter-spacing: .08em; padding-inline-end: var(--sp-2); }
+  .field.is-error { padding-inline: calc(var(--sp-3) - 1px); }
+}
+@media (max-width: 359px) {
+  .field__prefix { display: none; }
 }
 @keyframes shake {
   0%,100% { transform: translateX(0); }
@@ -508,9 +586,13 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
   font-size: var(--fs-sm); font-weight: var(--fw-medium); line-height: 1.45;
   color: var(--danger);
 }
-.va-error:not(:empty) { border-inline-start-color: var(--danger); }
-.va-error .err__icon { flex: none; width: 16px; height: 16px; margin-top: 2px; }
-.va-error:empty .err__icon { display: none; }
+/* The slot always holds its icon and its text span, so it is never `:empty` —
+   the state has to come from the class raiseError()/clearError() own, or the
+   page paints a red rule and a red (!) under every field from first paint.
+   `visibility`, not `display`, so the icon keeps reserving its box (no CLS). */
+.va-error.is-error { border-inline-start-color: var(--danger); }
+.va-error .err__icon { flex: none; width: 16px; height: 16px; margin-top: 2px; visibility: hidden; }
+.va-error.is-error .err__icon { visibility: visible; }
 
 /* --------------------------------------------------------------------------
    6. BUTTONS
@@ -546,8 +628,10 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
 .btn--block { width: 100%; }
 .btn--sm { min-height: 40px; padding: var(--sp-2) var(--sp-3); font-size: var(--fs-sm); }
 
-/* aria-disabled, never the disabled attribute: a control must not lose
-   focusability while it holds focus. */
+/* Kept for rebranders, unused by this demo's own flow (nothing here sets the
+   attribute). aria-disabled, never the disabled attribute: a control must not
+   lose focusability while it holds focus — which is also why the label must stay
+   readable: --text-disabled on --surface-disabled is 4.68:1 light / 5.04:1 dark. */
 .btn[aria-disabled="true"] {
   background: var(--surface-disabled); color: var(--text-disabled);
   border-color: var(--border); box-shadow: none; cursor: not-allowed; transform: none;
@@ -556,7 +640,7 @@ main > section { scroll-margin-top: calc(var(--header-h) + 16px); }
 
 .actions { display: flex; flex-direction: column; gap: var(--sp-3); margin-top: var(--sp-6); }
 
-.step__back { margin-bottom: var(--sp-4); align-self: flex-start; }
+.step__back { margin-bottom: var(--sp-4); }
 
 .link-quiet {
   display: inline-flex; align-items: center; gap: var(--sp-2);
@@ -933,7 +1017,10 @@ footer {
   .app-badge { border: 1px solid GrayText; }
   .app-badge, .app-badge__main, .app-badge__over { color: GrayText; }
   .field { border: 2px solid CanvasText; }
-  .option__dot svg, .field__ok, .verdict__badge svg { forced-color-adjust: auto; }
+  /* box-shadow is forced to none and every border collapses to one system
+     colour, so the field needs its indicator declared here too — and on the
+     wrapper, not on #code, whose id-level `outline: none` would beat it. */
+  .field:focus-within { outline: 3px solid Highlight; outline-offset: 2px; }
 }
 </style>
 
@@ -997,8 +1084,11 @@ footer {
 
 <div id="va-app" data-step="entry" data-lang="it" data-verdict="">
 
-  <!-- ====================== HEADER ====================== -->
-  <header>
+  <!-- ====================== HEADER ======================
+       The id is what the sticky rule hooks: it must stay, and the rule also
+       matches `#va-app > header` so the demo chrome cannot come unpinned if it
+       is ever dropped. -->
+  <header id="va-header">
     <div class="rail rail--page header__inner">
       <div class="brand">
         <!-- Generic hangtag mark: a rotated rounded square with a point and an
@@ -1310,8 +1400,13 @@ footer {
                     <path d="M116 84h-14l7-13Z"/>
                     <path d="M132 82h15l-2-7h-11Z"/><path d="M136 82v3"/>
                   </g>
-                  <text x="88" y="112" font-family="ui-monospace, monospace" font-size="15"
-                        letter-spacing="1.6" fill="currentColor" stroke="none">AUT 000 000 000 000</text>
+                  <!-- textLength pins the advance to 104 user units on every
+                       platform, so the string cannot depend on whichever
+                       monospace face resolves: it ends at x=192, clear of the QR
+                       block at x=200 and well inside the inner rule at x=241. -->
+                  <text x="88" y="127" font-family="ui-monospace, monospace" font-size="9"
+                        letter-spacing="0.5" textLength="104" lengthAdjust="spacingAndGlyphs"
+                        fill="currentColor" stroke="none">AUT 000 000 000 000</text>
                   <g opacity=".9" transform="translate(200 108) scale(1.42)" fill="currentColor"
                      stroke="none" fill-rule="evenodd">
                     <path d="M0 0h8v8H0Zm2 2v4h4V2Z"/>
@@ -1319,8 +1414,10 @@ footer {
                     <path d="M0 15h8v8H0Zm2 2v4h4v-4Z"/>
                     <path d="M12 12h3v3h-3Zm6 0h2v2h-2Zm-6 6h2v2h-2Zm4 1h2v3h-2Zm3-4h4v2h-4Zm2 3h2v4h-2Z"/>
                   </g>
-                  <path d="M180 108h44" stroke-width="1" opacity=".45" vector-effect="non-scaling-stroke"/>
-                  <circle cx="226" cy="108" r="2" fill="currentColor" stroke="none" opacity=".45"/>
+                  <!-- Rule + terminal dot sit above the code column, not along
+                       the QR's top edge where they crossed the glyphs. -->
+                  <path d="M88 108h104" stroke-width="1" opacity=".45" vector-effect="non-scaling-stroke"/>
+                  <circle cx="196" cy="108" r="2" fill="currentColor" stroke="none" opacity=".45"/>
                 </g>
               </svg>
               <figcaption data-i18n="findCode.illustrationCaption">L'etichetta con il codice e il QR, cucita all'interno del prodotto.</figcaption>
@@ -2247,9 +2344,14 @@ footer {
     detail:  { node: "#detail-error",  control: function () { return $("#detail-group input"); } }
   };
 
-  function clearError() {
-    ctx.error = null;
-    ["#code-error", "#channel-error", "#detail-error"].forEach(function (sel) {
+  /* Every slot back to the idle state. `is-error` is what the stylesheet reads:
+     the slots always contain their icon and text elements, so :empty cannot tell
+     the two states apart. Shared by clearError() and renderError() so the two
+     can never drift. */
+  function resetErrorSlots() {
+    Object.keys(ERROR_SLOTS).forEach(function (step) {
+      var sel = ERROR_SLOTS[step].node;
+      $(sel).classList.remove("is-error");
       $(sel + " .err__text").textContent = "";
     });
     input.setAttribute("aria-invalid", "false");
@@ -2257,19 +2359,20 @@ footer {
     $$("#channel-group input, #detail-group input").forEach(function (r) { r.setAttribute("aria-invalid", "false"); });
   }
 
+  function clearError() {
+    ctx.error = null;
+    resetErrorSlots();
+  }
+
   function renderError(focusIt) {
-    ["#code-error", "#channel-error", "#detail-error"].forEach(function (sel) {
-      $(sel + " .err__text").textContent = "";
-    });
-    input.setAttribute("aria-invalid", "false");
-    codeField.classList.remove("is-error");
-    $$("#channel-group input, #detail-group input").forEach(function (r) { r.setAttribute("aria-invalid", "false"); });
+    resetErrorSlots();
     if (!ctx.error) return;
 
     var slot = ERROR_SLOTS[ctx.step];
     if (!slot) return;
     var msg = t(ctx.error.key, ctx.error.vars || null);
     $(slot.node + " .err__text").textContent = msg;
+    $(slot.node).classList.add("is-error");
 
     if (ctx.step === "entry") {
       input.setAttribute("aria-invalid", "true");
@@ -2864,8 +2967,24 @@ footer {
     return nav.indexOf("it") === 0 ? "it" : "en";
   }
 
+  /* --header-h is only the design floor; a bigger UI font or a narrow viewport
+     can make the real bar taller, and every scroll target has to clear the real
+     one. Written to --scroll-offset, never back to --header-h, so the header
+     cannot inflate its own min-height. */
+  function syncScrollOffset() {
+    var h = $("#va-header");
+    if (!h) return;
+    function measure() {
+      document.documentElement.style.setProperty("--scroll-offset", (h.offsetHeight + 16) + "px");
+    }
+    measure();
+    if (typeof ResizeObserver !== "undefined") new ResizeObserver(measure).observe(h);
+    else window.addEventListener("resize", measure);
+  }
+
   function init() {
     setLang(initLang(), { silent: true });
+    syncScrollOffset();
     replaceHistory("entry");
 
     var params;
