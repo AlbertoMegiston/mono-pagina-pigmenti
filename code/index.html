@@ -88,22 +88,28 @@ input{font:inherit;color:inherit}
 .ground__edge{position:absolute;pointer-events:none}
 .ground__streaks{
   left:-15%;right:-15%;bottom:-12%;height:78%;
+  /* Long, very flat ellipses read as motion trails once blurred; tall ones
+     would read as blobs. Keep the vertical radii small and the horizontal
+     radii wide. */
   background:
-    radial-gradient(ellipse 40% 9%  at 34% 44%, rgba(53,182,170,.60), transparent 72%),
-    radial-gradient(ellipse 46% 7%  at 55% 55%, rgba(61,127,193,.55), transparent 72%),
-    radial-gradient(ellipse 34% 6%  at 42% 66%, rgba(47,168,160,.50), transparent 72%),
-    radial-gradient(ellipse 52% 8%  at 63% 74%, rgba(107,75,154,.52), transparent 72%),
-    radial-gradient(ellipse 22% 4%  at 70% 63%, rgba(201,210,79,.42), transparent 74%),
-    radial-gradient(ellipse 30% 5%  at 74% 85%, rgba(168,90,138,.40), transparent 74%),
-    radial-gradient(ellipse 60% 10% at 50% 96%, rgba(61,127,193,.34), transparent 76%);
-  filter:blur(46px) saturate(118%);
-  opacity:.9;
+    radial-gradient(ellipse 34% 1.6% at 30% 34%, rgba(66,214,200,.90), transparent 68%),
+    radial-gradient(ellipse 44% 2.2% at 46% 42%, rgba(56,196,186,.85), transparent 68%),
+    radial-gradient(ellipse 38% 1.4% at 62% 48%, rgba(74,152,226,.88), transparent 68%),
+    radial-gradient(ellipse 50% 2.6% at 44% 56%, rgba(66,214,200,.72), transparent 70%),
+    radial-gradient(ellipse 30% 1.2% at 70% 58%, rgba(214,224,96,.70), transparent 70%),
+    radial-gradient(ellipse 46% 2.4% at 58% 64%, rgba(74,152,226,.80), transparent 70%),
+    radial-gradient(ellipse 40% 1.8% at 36% 71%, rgba(129,92,186,.74), transparent 70%),
+    radial-gradient(ellipse 52% 3%   at 64% 78%, rgba(129,92,186,.70), transparent 72%),
+    radial-gradient(ellipse 34% 1.6% at 76% 85%, rgba(196,106,162,.66), transparent 72%),
+    radial-gradient(ellipse 60% 3.4% at 48% 92%, rgba(74,152,226,.56), transparent 74%);
+  filter:blur(26px) saturate(130%);
+  opacity:1;
 }
 .ground__veil{
   inset:0;
   background:
-    radial-gradient(120% 85% at 50% 46%, transparent 42%, rgba(16,14,23,.66) 100%),
-    linear-gradient(to bottom, rgba(16,14,23,.5) 0%, transparent 22%);
+    radial-gradient(130% 78% at 50% 34%, transparent 46%, rgba(16,14,23,.5) 100%),
+    linear-gradient(to bottom, rgba(16,14,23,.72) 0%, rgba(16,14,23,.28) 26%, transparent 46%);
 }
 .ground__edge{
   left:0;top:26%;width:10px;height:9%;
@@ -131,6 +137,13 @@ input{font:inherit;color:inherit}
 @supports not ((backdrop-filter:blur(6px)) or (-webkit-backdrop-filter:blur(6px))){
   #top{background:rgba(22,19,31,.95)}
 }
+
+/* Explicit columns: the back button is absent on the first step, and without
+   these the remaining items would slide up a column and pull the wordmark
+   off centre. */
+#top > .top__back{grid-column:1}
+#top > .top__mark{grid-column:2}
+#top > .top__right{grid-column:3}
 
 .top__back{justify-self:start;display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;cursor:pointer;color:var(--ink)}
@@ -423,12 +436,7 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
         </button>
       </div>
 
-      <p class="legal">
-        <span data-i18n="entry.legalLead">Iniziando l'autenticazione accetti i nostri</span>
-        <button type="button" class="legal-link" data-i18n="entry.terms">Termini e Condizioni</button>
-        <span data-i18n="entry.legalAnd">e la</span>
-        <button type="button" class="legal-link" data-i18n="entry.privacy">Informativa Privacy</button>
-      </p>
+      <p class="legal"><span data-i18n="entry.legalLead">Iniziando l'autenticazione accetti i nostri</span> <button type="button" class="legal-link" data-i18n="entry.terms">Termini e Condizioni</button> <span data-i18n="entry.legalAnd">e la</span> <button type="button" class="legal-link" data-i18n="entry.privacy">Informativa Privacy</button></p>
       <p class="fieldnote" id="legal-note" role="status" aria-live="polite"></p>
     </section>
 
