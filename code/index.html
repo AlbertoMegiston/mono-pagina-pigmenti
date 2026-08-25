@@ -715,7 +715,7 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
     lang: "it", step: "entry",
     digits: "", when: null, where: null, place: "",
     verdict: null, runId: 0, timers: [], completeTimer: null,
-    scanOpen: false, lastFocus: null
+    scanOpen: false, lastFocus: null, stack: ["entry"]
   };
 
   function t(key, vars) {
@@ -774,6 +774,19 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
   }
 
   /* ------------------------------------------------------------- routing */
+  /* The History API is unavailable in some embedded contexts (a sandboxed
+     iframe with an opaque origin throws on pushState). Navigation must not
+     depend on it, so we keep our own stack and use history only when it works. */
+  var historyOK = (function () {
+    try { history.replaceState({ step: "entry" }, ""); return true; }
+    catch (_) { return false; }
+  })();
+
+  function pushStep(step) {
+    ctx.stack.push(step);
+    if (historyOK) { try { history.pushState({ step: step }, ""); } catch (_) { historyOK = false; } }
+  }
+
   function cancelTimers() {
     ctx.timers.forEach(clearTimeout); ctx.timers = [];
     if (ctx.completeTimer) { clearTimeout(ctx.completeTimer); ctx.completeTimer = null; }
@@ -795,7 +808,7 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
     if (ctx.step === "processing" && step !== "processing") { cancelTimers(); ctx.runId++; }
     if (!stepAllowed(step)) step = "entry";
     showStep(step);
-    if (push !== false) history.pushState({ step: step }, "");
+    if (push !== false) pushStep(step);
     if (step === "processing") startProcessing();
   }
 
@@ -963,7 +976,7 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
         ctx.verdict = v;
         showStep("result");
         renderResult();
-        history.pushState({ step: "result" }, "");
+        pushStep("result");
       }, T.DONE)
     ];
   }
@@ -1019,12 +1032,22 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
     $("#verdict-lede").textContent = "";
     $("#verdict-steps").textContent = "";
     $("#legal-note").textContent = "";
+    ctx.stack = [];
     goto("entry");
     clearNote();
     input.focus();
   });
 
-  $("#btn-back").addEventListener("click", function () { history.back(); });
+  $("#btn-back").addEventListener("click", function () {
+    if (historyOK) { history.back(); return; }
+    /* No history: walk our own stack instead. */
+    ctx.stack.pop();
+    var step = ctx.stack[ctx.stack.length - 1] || "entry";
+    if (step === "processing") step = previousOf("processing");
+    if (!stepAllowed(step)) step = "entry";
+    cancelTimers(); ctx.runId++;
+    showStep(step);
+  });
 
   /* ------------------------------------------------------- legal + about */
   Array.prototype.forEach.call(document.querySelectorAll(".legal-link"), function (b) {
@@ -1181,7 +1204,7 @@ main{flex:1 0 auto;width:100%;padding-bottom:var(--sp-6)}
     applyI18n();
     var pre = digitsOnly(params.get("clg") || params.get("code") || "");
     if (pre.length === 12) applyValue(pre, pre.length);
-    history.replaceState({ step: "entry" }, "");
+    ctx.stack = ["entry"];
     ORDER.forEach(function (s) { panels[s].hidden = (s !== "entry"); });
     ctx.step = "entry";
     $("#btn-back").hidden = true;
