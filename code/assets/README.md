@@ -1,28 +1,37 @@
 # Asset del prototipo
 
-I file vanno messi in questa cartella e collegati dal blocco `ASSETS`
-in cima allo script di `code/index.html`.
+Metti i file in questa cartella con i nomi qui sotto: la pagina li cerca gia a
+questi percorsi, quindi **non serve toccare il codice**. Finche un file manca
+resta il segnaposto e il layout e comunque corretto.
 
-| Chiave            | Cosa                                              | Formato consigliato |
-|-------------------|---------------------------------------------------|---------------------|
-| `logo`            | Logo del brand in testata                          | SVG o PNG trasparente, ~68px di altezza reale |
-| `serviceName`     | Nome del servizio nella riga "powered by"          | testo |
-| `serviceLogo`     | Marchio del servizio nella riga "powered by"       | SVG o PNG trasparente, ~32px |
-| `hero`            | Immagine della schermata iniziale                  | JPG, 3:2 su telefono e 16:9 da 700px in su, lato lungo ~1600px |
-| `heroVideo`       | Video della schermata iniziale (opzionale)         | MP4 H.264, muto, in loop |
-| `background`      | Immagine a tutto schermo dietro gli step successivi| JPG verticale, ~1200x2000 |
-| `backgroundVideo` | Video a tutto schermo (opzionale)                  | MP4 H.264, muto, in loop |
+| File                   | Cosa                                                   | Formato consigliato |
+|------------------------|--------------------------------------------------------|---------------------|
+| `logo.svg`             | Logo del brand in testata                               | SVG o PNG trasparente |
+| `hero.jpg`             | Immagine della schermata iniziale                       | 3:2 su telefono, 16:9 da 700px in su, lato lungo ~1600px |
+| `background.jpg`       | Immagine a tutto schermo dietro gli step successivi     | verticale, ~1200x2000 |
+| `background.mp4`       | Video a tutto schermo (opzionale)                       | MP4 H.264, muto, in loop |
 
-Il video, se presente, ha la precedenza sull'immagine corrispondente; l'immagine
-resta usata come poster mentre il video carica.
+Se `background.jpg` manca, lo sfondo degli step ripiega automaticamente su
+`hero.jpg`. Se `background.mp4` manca o l'autoplay viene bloccato, si ripiega
+sull'immagine. Un file assente non rompe mai nulla.
 
-Finché una chiave è vuota resta il segnaposto, quindi il layout è già corretto
-anche senza asset.
+## Chiavi facoltative
+
+Nel blocco `ASSETS` in cima allo script di `../index.html`:
+
+- `logoLight` — versione chiara del logo. **Serve solo se il logo non e nero.**
+  Un logo nero viene invertito in automatico sulle schermate scure; se il tuo
+  ha piu colori l'inversione li falsa, quindi fornisci una versione bianca.
+- `heroPosition` / `backgroundPosition` — punto di ancoraggio del ritaglio
+  (`center`, `top`, `30% 50%`...). Utile perche su telefono un'immagine
+  orizzontale viene tagliata parecchio: serve a decidere cosa resta in campo.
+- `serviceName` / `serviceLogo` — nome e marchio nella riga "powered by" in
+  fondo alle schermate scure. Finche sono vuoti quella riga **non compare**,
+  cosi non resta un'attribuzione finta.
 
 ## Contrasto
 
-Le schermate dopo la prima scrivono in bianco sopra l'immagine. Sopra
-l'immagine c'è un velo scuro tarato per reggere anche una foto molto chiara:
-con un'immagine bianca piena il testo resta sopra 6:1, ben oltre il minimo
-WCAG AA di 4.5:1. Non serve quindi scegliere foto scure, ma se sostituisci il
-velo ricontrolla il contrasto.
+Le schermate dopo la prima scrivono in bianco sopra l'immagine. Il velo scuro
+sopra la foto e tarato per reggere qualsiasi luminosita: misurato con
+un'immagine quasi bianca, il testo resta sopra 5.3:1, oltre il minimo WCAG AA
+di 4.5:1. Non serve quindi scegliere foto scure. Se cambi il velo, rimisura.

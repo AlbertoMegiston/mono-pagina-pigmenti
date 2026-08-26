@@ -23,7 +23,7 @@
   --ink-quiet:#4a4a4a;
   --ink-faint:#767676;
   --on-dark:#ffffff;
-  --on-dark-quiet:#dcdcdc;
+  --on-dark-quiet:#ebebeb;
   --panel:#ffffff;
   --panel-ink:#111111;
   --panel-hover:#ededed;
@@ -51,6 +51,10 @@
 }
 
 *,*::before,*::after{box-sizing:border-box}
+/* The hidden attribute is only a UA hint, so any display declaration in this
+   stylesheet silently defeats it. Several elements here are laid out with
+   flex or grid, so make hiding win everywhere. */
+[hidden]{display:none!important}
 html{-webkit-text-size-adjust:100%}
 body{
   margin:0;min-height:100svh;
@@ -134,6 +138,7 @@ img,video{display:block;max-width:100%}
    reproduced here. */
 .brand{display:flex;align-items:center;justify-content:center;min-height:44px}
 .brand img{max-height:34px;width:auto}
+.on-dark .brand__mark--invert{filter:invert(1)}
 .brand__text{
   font-size:clamp(1rem,.93rem + .3vw,1.1875rem);font-weight:700;
   letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;color:var(--ink);
@@ -541,13 +546,16 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
        backgroundVideo optional; takes precedence over background
      ====================================================================== */
   var ASSETS = {
-    logo: "",
+    logo: "assets/logo.svg",
+    logoLight: "",
     serviceLogo: "",
     serviceName: "",
-    hero: "",
+    hero: "assets/hero.jpg",
+    heroPosition: "center",
     heroVideo: "",
-    background: "",
-    backgroundVideo: ""
+    background: "assets/background.jpg",
+    backgroundPosition: "center",
+    backgroundVideo: "assets/background.mp4"
   };
 
   /* ---------------------------------------------------------------- i18n */
@@ -702,7 +710,8 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     lang: "it", step: "landing",
     code: "", when: null, where: null, place: "",
     verdict: null, runId: 0, timers: [],
-    stack: ["landing"], drawerOpen: false, lastFocus: null, hasService: false
+    stack: ["landing"], drawerOpen: false, lastFocus: null, hasService: false,
+    logoEl: null, logoDark: "", logoLight: ""
   };
 
   function t(key, vars) {
@@ -786,8 +795,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     $("#stage").hidden = !onDark;
     $("#poweredby").hidden = !onDark || !ctx.hasService;
     $("#shell").classList.toggle("on-dark", onDark);
-    document.querySelector('meta[name="theme-color"]').setAttribute("content", onDark ? "#000000" : "#ffffff");
+    /* Absent when the page is embedded in a host that supplies its own head. */
+    var tc = document.querySelector('meta[name="theme-color"]');
+    if (tc) tc.setAttribute("content", onDark ? "#000000" : "#ffffff");
     $("#btn-back").hidden = (step === "landing");
+    if (ctx.logoEl && ctx.logoLight) {
+      ctx.logoEl.src = onDark ? ctx.logoLight : ctx.logoDark;
+    }
     var demo = $("#demo");
     demo.className = onDark ? "demo demo--dark" : "demo";
     demo.dataset.mode = onDark ? "compact" : "full";
@@ -1039,20 +1053,55 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   });
 
   /* -------------------------------------------------------------- assets */
-  function fillMedia(imgId, videoId, phId, image, video) {
+  /* Each slot points at its expected filename from the start. Nothing breaks
+     while a file is still missing: a failed load reverts to the placeholder,
+     and a missing video quietly falls back to the still image. */
+  function fillMedia(imgId, videoId, phId, images, video, position) {
     var img = $(imgId), vid = $(videoId), ph = $(phId);
+    var list = [].concat(images).filter(Boolean);
+    img.hidden = true; vid.hidden = true; ph.hidden = false;
+    if (position) { img.style.objectPosition = position; vid.style.objectPosition = position; }
+
+    /* Walk the candidates in order and stop at the first that actually loads;
+       if none does, the placeholder simply stays. */
+    function useImage(i) {
+      i = i || 0;
+      if (i >= list.length) { img.hidden = true; ph.hidden = false; return; }
+      img.onload = function () { img.hidden = false; ph.hidden = true; };
+      img.onerror = function () { useImage(i + 1); };
+      img.src = list[i];
+    }
+
     if (video) {
-      vid.src = video; vid.hidden = false; ph.hidden = true;
-      vid.setAttribute("poster", image || "");
-      var p = vid.play(); if (p && p.catch) p.catch(function () {});
-    } else if (image) {
-      img.src = image; img.hidden = false; ph.hidden = true;
+      vid.onerror = function () { vid.hidden = true; useImage(0); };
+      vid.addEventListener("loadeddata", function () {
+        vid.hidden = false; ph.hidden = true; img.hidden = true;
+      }, { once: true });
+      if (list.length) vid.setAttribute("poster", list[0]);
+      vid.src = video;
+      var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {});
+      /* A video that never reports data (blocked autoplay, missing file) must
+         not leave the screen on the placeholder. */
+      setTimeout(function () { if (vid.hidden) useImage(0); }, 1200);
+    } else {
+      useImage(0);
     }
   }
+
   function applyAssets() {
-    if (ASSETS.logo) {
-      var b = $("#brand"); b.textContent = "";
-      var i = new Image(); i.src = ASSETS.logo; i.alt = t("ui.brand"); b.appendChild(i);
+    var b = $("#brand");
+    if (ASSETS.logo || ASSETS.logoLight) {
+      var i = new Image();
+      i.alt = t("ui.brand");
+      /* Most brand marks are supplied as black artwork. Without a light
+         counterpart it would vanish on the dark screens, so invert it there. */
+      i.className = ASSETS.logoLight ? "brand__mark" : "brand__mark brand__mark--invert";
+      i.onload = function () { b.textContent = ""; b.appendChild(i); };
+      i.onerror = function () { /* keep the typographic placeholder */ };
+      i.src = ASSETS.logoLight || ASSETS.logo;
+      if (ASSETS.logoLight) {
+        ctx.logoDark = ASSETS.logo; ctx.logoLight = ASSETS.logoLight; ctx.logoEl = i;
+      }
     }
     /* The attribution row only appears once the service mark or name is set;
        an empty placeholder there would read as a real credit. */
@@ -1064,8 +1113,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     } else if (ASSETS.serviceName) {
       sm.textContent = ASSETS.serviceName;
     }
-    fillMedia("#hero-img", "#hero-video", "#hero-placeholder", ASSETS.hero, ASSETS.heroVideo);
-    fillMedia("#stage-img", "#stage-video", "#stage-placeholder", ASSETS.background, ASSETS.backgroundVideo);
+    fillMedia("#hero-img", "#hero-video", "#hero-placeholder",
+              [ASSETS.hero], ASSETS.heroVideo, ASSETS.heroPosition);
+    /* The landing photo doubles as the full-bleed background when no separate
+       portrait crop is supplied. */
+    fillMedia("#stage-img", "#stage-video", "#stage-placeholder",
+              [ASSETS.background, ASSETS.hero], ASSETS.backgroundVideo, ASSETS.backgroundPosition);
   }
 
   /* ----------------------------------------------------------- demo note */
