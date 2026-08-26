@@ -43,9 +43,9 @@ i file NON sono nel repository e vanno forniti dal titolare della licenza.
 Deposita i woff2 licenziati in `fonts/` con questi nomi e vengono presi in
 automatico:
 
-- `fonts/PFDinTextPro-Regular.woff2` (peso 400)
-- `fonts/PFDinTextPro-Medium.woff2` (peso 500)
-- `fonts/PFDinTextPro-Bold.woff2` (peso 700)
+- `fonts/PFDinTextPro-Regular.ttf` oppure `.woff2` (peso 400)
+- `fonts/PFDinTextPro-Bold.ttf` oppure `.woff2` (peso 700)
+I pesi intermedi (500, 600) vengono mappati automaticamente su questi due.
 
 Finche mancano, la pagina usa Barlow (Google Fonts), il carattere in stile DIN
 piu vicino disponibile gratuitamente. I bottoni sono gia maiuscoli e bold come

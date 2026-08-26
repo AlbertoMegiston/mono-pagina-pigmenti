@@ -18,9 +18,17 @@
    the names below and they take over. Until then Barlow — the closest
    DIN-style face on Google Fonts — carries the page.
    ========================================================================== */
-@font-face{font-family:'PF Din Text Pro';src:url('assets/fonts/PFDinTextPro-Regular.woff2') format('woff2');font-weight:400;font-style:normal;font-display:swap}
-@font-face{font-family:'PF Din Text Pro';src:url('assets/fonts/PFDinTextPro-Medium.woff2') format('woff2');font-weight:500;font-style:normal;font-display:swap}
-@font-face{font-family:'PF Din Text Pro';src:url('assets/fonts/PFDinTextPro-Bold.woff2') format('woff2');font-weight:700;font-style:normal;font-display:swap}
+@font-face{font-family:'PF Din Text Pro';
+  src:url('assets/fonts/PFDinTextPro-Regular.woff2') format('woff2'),
+      url('assets/fonts/PFDinTextPro-Regular.ttf') format('truetype');
+  font-weight:400 500;font-style:normal;font-display:swap}
+@font-face{font-family:'PF Din Text Pro';
+  src:url('assets/fonts/PFDinTextPro-Bold.woff2') format('woff2'),
+      url('assets/fonts/PFDinTextPro-Bold.ttf') format('truetype');
+  font-weight:600 700;font-style:normal;font-display:swap}
+/* Only Regular and Bold are licensed in: the 400-500 and 600-700 ranges above
+   map the intermediate weights onto them, so no text ever falls back to a
+   mixed family when a Medium face is absent. */
 
 /* ==========================================================================
    TOKENS
@@ -268,6 +276,28 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .note{margin-top:18px;font-size:var(--fs-small);line-height:1.55;color:var(--on-dark-quiet);min-height:1.4em}
 
 /* ==========================================================================
+   CODE — manual CLG entry, the alternative to scanning
+   ========================================================================== */
+.codefield{display:flex;align-items:baseline;gap:12px;
+  border-bottom:2px solid var(--on-dark);padding-bottom:10px;
+  transition:border-color .18s var(--ease)}
+.codefield__label{flex:none;font-size:clamp(1.375rem,1.1rem + 1.3vw,2rem);
+  font-weight:700;color:var(--on-dark)}
+#clg{flex:1 1 auto;min-width:0;width:100%;background:none;border:0;padding:0;
+  font-size:clamp(1.375rem,1.1rem + 1.3vw,2rem);font-weight:600;
+  letter-spacing:.04em;font-variant-numeric:tabular-nums;color:var(--on-dark)}
+#clg::placeholder{color:rgba(255,255,255,.42);font-weight:400}
+#clg:focus{outline:none}
+.codefield:focus-within{border-bottom-color:var(--focus-on-dark);
+  box-shadow:0 3px 0 -1px var(--focus-on-dark)}
+@media (forced-colors:active){#clg:focus{outline:3px solid Highlight;outline-offset:4px}}
+.codefield[data-state="error"]{border-bottom-color:#ff9b9b}
+.fieldnote{min-height:1.4em;margin-top:10px;font-size:var(--fs-small);
+  line-height:1.5;color:var(--on-dark-quiet)}
+.fieldnote[data-state="error"]{color:#ff9b9b}
+#step-code .cta{margin-top:28px}
+
+/* ==========================================================================
    SCAN — full-screen camera step, its own dark ground, no brand header
    ========================================================================== */
 #step-scan{
@@ -506,6 +536,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <div class="scan__frame"><video id="scan-video" playsinline muted></video></div>
         <p class="scan__hint" data-i18n="scan.hint">Posiziona all'interno del riquadro l'intera etichetta o TAG con il Codice CLG</p>
         <p class="scan__status" id="scan-status" role="status" aria-live="polite"></p>
+        <button class="ghost" id="scan-manual" type="button">
+          <span data-i18n="scan.manual">Inserisci il codice a mano</span>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
       </div>
       <div class="scan__tools">
         <button class="scan__tool" id="scan-upload" type="button">
@@ -521,6 +555,24 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         </button>
       </div>
       <input type="file" id="scan-file" accept="image/*" class="visually-hidden">
+    </section>
+
+    <!-- CODE (manual entry) ------------------------------------------------ -->
+    <section class="step col on-dark" id="step-code" hidden>
+      <div class="step-head"><h1 id="h-code" tabindex="-1" data-i18n="code.title">Inserisci il tuo Codice CLG</h1></div>
+      <form id="form-code" novalidate>
+        <div class="codefield" id="codefield">
+          <label class="codefield__label" for="clg" data-i18n="code.label">CLG:</label>
+          <input id="clg" name="clg" type="text" inputmode="numeric" autocomplete="off"
+                 spellcheck="false" enterkeyhint="go"
+                 aria-describedby="clg-note" placeholder="000 000 000 000">
+        </div>
+        <p class="fieldnote" id="clg-note" role="status" aria-live="polite" data-i18n="code.hint">Le 12 cifre stampate sull'etichetta cucita all'interno del prodotto.</p>
+        <button class="cta cta--light" type="submit">
+          <span data-i18n="code.cta">Inizia</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </form>
     </section>
 
     <!-- PROCESSING -------------------------------------------------------- -->
@@ -684,6 +736,14 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.noGeo": "La posizione non è disponibile in questo prototipo: l'elenco qui sopra è di esempio.",
       "place.picked": "Hai scelto {name}.",
 
+      "code.title": "Inserisci il tuo Codice CLG",
+      "code.label": "CLG:",
+      "code.hint": "Le 12 cifre stampate sull'etichetta cucita all'interno del prodotto.",
+      "code.cta": "Inizia",
+      "code.errEmpty": "Inserisci il Codice CLG per continuare.",
+      "code.errShort": "Mancano ancora {n} cifre.",
+      "code.complete": "Codice completo.",
+      "scan.manual": "Inserisci il codice a mano",
       "scan.title": "Inquadra l'etichetta o il TAG con il Codice CLG",
       "scan.hint": "Posiziona all'interno del riquadro l'intera etichetta o TAG con il Codice CLG",
       "scan.upload": "Carica un'immagine",
@@ -771,6 +831,14 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.noGeo": "Location is not available in this prototype: the list above is sample data.",
       "place.picked": "You picked {name}.",
 
+      "code.title": "Enter your CLG Code",
+      "code.label": "CLG:",
+      "code.hint": "The 12 digits printed on the label sewn inside the product.",
+      "code.cta": "Start",
+      "code.errEmpty": "Enter the CLG code to continue.",
+      "code.errShort": "{n} digits still missing.",
+      "code.complete": "Code complete.",
+      "scan.manual": "Type the code by hand",
       "scan.title": "Frame the label or TAG bearing the CLG Code",
       "scan.hint": "Place the whole label or TAG bearing the CLG Code inside the frame",
       "scan.upload": "Upload an image",
@@ -843,11 +911,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   }
   function chevron() { return svgNode("m9 5 7 7-7 7", "16", { w: "2.2" }); }
 
-  var ORDER = ["landing", "when", "where", "place", "scan", "processing", "result"];
+  var ORDER = ["landing", "when", "where", "place", "scan", "code", "processing", "result"];
   var panels = {};
   ORDER.forEach(function (s) { panels[s] = $("#step-" + s); });
   var FOCUS = { landing: "#h-landing", when: "#h-when", where: "#h-where",
-                place: "#h-place", scan: "#h-scan", processing: "#h-processing", result: "#h-result" };
+                place: "#h-place", scan: "#h-scan", code: "#h-code",
+                processing: "#h-processing", result: "#h-result" };
   var T = { P2: 850, P3: 1650, DONE: 2400 };
 
   /* ------------------------------------------------------- the simulation */
@@ -874,6 +943,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (step === "where") return !!ctx.when;
     if (step === "place") return !!ctx.where && ctx.where !== "gift";
     if (step === "scan") return !!ctx.where;
+    if (step === "code") return !!ctx.where;
     if (step === "processing") return !!ctx.where;
     if (step === "result") return !!ctx.verdict;
     return false;
@@ -933,6 +1003,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (step === "where") return "when";
     if (step === "place") return "where";
     if (step === "scan") return ctx.where === "gift" ? "where" : "place";
+    if (step === "code") return "scan";
     if (step === "processing") return "scan";
     return "landing";
   }
@@ -1046,6 +1117,54 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   $("#btn-near").addEventListener("click", function () { $("#place-note").textContent = t("place.noGeo"); });
   $("#btn-more").addEventListener("click", function () { $("#place-note").textContent = t("place.note"); });
 
+  /* ---------------------------------------------------- manual code entry */
+  var clg = $("#clg"), clgField = $("#codefield"), clgNote = $("#clg-note");
+  function groupDigits(d) { return d.replace(/(\d{3})(?=\d)/g, "$1 "); }
+  function digitsOnly(v) { return String(v == null ? "" : v).replace(/\D+/g, "").slice(0, 12); }
+  function clgSay(msg, isError) {
+    clgNote.textContent = msg;
+    clgNote.dataset.state = isError ? "error" : "";
+    clgField.dataset.state = isError ? "error" : "";
+    clg.setAttribute("aria-invalid", isError ? "true" : "false");
+  }
+  function clgReset() { clgSay(t("code.hint"), false); }
+  function clgApply(d, caretDigits) {
+    clg.value = groupDigits(d);
+    if (caretDigits != null) {
+      var pos = caretDigits + Math.floor(Math.max(0, caretDigits - 1) / 3);
+      try { clg.setSelectionRange(pos, pos); } catch (_) {}
+    }
+  }
+  clg.addEventListener("input", function () {
+    var caret = clg.selectionStart == null ? clg.value.length : clg.selectionStart;
+    var caretDigits = digitsOnly(clg.value.slice(0, caret)).length;
+    var d = digitsOnly(clg.value);
+    clgApply(d, caretDigits);
+    if (clgNote.dataset.state === "error") clgReset();
+    if (d.length === 12) clgSay(t("code.complete"), false);
+  });
+  /* The printed label carries the CLG prefix and a scanned tag yields a URL,
+     so paste is normalised at every length rather than bounded by maxlength. */
+  clg.addEventListener("paste", function (e) {
+    var cb = e.clipboardData || window.clipboardData;
+    if (!cb) return;
+    e.preventDefault();
+    var text = cb.getData("text") || "";
+    var m = text.match(/(?:clg\D{0,4})?((?:\d\D{0,2}){12})/i);
+    var d = digitsOnly(m ? m[1] : text);
+    clgApply(d, d.length);
+    clgReset();
+  });
+  $("#form-code").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var d = digitsOnly(clg.value);
+    if (!d.length) { clgSay(t("code.errEmpty"), true); clg.focus(); return; }
+    if (d.length < 12) { clgSay(t("code.errShort", { n: 12 - d.length }), true); clg.focus(); return; }
+    ctx.code = d;
+    clgReset();
+    goto("processing");
+  });
+
   /* ------------------------------------------------------------------ scan */
   var scanStream = null, scanDetector = null, scanRaf = 0;
   function scanSay(key) { $("#scan-status").textContent = key ? t(key) : ""; }
@@ -1098,6 +1217,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   $("#scan-skip").addEventListener("click", function () { goto("processing"); });
   $("#scan-back").addEventListener("click", goBack);
   $("#scan-help").addEventListener("click", function () { scanSay("scan.helpText"); });
+  $("#scan-manual").addEventListener("click", function () { goto("code"); });
   $("#scan-shoot").addEventListener("click", function () {
     if (!scanDetector) { scanSay("scan.noDecoder"); return; }
     if (!scanStream) { scanSay("scan.denied"); return; }
