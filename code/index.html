@@ -19,12 +19,10 @@
    DIN-style face on Google Fonts — carries the page.
    ========================================================================== */
 @font-face{font-family:'PF Din Text Pro';
-  src:url('assets/fonts/PFDinTextPro-Regular.woff2') format('woff2'),
-      url('assets/fonts/PFDinTextPro-Regular.ttf') format('truetype');
+  src:url('assets/fonts/PFDinTextPro-Regular.ttf') format('truetype');
   font-weight:400 500;font-style:normal;font-display:swap}
 @font-face{font-family:'PF Din Text Pro';
-  src:url('assets/fonts/PFDinTextPro-Bold.woff2') format('woff2'),
-      url('assets/fonts/PFDinTextPro-Bold.ttf') format('truetype');
+  src:url('assets/fonts/PFDinTextPro-Bold.ttf') format('truetype');
   font-weight:600 700;font-style:normal;font-display:swap}
 /* Only Regular and Bold are licensed in: the 400-500 and 600-700 ranges above
    map the intermediate weights onto them, so no text ever falls back to a
@@ -298,6 +296,75 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 #step-code .cta{margin-top:28px}
 
 /* ==========================================================================
+   SIGN-IN + OTP — white card over the photo
+   ========================================================================== */
+.auth-head{text-align:center;margin:16px 0 22px;color:var(--on-dark)}
+.auth-head h1{font-size:clamp(1.6rem,1.3rem+1.4vw,2.1rem);font-weight:700}
+.auth-head p{margin-top:8px;font-size:1rem;color:var(--on-dark-quiet)}
+.card{background:#fff;color:#111;padding:26px 22px;display:flex;flex-direction:column;
+  gap:16px;text-align:center}
+.card__service{font-size:.9375rem;font-weight:600;letter-spacing:.16em;
+  text-transform:uppercase;color:#111}
+.card h2{font-size:1.375rem;font-weight:700}
+.card p{font-size:.9375rem;line-height:1.55;color:#333}
+.card p strong{word-break:break-all}
+.card .field{display:flex;flex-direction:column;gap:8px;text-align:left}
+.card .field label{font-size:.8125rem;font-weight:600;letter-spacing:.04em;
+  text-transform:uppercase;color:#555}
+.card .field input{border:0;border-bottom:2px solid #111;padding:8px 0;
+  font-size:1.0625rem;background:none;color:#111}
+.card .field input:focus{outline:none;border-bottom-color:var(--focus)}
+@media (forced-colors:active){.card .field input:focus{outline:3px solid Highlight;outline-offset:3px}}
+.card .fieldnote{color:#666;margin-top:0}
+.card .fieldnote[data-state="error"]{color:#b00020}
+.card .cta{margin-top:4px;min-height:56px;background:#111;color:#fff}
+.card .cta:hover{background:#2f2f2f}
+.card .linklike{text-decoration:underline;cursor:pointer;font-weight:600;color:#111;
+  font-size:.9375rem;padding:6px}
+.otp{display:flex;justify-content:center;gap:12px}
+.otp input{width:56px;height:74px;border:2px solid #16202c;border-radius:4px;
+  text-align:center;font-size:1.75rem;font-weight:600;background:#fff;color:#111}
+.otp input:focus{outline:3px solid var(--focus);outline-offset:2px;border-color:var(--focus)}
+#otp-wait{min-height:1.3em;font-size:.875rem;color:#555}
+
+/* ==========================================================================
+   CONSENT — toggle switches over the photo
+   ========================================================================== */
+.consent{color:var(--on-dark)}
+.consent__intro{font-size:1rem;line-height:1.6;color:var(--on-dark)}
+.consent__intro button{text-decoration:underline;cursor:pointer;color:inherit;font-weight:600}
+.consent__purpose{margin-top:26px;font-size:1rem;line-height:1.55;color:var(--on-dark)}
+.consent__row{display:flex;align-items:center;gap:14px;margin-top:14px}
+.consent__row span{font-size:1rem;color:var(--on-dark)}
+.switch{flex:none;width:50px;height:30px;border-radius:999px;background:#9a9a9a;
+  position:relative;cursor:pointer;transition:background .18s var(--ease)}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
+  border-radius:50%;background:#fff;transition:transform .18s var(--ease)}
+.switch[aria-checked="true"]{background:#2e7d46}
+.switch[aria-checked="true"]::after{transform:translateX(20px)}
+@media (prefers-reduced-motion:reduce){.switch,.switch::after{transition:none}}
+@media (forced-colors:active){.switch{border:2px solid ButtonText}}
+
+/* ==========================================================================
+   PHOTO INTRO
+   ========================================================================== */
+.notag{display:block;margin:24px auto 0;cursor:pointer;color:var(--on-dark);
+  font-size:var(--fs-action);font-weight:600;text-decoration:underline;text-underline-offset:4px}
+
+/* ==========================================================================
+   SPLASH — the completed-check screen, gradient full bleed
+   ========================================================================== */
+#step-splash{position:relative;min-height:100svh;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;
+  background:linear-gradient(160deg,#1f9ec4 0%,#4472c8 55%,#6d43ba 100%);color:#fff}
+#step-splash h1{font-size:clamp(2.1rem,7.6vw,3.3rem);font-weight:700;line-height:1.12;
+  text-wrap:balance}
+.splash__service{position:absolute;top:22px;left:50%;transform:translateX(-50%);
+  font-size:.8125rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
+  background:rgba(0,0,0,.28);padding:6px 14px;border-radius:999px;white-space:nowrap}
+.splash__service:empty{display:none}
+
+/* ==========================================================================
    SCAN — full-screen camera step, its own dark ground, no brand header
    ========================================================================== */
 #step-scan{
@@ -314,18 +381,29 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .scan__skip:hover{background:var(--panel-hover)}
 .scan__stage{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;
   justify-content:center;gap:22px;text-align:center;padding:24px 0}
-.scan__frame{position:relative;width:min(290px,68vw);aspect-ratio:1;border:2px solid var(--on-dark);
-  overflow:hidden;background:rgba(0,0,0,.35)}
+/* The reference frame is a tall portrait rectangle with the brand mark near
+   the top, a dashed guide, a sweeping teal line and a small corner reticle. */
+.scan__frame{position:relative;width:min(320px,80vw,calc(58svh * .55));aspect-ratio:10/18;
+  border:2px solid var(--on-dark);background:rgba(0,0,0,.35)}
 .scan__frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.scan__brand{position:absolute;top:9%;left:0;right:0;display:flex;justify-content:center;
+  font-size:1rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fff}
+.scan__brand img{max-height:30px;width:auto}
+.scan__dash{position:absolute;left:7%;right:7%;top:6%;border-top:2px dashed rgba(255,255,255,.9)}
+.scan__line{position:absolute;left:-7%;right:-7%;top:14%;height:5px;border-radius:3px;
+  background:#39b7d8;box-shadow:0 0 14px rgba(57,183,216,.85)}
+@media (prefers-reduced-motion:no-preference){
+  .scan__line{animation:sweep 2.8s ease-in-out infinite alternate}
+}
+@keyframes sweep{from{top:14%}to{top:84%}}
+.scan__reticle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff}
 .scan__hint{max-width:24ch;font-size:1.0625rem;line-height:1.5;color:var(--on-dark)}
 .scan__status{min-height:1.4em;font-size:var(--fs-small);line-height:1.5;color:#ffd166;max-width:36ch}
 .scan__tools{flex:none;display:flex;align-items:center;justify-content:space-between;
   padding:0 clamp(8px,6vw,80px)}
 .scan__tool{display:inline-flex;align-items:center;justify-content:center;width:52px;height:52px;
   cursor:pointer;color:var(--on-dark)}
-.scan__shoot{width:66px;height:66px;border-radius:50%;border:3px solid var(--on-dark);
-  background:rgba(255,255,255,.14);cursor:pointer}
-.scan__shoot:hover{background:rgba(255,255,255,.28)}
+
 
 /* ==========================================================================
    PROCESSING + VERDICT
@@ -519,6 +597,83 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       <p class="note" id="place-note" role="status" aria-live="polite"></p>
     </section>
 
+    <!-- SIGN IN ------------------------------------------------------------ -->
+    <section class="step col" id="step-signin" hidden>
+      <div class="auth-head">
+        <h1 id="h-signin" tabindex="-1" data-i18n="signin.title">Accedi</h1>
+        <p data-i18n="signin.sub">Per utenti nuovi e di ritorno</p>
+      </div>
+      <form class="card" id="form-signin" novalidate>
+        <p class="card__service" id="signin-service"></p>
+        <div class="field">
+          <label for="email" data-i18n="signin.label">La tua email</label>
+          <input id="email" name="email" type="email" autocomplete="email" spellcheck="false" enterkeyhint="go">
+        </div>
+        <p class="fieldnote" id="email-note" role="status" aria-live="polite" data-i18n="signin.demo">Prototipo: nessuna email viene inviata.</p>
+        <button class="cta" type="submit">
+          <span data-i18n="signin.cta">Continua</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
+      </form>
+    </section>
+
+    <!-- OTP ---------------------------------------------------------------- -->
+    <section class="step col" id="step-otp" hidden>
+      <div class="auth-head">
+        <h1 id="h-otp" tabindex="-1" data-i18n="signin.title">Accedi</h1>
+        <p data-i18n="signin.sub">Per utenti nuovi e di ritorno</p>
+      </div>
+      <div class="card">
+        <p class="card__service" id="otp-service"></p>
+        <h2 data-i18n="otp.title">Verifica che sei tu</h2>
+        <p id="otp-body"></p>
+        <div class="otp" role="group" id="otp-group">
+          <input class="otp__box" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1">
+          <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
+          <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
+          <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
+        </div>
+        <p id="otp-wait" role="status" aria-live="polite"></p>
+        <button class="linklike" id="otp-resend" type="button" hidden data-i18n="otp.resend">Invia di nuovo il codice</button>
+        <p class="fieldnote" data-i18n="otp.demo">Prototipo: qualsiasi codice a 4 cifre è valido.</p>
+        <button class="linklike" id="otp-edit" type="button" data-i18n="otp.edit">Modifica l'indirizzo email</button>
+      </div>
+    </section>
+
+    <!-- CONSENT ------------------------------------------------------------ -->
+    <section class="step col consent" id="step-consent" hidden>
+      <div class="step-head"><h1 id="h-consent" tabindex="-1" data-i18n="consent.title">Tieniamoci in contatto</h1></div>
+      <p class="consent__intro">
+        <span data-i18n="consent.lead">Confermo di aver preso visione della</span>
+        <button type="button" class="legal-link" data-i18n="ui.privacy">Privacy Policy</button>
+        <span data-i18n="consent.tail">e liberamente acconsento al trattamento dei miei dati per le seguenti finalità:</span>
+      </p>
+      <p class="consent__purpose" data-i18n="consent.promo">La promozione di prodotti e servizi di:</p>
+      <div class="consent__row">
+        <button class="switch" id="sw-promo" type="button" role="switch" aria-checked="false" aria-labelledby="sw-promo-label"></button>
+        <span id="sw-promo-label" data-i18n="ui.brand">Il tuo brand</span>
+      </div>
+      <p class="consent__purpose" data-i18n="consent.profiling">La profilazione delle mie preferenze e abitudini ai fini dello svolgimento di attività promozionali in linea con i miei interessi e le mie esigenze da parte di:</p>
+      <div class="consent__row">
+        <button class="switch" id="sw-prof" type="button" role="switch" aria-checked="false" aria-labelledby="sw-prof-label"></button>
+        <span id="sw-prof-label" data-i18n="ui.brand">Il tuo brand</span>
+      </div>
+      <button class="cta cta--light" id="btn-consent" type="button">
+        <span data-i18n="consent.cta">Continua</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+      </button>
+    </section>
+
+    <!-- PHOTO INTRO --------------------------------------------------------- -->
+    <section class="step col on-dark" id="step-phototag" hidden>
+      <div class="step-head"><h1 id="h-phototag" tabindex="-1" data-i18n="photo.title">Scatta una foto chiara e in primo piano dell'etichetta o del TAG che mostra il Codice CLG</h1></div>
+      <button class="cta cta--light" id="btn-photo" type="button">
+        <span data-i18n="photo.cta">Scatta una foto</span>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+      </button>
+      <button class="notag" id="btn-notag" type="button" data-i18n="photo.notag">Non trovo il TAG</button>
+    </section>
+
     <!-- SCAN --------------------------------------------------------------- -->
     <section class="step" id="step-scan" hidden>
       <h1 id="h-scan" tabindex="-1" class="visually-hidden" data-i18n="scan.title">Inquadra l'etichetta o il TAG con il Codice CLG</h1>
@@ -533,7 +688,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         </button>
       </div>
       <div class="scan__stage">
-        <div class="scan__frame"><video id="scan-video" playsinline muted></video></div>
+        <div class="scan__frame">
+          <video id="scan-video" playsinline muted></video>
+          <div class="scan__brand" id="scan-brand" aria-hidden="true"></div>
+          <span class="scan__dash" aria-hidden="true"></span>
+          <span class="scan__line" aria-hidden="true"></span>
+          <svg class="scan__reticle" width="84" height="84" viewBox="0 0 84 84" fill="none" stroke="currentColor" stroke-width="4" aria-hidden="true"><path d="M8 26V8h18M58 8h18v18M76 58v18H58M26 76H8V58"/></svg>
+        </div>
         <p class="scan__hint" data-i18n="scan.hint">Posiziona all'interno del riquadro l'intera etichetta o TAG con il Codice CLG</p>
         <p class="scan__status" id="scan-status" role="status" aria-live="polite"></p>
         <button class="ghost" id="scan-manual" type="button">
@@ -545,9 +706,6 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <button class="scan__tool" id="scan-upload" type="button">
           <span class="visually-hidden" data-i18n="scan.upload">Carica un'immagine</span>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M6 7V5h12v2M3 16l5-4 4 3 3-2 4 3"/></svg>
-        </button>
-        <button class="scan__shoot" id="scan-shoot" type="button">
-          <span class="visually-hidden" data-i18n="scan.shoot">Scatta</span>
         </button>
         <button class="scan__tool" id="scan-help" type="button">
           <span class="visually-hidden" data-i18n="scan.help">Aiuto</span>
@@ -582,6 +740,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <div class="spinner" aria-hidden="true"></div>
         <p id="processing-status" role="status" aria-live="polite"></p>
       </div>
+    </section>
+
+    <!-- SPLASH ------------------------------------------------------------- -->
+    <section class="step" id="step-splash" hidden>
+      <p class="splash__service" id="splash-service"></p>
+      <h1 id="h-splash" tabindex="-1" role="status" data-i18n="splash.title">Verifica completata</h1>
     </section>
 
     <!-- RESULT ------------------------------------------------------------ -->
@@ -736,6 +900,31 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.noGeo": "La posizione non è disponibile in questo prototipo: l'elenco qui sopra è di esempio.",
       "place.picked": "Hai scelto {name}.",
 
+      "signin.title": "Accedi",
+      "signin.sub": "Per utenti nuovi e di ritorno",
+      "signin.label": "La tua email",
+      "signin.cta": "Continua",
+      "signin.err": "Inserisci un indirizzo email valido.",
+      "signin.demo": "Prototipo: nessuna email viene inviata.",
+      "otp.title": "Verifica che sei tu",
+      "otp.body": "Inserisci il codice di verifica che abbiamo appena inviato a {email}",
+      "otp.wait": "Attendi {s} secondi per richiedere un nuovo codice",
+      "otp.resend": "Invia di nuovo il codice",
+      "otp.resent": "Codice inviato di nuovo.",
+      "otp.edit": "Modifica l'indirizzo email",
+      "otp.digit": "Cifra {n} di 4",
+      "otp.group": "Codice di verifica",
+      "otp.demo": "Prototipo: qualsiasi codice a 4 cifre è valido.",
+      "consent.title": "Tieniamoci in contatto",
+      "consent.lead": "Confermo di aver preso visione della",
+      "consent.tail": "e liberamente acconsento al trattamento dei miei dati per le seguenti finalità:",
+      "consent.promo": "La promozione di prodotti e servizi di:",
+      "consent.profiling": "La profilazione delle mie preferenze e abitudini ai fini dello svolgimento di attività promozionali in linea con i miei interessi e le mie esigenze da parte di:",
+      "consent.cta": "Continua",
+      "photo.title": "Scatta una foto chiara e in primo piano dell'etichetta o del TAG che mostra il Codice CLG",
+      "photo.cta": "Scatta una foto",
+      "photo.notag": "Non trovo il TAG",
+      "splash.title": "Verifica completata",
       "code.title": "Inserisci il tuo Codice CLG",
       "code.label": "CLG:",
       "code.hint": "Le 12 cifre stampate sull'etichetta cucita all'interno del prodotto.",
@@ -831,6 +1020,31 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.noGeo": "Location is not available in this prototype: the list above is sample data.",
       "place.picked": "You picked {name}.",
 
+      "signin.title": "Sign in",
+      "signin.sub": "For new and returning users",
+      "signin.label": "Your email",
+      "signin.cta": "Continue",
+      "signin.err": "Enter a valid email address.",
+      "signin.demo": "Prototype: no email is actually sent.",
+      "otp.title": "Verify it is you",
+      "otp.body": "Enter the verification code we have just sent to {email}",
+      "otp.wait": "Wait {s} seconds to request a new code",
+      "otp.resend": "Send the code again",
+      "otp.resent": "Code sent again.",
+      "otp.edit": "Edit the email address",
+      "otp.digit": "Digit {n} of 4",
+      "otp.group": "Verification code",
+      "otp.demo": "Prototype: any 4-digit code is valid.",
+      "consent.title": "Let us keep in touch",
+      "consent.lead": "I confirm I have read the",
+      "consent.tail": "and freely consent to the processing of my data for the following purposes:",
+      "consent.promo": "The promotion of products and services of:",
+      "consent.profiling": "The profiling of my preferences and habits for promotional activities in line with my interests and needs by:",
+      "consent.cta": "Continue",
+      "photo.title": "Take a clear, close-up photo of the label or TAG showing the CLG Code",
+      "photo.cta": "Take a photo",
+      "photo.notag": "I cannot find the TAG",
+      "splash.title": "Check completed",
       "code.title": "Enter your CLG Code",
       "code.label": "CLG:",
       "code.hint": "The 12 digits printed on the label sewn inside the product.",
@@ -885,6 +1099,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     code: "", when: null, where: null, place: "",
     verdict: null, runId: 0, timers: [],
     stack: ["landing"], drawerOpen: false, lastFocus: null, hasService: false,
+    email: "", otpOk: false, consentDone: false, otpTimer: null,
     logoEl: null, logoDark: "", logoLight: "", placeholders: true
   };
 
@@ -911,12 +1126,14 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   }
   function chevron() { return svgNode("m9 5 7 7-7 7", "16", { w: "2.2" }); }
 
-  var ORDER = ["landing", "when", "where", "place", "scan", "code", "processing", "result"];
+  var ORDER = ["landing", "when", "where", "place", "signin", "otp", "consent", "phototag", "scan", "code", "processing", "splash", "result"];
   var panels = {};
   ORDER.forEach(function (s) { panels[s] = $("#step-" + s); });
   var FOCUS = { landing: "#h-landing", when: "#h-when", where: "#h-where",
-                place: "#h-place", scan: "#h-scan", code: "#h-code",
-                processing: "#h-processing", result: "#h-result" };
+                place: "#h-place", signin: "#h-signin", otp: "#h-otp",
+                consent: "#h-consent", phototag: "#h-phototag",
+                scan: "#h-scan", code: "#h-code",
+                processing: "#h-processing", splash: "#h-splash", result: "#h-result" };
   var T = { P2: 850, P3: 1650, DONE: 2400 };
 
   /* ------------------------------------------------------- the simulation */
@@ -942,9 +1159,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (step === "when") return true;
     if (step === "where") return !!ctx.when;
     if (step === "place") return !!ctx.where && ctx.where !== "gift";
-    if (step === "scan") return !!ctx.where;
-    if (step === "code") return !!ctx.where;
-    if (step === "processing") return !!ctx.where;
+    if (step === "signin") return !!ctx.where;
+    if (step === "otp") return !!ctx.where && !!ctx.email;
+    if (step === "consent") return !!ctx.where && ctx.otpOk;
+    if (step === "phototag" || step === "scan" || step === "code" || step === "processing")
+      return !!ctx.where && ctx.otpOk && ctx.consentDone;
+    if (step === "splash") return !!ctx.verdict;
     if (step === "result") return !!ctx.verdict;
     return false;
   }
@@ -958,7 +1178,11 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     ctx.stack.push(step);
     if (historyOK) { try { history.pushState({ step: step }, ""); } catch (_) { historyOK = false; } }
   }
-  function cancelTimers() { ctx.timers.forEach(clearTimeout); ctx.timers = []; }
+  function cancelTimers() {
+    ctx.timers.forEach(clearTimeout); ctx.timers = [];
+  }
+  /* A returning user is already verified: the sign-in leg only runs once. */
+  function afterPlace() { return (ctx.otpOk && ctx.consentDone) ? "phototag" : "signin"; }
 
   function showStep(step) {
     /* Screens whose content depends on earlier answers must be repainted here,
@@ -969,11 +1193,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     ORDER.forEach(function (s) { panels[s].hidden = (s !== step); });
     ctx.step = step;
     var onDark = (step !== "landing");
-    /* The camera screen is its own full-bleed surface: no product photo, no
-       brand header, no attribution row — as in the reference sequence. */
-    $("#stage").hidden = !onDark || step === "scan";
-    $("#top").hidden = (step === "scan");
-    $("#poweredby").hidden = !onDark || step === "scan" || !ctx.hasService;
+    /* Camera and splash are their own full-bleed surfaces: no product photo,
+       no brand header, no attribution row — as in the reference sequence. */
+    var bleed = (step === "scan" || step === "splash");
+    $("#stage").hidden = !onDark || bleed;
+    $("#top").hidden = bleed;
+    $("#poweredby").hidden = !onDark || bleed || !ctx.hasService;
     $("#shell").classList.toggle("on-dark", onDark);
     /* Absent when the page is embedded in a host that supplies its own head. */
     var tc = document.querySelector('meta[name="theme-color"]');
@@ -986,6 +1211,18 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     demo.className = onDark ? "demo demo--dark" : "demo";
     demo.dataset.mode = onDark ? "compact" : "full";
     if (step === "scan") startScanCamera(); else stopScanCamera();
+    if (step === "otp") { renderOtpBody(); startOtpCountdown(); } else stopOtpCountdown();
+    if (step === "splash") {
+      /* The splash replaces itself in history: stepping back from the result
+         must not land on a screen that immediately pushes forward again. */
+      var run = ctx.runId;
+      ctx.timers.push(setTimeout(function () {
+        if (run !== ctx.runId || ctx.step !== "splash") return;
+        showStep("result");
+        ctx.stack[ctx.stack.length - 1] = "result";
+        if (historyOK) { try { history.replaceState({ step: "result" }, ""); } catch (_) {} }
+      }, 1900));
+    }
     var target = $(FOCUS[step]);
     if (target) target.focus();
   }
@@ -1002,9 +1239,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (step === "when") return "landing";
     if (step === "where") return "when";
     if (step === "place") return "where";
-    if (step === "scan") return ctx.where === "gift" ? "where" : "place";
-    if (step === "code") return "scan";
-    if (step === "processing") return "scan";
+    if (step === "signin") return ctx.where === "gift" ? "where" : "place";
+    if (step === "otp") return "signin";
+    if (step === "consent") return "signin";
+    if (step === "phototag") return ctx.where === "gift" ? "where" : "place";
+    if (step === "scan") return "phototag";
+    if (step === "code") return "phototag";
+    if (step === "processing") return "phototag";
     return "landing";
   }
 
@@ -1059,7 +1300,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   function paintWhere() {
     renderOptions($("#opts-where"), whereItems(), function (v) {
       ctx.where = v; ctx.place = "";
-      goto(v === "gift" ? "scan" : "place");
+      goto(v === "gift" ? afterPlace() : "place");
     });
   }
 
@@ -1104,7 +1345,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       if (s.addr) { var ad = elem("div", "store__addr"); ad.textContent = s.addr; body.appendChild(ad); }
       b.appendChild(body);
       b.appendChild(chevron());
-      b.addEventListener("click", function () { ctx.place = s.name; goto("scan"); });
+      b.addEventListener("click", function () { ctx.place = s.name; goto(afterPlace()); });
       li.appendChild(b); host.appendChild(li);
     });
   }
@@ -1112,7 +1353,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   $("#form-place").addEventListener("submit", function (e) {
     e.preventDefault();
     ctx.place = $("#place-q").value.trim();
-    goto("scan");
+    goto(afterPlace());
   });
   $("#btn-near").addEventListener("click", function () { $("#place-note").textContent = t("place.noGeo"); });
   $("#btn-more").addEventListener("click", function () { $("#place-note").textContent = t("place.note"); });
@@ -1164,6 +1405,90 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     clgReset();
     goto("processing");
   });
+
+  /* ----------------------------------------------------- sign-in and OTP */
+  $("#form-signin").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var v = $("#email").value.trim();
+    var note = $("#email-note");
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
+      note.dataset.state = "error"; note.textContent = t("signin.err");
+      $("#email").setAttribute("aria-invalid", "true"); $("#email").focus();
+      return;
+    }
+    note.dataset.state = ""; note.textContent = t("signin.demo");
+    $("#email").setAttribute("aria-invalid", "false");
+    ctx.email = v;
+    goto("otp");
+  });
+
+  var otpBoxes = Array.prototype.slice.call(document.querySelectorAll(".otp__box"));
+  function renderOtpBody() {
+    $("#otp-body").textContent = t("otp.body", { email: ctx.email || "" });
+    otpBoxes.forEach(function (b, i) { b.setAttribute("aria-label", t("otp.digit", { n: i + 1 })); });
+    $("#otp-group").setAttribute("aria-label", t("otp.group"));
+  }
+  function otpMaybeDone() {
+    var code = otpBoxes.map(function (b) { return b.value; }).join("");
+    if (/^\d{4}$/.test(code)) {
+      /* SIMULATION: any 4-digit code passes; no email is ever sent. */
+      ctx.otpOk = true;
+      stopOtpCountdown();
+      goto(ctx.consentDone ? "phototag" : "consent");
+    }
+  }
+  otpBoxes.forEach(function (b, i) {
+    b.addEventListener("input", function () {
+      b.value = b.value.replace(/\D+/g, "").slice(0, 1);
+      if (b.value && i < otpBoxes.length - 1) otpBoxes[i + 1].focus();
+      otpMaybeDone();
+    });
+    b.addEventListener("keydown", function (e) {
+      if (e.key === "Backspace" && !b.value && i > 0) otpBoxes[i - 1].focus();
+    });
+    b.addEventListener("paste", function (e) {
+      var cb = e.clipboardData || window.clipboardData;
+      if (!cb) return;
+      e.preventDefault();
+      var d = (cb.getData("text") || "").replace(/\D+/g, "").slice(0, 4);
+      otpBoxes.forEach(function (o, j) { o.value = d[j] || ""; });
+      if (d.length === 4) otpMaybeDone(); else if (d.length) otpBoxes[Math.min(d.length, 3)].focus();
+    });
+  });
+  function startOtpCountdown() {
+    stopOtpCountdown();
+    var left = 30, wait = $("#otp-wait"), resend = $("#otp-resend");
+    resend.hidden = true;
+    function tick() {
+      if (left > 0) { wait.textContent = t("otp.wait", { s: left }); left--; }
+      else { wait.textContent = ""; resend.hidden = false; stopOtpCountdown(); }
+    }
+    tick();
+    ctx.otpTimer = setInterval(tick, 1000);
+  }
+  function stopOtpCountdown() {
+    if (ctx.otpTimer) { clearInterval(ctx.otpTimer); ctx.otpTimer = null; }
+  }
+  $("#otp-resend").addEventListener("click", function () {
+    $("#otp-wait").textContent = t("otp.resent");
+    startOtpCountdown();
+  });
+  $("#otp-edit").addEventListener("click", function () { goto("signin"); });
+
+  /* --------------------------------------------------------------- consent */
+  Array.prototype.forEach.call(document.querySelectorAll(".switch"), function (sw) {
+    sw.addEventListener("click", function () {
+      sw.setAttribute("aria-checked", sw.getAttribute("aria-checked") === "true" ? "false" : "true");
+    });
+  });
+  $("#btn-consent").addEventListener("click", function () {
+    ctx.consentDone = true;
+    goto("phototag");
+  });
+
+  /* ------------------------------------------------------------ photo intro */
+  $("#btn-photo").addEventListener("click", function () { goto("scan"); });
+  $("#btn-notag").addEventListener("click", function () { goto("code"); });
 
   /* ------------------------------------------------------------------ scan */
   var scanStream = null, scanDetector = null, scanRaf = 0;
@@ -1218,15 +1543,6 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   $("#scan-back").addEventListener("click", goBack);
   $("#scan-help").addEventListener("click", function () { scanSay("scan.helpText"); });
   $("#scan-manual").addEventListener("click", function () { goto("code"); });
-  $("#scan-shoot").addEventListener("click", function () {
-    if (!scanDetector) { scanSay("scan.noDecoder"); return; }
-    if (!scanStream) { scanSay("scan.denied"); return; }
-    scanSay("scan.reading");
-    scanDetector.detect($("#scan-video")).then(function (codes) {
-      var d = codes.length ? extractCode(codes[0].rawValue || "") : "";
-      if (d.length === 12) scanAccept(d); else scanSay("scan.noCode");
-    }).catch(function () { scanSay("scan.noCode"); });
-  });
   $("#scan-upload").addEventListener("click", function () { $("#scan-file").click(); });
   $("#scan-file").addEventListener("change", function () {
     var f = this.files && this.files[0];
@@ -1263,9 +1579,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         var v = computeVerdict(ctx.code);
         if (!v) { showStep("landing"); return; }
         ctx.verdict = v;
-        showStep("result");
         renderResult();
-        pushStep("result");
+        showStep("splash");
+        pushStep("splash");
       }, T.DONE)
     ];
   }
@@ -1303,6 +1619,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     $("#verdict-lede").textContent = "";
     $("#verdict-steps").textContent = "";
     $("#legal-note").textContent = "";
+    Array.prototype.forEach.call(document.querySelectorAll(".otp__box"), function (b) { b.value = ""; });
     ctx.stack = [];
     goto("landing");
   });
@@ -1433,6 +1750,19 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     } else if (ASSETS.serviceName) {
       sm.textContent = ASSETS.serviceName;
     }
+    var serviceText = ASSETS.serviceName || t("ui.service");
+    $("#signin-service").textContent = serviceText;
+    $("#otp-service").textContent = serviceText;
+    $("#splash-service").textContent = ASSETS.serviceName || "";
+    var sb = $("#scan-brand"); sb.textContent = "";
+    if (ASSETS.logoLight || ASSETS.logo) {
+      var bi = new Image(); bi.alt = "";
+      bi.style.maxHeight = "30px";
+      if (!ASSETS.logoLight) bi.style.filter = "invert(1)";
+      bi.onerror = function () { sb.textContent = t("ui.brand"); };
+      bi.src = ASSETS.logoLight || ASSETS.logo;
+      sb.appendChild(bi);
+    } else { sb.textContent = t("ui.brand"); }
     fillMedia("#hero-img", "#hero-video", "#hero-placeholder",
               [ASSETS.hero], ASSETS.heroVideo, ASSETS.heroPosition);
     /* The landing photo doubles as the full-bleed background when no separate
@@ -1479,6 +1809,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     $("#lang-group").setAttribute("aria-label", t("ui.lang"));
     paintWhen(); paintWhere();
     if (ctx.where && ctx.where !== "gift") renderPlace();
+    if (ctx.step === "otp") renderOtpBody();
     if (ctx.verdict) renderResult();
     applyAssets();
     renderDemo();
