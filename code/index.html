@@ -546,7 +546,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
        backgroundVideo optional; takes precedence over background
      ====================================================================== */
   var ASSETS = {
-    logo: "assets/logo.svg",
+    logo: "assets/logo.png",
     logoLight: "",
     serviceLogo: "",
     serviceName: "",
@@ -554,7 +554,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     heroPosition: "center",
     heroVideo: "",
     background: "assets/background.jpg",
-    backgroundPosition: "center",
+    backgroundPosition: "72% 50%",
     backgroundVideo: "assets/background.mp4"
   };
 
@@ -629,6 +629,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "demo.title": "Prototipo dimostrativo.",
       "demo.body": "Questa pagina non esegue alcuna verifica reale: l'esito è simulato dal browser e non proviene da un servizio di autenticazione. Non usarla per stabilire se un prodotto è autentico.",
       "demo.assets": "Le immagini e il video sono segnaposto: verranno sostituiti dai file forniti dal brand.",
+      "demo.g": "autentico",
+      "demo.s": "da approfondire",
+      "demo.f": "non autentico",
+      "demo.n": "non registrato",
       "demo.try": "Esiti di prova:",
       "demo.short": "L'esito è simulato: nessuna verifica reale viene effettuata."
     },
@@ -701,6 +705,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "demo.title": "Demonstration prototype.",
       "demo.body": "This page performs no real verification: the outcome is simulated in the browser and does not come from an authentication service. Do not use it to decide whether a product is genuine.",
       "demo.assets": "The images and the video are placeholders: they will be replaced by the files supplied by the brand.",
+      "demo.g": "authentic",
+      "demo.s": "needs review",
+      "demo.f": "not authentic",
+      "demo.n": "not registered",
       "demo.try": "Sample outcomes:",
       "demo.short": "The outcome is simulated: no real verification is performed."
     }
@@ -711,7 +719,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     code: "", when: null, where: null, place: "",
     verdict: null, runId: 0, timers: [],
     stack: ["landing"], drawerOpen: false, lastFocus: null, hasService: false,
-    logoEl: null, logoDark: "", logoLight: ""
+    logoEl: null, logoDark: "", logoLight: "", placeholders: true
   };
 
   function t(key, vars) {
@@ -1056,6 +1064,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   /* Each slot points at its expected filename from the start. Nothing breaks
      while a file is still missing: a failed load reverts to the placeholder,
      and a missing video quietly falls back to the still image. */
+  function refreshPlaceholderState() {
+    var was = ctx.placeholders;
+    ctx.placeholders = !$("#hero-placeholder").hidden || !$("#stage-placeholder").hidden;
+    if (was !== ctx.placeholders) renderDemo();
+  }
+
   function fillMedia(imgId, videoId, phId, images, video, position) {
     var img = $(imgId), vid = $(videoId), ph = $(phId);
     var list = [].concat(images).filter(Boolean);
@@ -1066,8 +1080,8 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
        if none does, the placeholder simply stays. */
     function useImage(i) {
       i = i || 0;
-      if (i >= list.length) { img.hidden = true; ph.hidden = false; return; }
-      img.onload = function () { img.hidden = false; ph.hidden = true; };
+      if (i >= list.length) { img.hidden = true; ph.hidden = false; refreshPlaceholderState(); return; }
+      img.onload = function () { img.hidden = false; ph.hidden = true; refreshPlaceholderState(); };
       img.onerror = function () { useImage(i + 1); };
       img.src = list[i];
     }
@@ -1075,7 +1089,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (video) {
       vid.onerror = function () { vid.hidden = true; useImage(0); };
       vid.addEventListener("loadeddata", function () {
-        vid.hidden = false; ph.hidden = true; img.hidden = true;
+        vid.hidden = false; ph.hidden = true; img.hidden = true; refreshPlaceholderState();
       }, { once: true });
       if (list.length) vid.setAttribute("poster", list[0]);
       vid.src = video;
@@ -1133,14 +1147,16 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     var st = elem("strong"); st.textContent = t("demo.title"); p1.appendChild(st);
     p1.appendChild(document.createTextNode(" " + t("demo.body")));
     full.appendChild(p1);
-    var p2 = elem("p"); p2.textContent = t("demo.assets"); full.appendChild(p2);
+    if (ctx.placeholders) {
+      var p2 = elem("p"); p2.textContent = t("demo.assets"); full.appendChild(p2);
+    }
     var p3 = elem("p");
     p3.appendChild(document.createTextNode(t("demo.try") + " "));
-    [["genuine", "123456789012"], ["suspicious", "123456789013"],
-     ["fake", "123456789014"], ["notFound", "000000000000"]].forEach(function (pair, n) {
+    [["demo.g", "123456789012"], ["demo.s", "123456789013"],
+     ["demo.f", "123456789014"], ["demo.n", "000000000000"]].forEach(function (pair, n) {
       if (n) p3.appendChild(document.createTextNode(" · "));
       var a = elem("a"); a.href = "?clg=" + pair[1];
-      var c = elem("code"); c.textContent = t("result." + pair[0] + ".title");
+      var c = elem("code"); c.textContent = t(pair[0]);
       a.appendChild(c); p3.appendChild(a);
     });
     full.appendChild(p3);
