@@ -35,3 +35,18 @@ Le schermate dopo la prima scrivono in bianco sopra l'immagine. Il velo scuro
 sopra la foto e tarato per reggere qualsiasi luminosita: misurato con
 un'immagine quasi bianca, il testo resta sopra 5.3:1, oltre il minimo WCAG AA
 di 4.5:1. Non serve quindi scegliere foto scure. Se cambi il velo, rimisura.
+
+## Font
+
+Il carattere del progetto e PF Din Text Pro (Parachute). E un font commerciale:
+i file NON sono nel repository e vanno forniti dal titolare della licenza.
+Deposita i woff2 licenziati in `fonts/` con questi nomi e vengono presi in
+automatico:
+
+- `fonts/PFDinTextPro-Regular.woff2` (peso 400)
+- `fonts/PFDinTextPro-Medium.woff2` (peso 500)
+- `fonts/PFDinTextPro-Bold.woff2` (peso 700)
+
+Finche mancano, la pagina usa Barlow (Google Fonts), il carattere in stile DIN
+piu vicino disponibile gratuitamente. I bottoni sono gia maiuscoli e bold come
+da indicazione.
