@@ -412,11 +412,23 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   font-size:.8125rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
   background:rgba(0,0,0,.28);padding:6px 14px;border-radius:999px;white-space:nowrap}
 .splash__service:empty{display:none}
-/* The reticle-and-blob mark that opens the completed-check screen. */
+/* The reticle-and-blob mark that opens the completed-check screen. The mark
+   crunches (particle bursts on the canvas), the headline fades in, then the
+   blob dies down and the reticle parks small and empty. */
 .splash__blob{position:relative;width:96px;height:96px;flex:none;color:#fff}
-.splash__blob svg{position:absolute;inset:0}
+.splash__blob canvas{position:absolute;left:50%;top:50%;width:260px;height:260px;
+  transform:translate(-50%,-50%);pointer-events:none}
+.splash__blob svg{position:absolute;inset:0;transition:transform .5s var(--ease)}
+#step-splash h1{opacity:0;transition:opacity .3s var(--ease)}
+#step-splash.titled h1{opacity:1}
+#step-splash.settled .splash__blob i{opacity:0;transform:translate(-50%,-50%) scale(.3)}
+#step-splash.settled .splash__blob svg{transform:scale(.55) translateY(-10px)}
+@media (prefers-reduced-motion:reduce){
+  #step-splash h1{opacity:1;transition:none}
+  .splash__blob svg{transition:none}
+}
 .splash__blob i{position:absolute;top:50%;left:50%;width:34px;height:34px;
-  transform:translate(-50%,-50%);
+  transform:translate(-50%,-50%);transition:opacity .4s var(--ease),transform .4s var(--ease);
   background:radial-gradient(circle at 32% 30%, #ffd166 0%, #b06ab3 45%, #23244d 100%);
   border-radius:52% 48% 44% 56%/48% 55% 45% 52%;
   animation:blob 3.2s ease-in-out infinite alternate}
@@ -957,11 +969,12 @@ html[data-motionbtn] main{padding-bottom:72px}
       <!-- No role="status": it would replace the heading role, and the text
            never mutates, so as a live region it announced nothing anyway.
            showStep's focus on this h1 is what announces the splash. -->
+      <h1 id="h-splash" tabindex="-1" data-i18n="splash.title">Verifica completata</h1>
       <div class="splash__blob" aria-hidden="true">
+        <canvas id="splash-fx" width="260" height="260"></canvas>
         <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="4"><path d="M10 30V10h20M66 10h20v20M86 66v20H66M30 86H10V66"/></svg>
         <i></i>
       </div>
-      <h1 id="h-splash" tabindex="-1" data-i18n="splash.title">Verifica completata</h1>
     </section>
 
     <!-- RESULT ------------------------------------------------------------ -->
@@ -1521,15 +1534,32 @@ html[data-motionbtn] main{padding-bottom:72px}
     } else { toast.hidden = true; }
     if (step === "otp") { renderOtpBody(); startOtpCountdown(); } else stopOtpCountdown();
     if (step === "splash") {
+      var run = ctx.runId;
+      var splash = panels.splash;
+      splash.classList.remove("titled", "settled");
+      var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (still) {
+        splash.classList.add("titled", "settled");
+      } else {
+        /* Choreography read frame by frame from the reference recording:
+           the mark crunches with two particle bursts, the headline fades in,
+           then the blob dies down and the reticle parks small. */
+        startSplashFx(run);
+        ctx.timers.push(setTimeout(function () {
+          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("titled");
+        }, 750));
+        ctx.timers.push(setTimeout(function () {
+          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("settled");
+        }, 1550));
+      }
       /* The splash replaces itself in history: stepping back from the result
          must not land on a screen that immediately pushes forward again. */
-      var run = ctx.runId;
       ctx.timers.push(setTimeout(function () {
         if (run !== ctx.runId || ctx.step !== "splash") return;
         showStep("result");
         ctx.stack[ctx.stack.length - 1] = "result";
         if (historyOK) { try { history.replaceState({ step: "result", epoch: EPOCH, i: ctx.depth }, ""); } catch (_) {} }
-      }, 1900));
+      }, still ? 1500 : 2350));
     }
     shownAt = Date.now();
     /* The drawer is modal: the shell behind it is inert, so a focus() call
@@ -2054,6 +2084,55 @@ html[data-motionbtn] main{padding-bottom:72px}
         pushStep("splash");
       }
     }
+  }
+
+  /* ------------------------------------------------------- splash particles */
+  /* A small burst-and-retract particle swarm around the mark, drawn on a
+     canvas so the dots can be organic. Dark specks with a few colored ones,
+     emitted twice, decelerating and fading — the "crunch" of the check. */
+  function startSplashFx(run) {
+    var cv = $("#splash-fx");
+    if (!cv || !cv.getContext) return;
+    var g = cv.getContext("2d");
+    var W = cv.width, H = cv.height, cx = W / 2, cy = H / 2;
+    var dots = [];
+    var COLORS = ["#141021", "#141021", "#141021", "#1b1430", "#b06ab3", "#ffd166"];
+    function burst(count) {
+      for (var i = 0; i < count; i++) {
+        var a = Math.random() * Math.PI * 2;
+        var sp = 1.2 + Math.random() * 2.6;
+        dots.push({
+          x: cx + Math.cos(a) * 14, y: cy + Math.sin(a) * 14,
+          vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+          r: 1.2 + Math.random() * 2.4,
+          life: 1,
+          decay: 0.012 + Math.random() * 0.02,
+          color: COLORS[(Math.random() * COLORS.length) | 0]
+        });
+      }
+    }
+    ctx.timers.push(setTimeout(function () { if (run === ctx.runId) burst(30); }, 120));
+    ctx.timers.push(setTimeout(function () { if (run === ctx.runId) burst(22); }, 700));
+    (function frame() {
+      if (run !== ctx.runId || ctx.step !== "splash") { g.clearRect(0, 0, W, H); return; }
+      g.clearRect(0, 0, W, H);
+      for (var i = dots.length - 1; i >= 0; i--) {
+        var d = dots[i];
+        /* decelerate, then get pulled gently back toward the mark */
+        d.vx = d.vx * 0.96 - (d.x - cx) * 0.0016;
+        d.vy = d.vy * 0.96 - (d.y - cy) * 0.0016;
+        d.x += d.vx; d.y += d.vy;
+        d.life -= d.decay;
+        if (d.life <= 0) { dots.splice(i, 1); continue; }
+        g.globalAlpha = Math.max(0, d.life);
+        g.fillStyle = d.color;
+        g.beginPath();
+        g.arc(d.x, d.y, d.r * (0.5 + d.life * 0.5), 0, Math.PI * 2);
+        g.fill();
+      }
+      g.globalAlpha = 1;
+      requestAnimationFrame(frame);
+    })();
   }
 
   /* ---------------------------------------------------------------- result */
