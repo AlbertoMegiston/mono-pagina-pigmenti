@@ -501,6 +501,16 @@ html[data-motion="paused"] .scan__line{animation:none}
 /* ==========================================================================
    PROCESSING + VERDICT
    ========================================================================== */
+/* The entrance gate: without the QR's validation parameter the page is a
+   bare white screen with a single call to action. */
+#step-gate{min-height:100svh;display:flex;align-items:center;
+  justify-content:center;background:#fff;padding:24px}
+.gate__cta{display:flex;align-items:center;justify-content:center;gap:10px;
+  min-width:min(320px,82vw);min-height:60px;padding:16px 24px;cursor:pointer;
+  background:#111;color:#fff;
+  font-size:var(--fs-action);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.gate__cta:hover{background:#2f2f2f}
+
 /* The processing interstitial from the reference: near-black ground with
    horizontally smeared light trails in the lower half and a thin ring. */
 #step-processing{position:relative;min-height:calc(100svh - var(--bar-h,42px));
@@ -687,6 +697,15 @@ html[data-motionbtn] main{padding-bottom:72px}
   <p class="demo demo--bar" id="demo-bar"></p>
 
   <main>
+
+    <!-- GATE --------------------------------------------------------------- -->
+    <section class="step" id="step-gate" hidden>
+      <h1 id="h-gate" tabindex="-1" class="visually-hidden" data-i18n="gate.title">Verifica autenticità</h1>
+      <button class="gate__cta" id="btn-gate" type="button">
+        <span data-i18n="gate.cta">Verifica codice</span>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><path d="M7 12h10"/></svg>
+      </button>
+    </section>
 
     <!-- LANDING ---------------------------------------------------------- -->
     <section class="step" id="step-landing">
@@ -1207,6 +1226,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "demo.f": "non autentico",
       "demo.n": "non registrato",
       "demo.try": "Esiti di prova:",
+      "gate.title": "Verifica autenticità",
+      "gate.cta": "Verifica codice",
       "scan.mustTitle": "Questo è un passaggio obbligatorio, scatta le foto richieste per ottenere la risposta.",
       "scan.mustOk": "Ok, ho capito",
       "photo.toast": "Un ultimo passaggio e ci siamo!",
@@ -1342,6 +1363,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "demo.f": "not authentic",
       "demo.n": "not registered",
       "demo.try": "Sample outcomes:",
+      "gate.title": "Authenticity check",
+      "gate.cta": "Scan code",
       "scan.mustTitle": "This step is required: take the requested photos to get the answer.",
       "scan.mustOk": "OK, got it",
       "photo.toast": "One last step and we are there!",
@@ -1385,10 +1408,11 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
   function chevron() { return svgNode("m9 5 7 7-7 7", "16", { w: "2.2" }); }
 
-  var ORDER = ["landing", "when", "where", "place", "signin", "otp", "consent", "phototag", "scan", "code", "processing", "splash", "result"];
+  var ORDER = ["gate", "landing", "when", "where", "place", "signin", "otp", "consent", "phototag", "scan", "code", "processing", "splash", "result"];
   var panels = {};
   ORDER.forEach(function (s) { panels[s] = $("#step-" + s); });
-  var FOCUS = { landing: "#h-landing", when: "#h-when", where: "#h-where",
+  var FOCUS = { gate: "#btn-gate",
+                landing: "#h-landing", when: "#h-when", where: "#h-where",
                 place: "#h-place", signin: "#h-signin", otp: "#h-otp",
                 consent: "#h-consent", phototag: "#h-phototag",
                 scan: "#h-scan", code: "#h-code",
@@ -1396,7 +1420,6 @@ html[data-motionbtn] main{padding-bottom:72px}
   var T = { P2: 850, P3: 1650, DONE: 2400 };
 
   /* ------------------------------------------------------- the simulation */
-  var DEFAULT_CODE = "123456789012";
   function isComplete(c) { return /^\d{12}$/.test(c); }
   function isUnknown(c) { return /^(\d)\1{11}$/.test(c); }
   function digitSum(c) { var s = 0, i; for (i = 0; i < c.length; i++) s += +c[i]; return s; }
@@ -1413,8 +1436,9 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
 
   function stepAllowed(step) {
-    if (step === "landing") return true;
+    if (step === "gate") return true;
     if (!isComplete(ctx.code)) return false;
+    if (step === "landing") return true;
     if (step === "when") return true;
     if (step === "where") return !!ctx.when;
     if (step === "place") return !!ctx.where && ctx.where !== "gift";
@@ -1459,10 +1483,10 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "place") renderPlace();
     ORDER.forEach(function (s) { panels[s].hidden = (s !== step); });
     ctx.step = step;
-    var onDark = (step !== "landing");
+    var onDark = (step !== "landing" && step !== "gate");
     /* Camera and splash are their own full-bleed surfaces: no product photo,
        no brand header, no attribution row — as in the reference sequence. */
-    var bleed = (step === "scan" || step === "splash" || step === "processing" || step === "result");
+    var bleed = (step === "scan" || step === "splash" || step === "processing" || step === "result" || step === "gate");
     $("#stage").hidden = !onDark || bleed;
     $("#top").hidden = bleed;
     syncPoweredBy();
@@ -1480,6 +1504,10 @@ html[data-motionbtn] main{padding-bottom:72px}
        where there is room to read it — the drawer's "Info sul servizio"
        entry repeats the full text everywhere else. */
     $("#demo-bar").className = onDark ? "demo demo--bar demo--dark" : "demo demo--bar";
+    /* The bar stays where an outcome can be believed; the welcome and the
+       gate make no claims, and the landing still carries the full notice. */
+    $("#demo-bar").hidden = (step === "landing" || step === "gate");
+    syncBarH();
     $("#demo").hidden = onDark;
     if (step === "scan") startScanCamera(); else stopScanCamera();
     if (step !== "scan") { var ask = $("#scanask"); if (ask) ask.hidden = true; }
@@ -1541,9 +1569,11 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (e.detail) lastPt = { x: e.clientX, y: e.clientY };
   }, true);
 
+  function fallbackStep() { return isComplete(ctx.code) ? "landing" : "gate"; }
+
   function goto(step, push) {
     if (ctx.step === "processing" && step !== "processing") { cancelTimers(); ctx.runId++; }
-    if (!stepAllowed(step)) step = "landing";
+    if (!stepAllowed(step)) step = fallbackStep();
     showStep(step);
     /* The processing screen is transient and must never own a history entry:
        an entry for it would make one Back press a visible no-op. Back while
@@ -1578,11 +1608,11 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (ctx.drawerOpen) { closeDrawer(true); return; }
     if (fresh && st.drawer) { openDrawer(true); return; }
     if (!fresh) { ctx.depth = 0; ctx.stack.length = 1; }
-    var step = fresh ? (st.step || "landing") : "landing";
+    var step = fresh ? (st.step || fallbackStep()) : fallbackStep();
     if (step === ctx.step) return;
     cancelTimers(); ctx.runId++;
     if (step === "processing") step = previousOf("processing");
-    if (!stepAllowed(step)) step = "landing";
+    if (!stepAllowed(step)) step = fallbackStep();
     ctx.stack[ctx.stack.length - 1] = step;
     showStep(step);
   });
@@ -1591,9 +1621,9 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (ctx.drawerOpen) { closeDrawer(); return; }
     if (historyOK) { history.back(); return; }
     ctx.stack.pop();
-    var step = ctx.stack[ctx.stack.length - 1] || "landing";
+    var step = ctx.stack[ctx.stack.length - 1] || fallbackStep();
     if (step === "processing") step = previousOf("processing");
-    if (!stepAllowed(step)) step = "landing";
+    if (!stepAllowed(step)) step = fallbackStep();
     cancelTimers(); ctx.runId++;
     showStep(step);
   }
@@ -1855,6 +1885,13 @@ html[data-motionbtn] main{padding-bottom:72px}
   /* ------------------------------------------------------------ photo intro */
   $("#btn-photo").addEventListener("click", function () { goto("scan"); });
   $("#btn-notag").addEventListener("click", function () { goto("code"); });
+  /* The front door: it opens the welcome of the experience with the sample
+     item, exactly what the shared link used to open. The QR's parameter is
+     what carries a real item in. */
+  $("#btn-gate").addEventListener("click", function () {
+    ctx.code = "123456789012";
+    goto("landing");
+  });
 
   /* ------------------------------------------------------------------ scan */
   var scanStream = null, scanDetector = null, scanRaf = 0;
@@ -2553,25 +2590,40 @@ html[data-motionbtn] main{padding-bottom:72px}
   /* ---------------------------------------------------------------- boot */
   (function boot() {
     var params = new URLSearchParams(location.search);
-    if ((params.get("lang") || "").toLowerCase() === "en") {
+    var langQ = (params.get("lang") || "").toLowerCase();
+    if (!langQ && navigator.language && /^en/i.test(navigator.language)) langQ = "en";
+    if (langQ === "en") {
       ctx.lang = "en";
       Array.prototype.forEach.call(document.querySelectorAll("[data-lang]"), function (o) {
         o.setAttribute("aria-pressed", o.getAttribute("data-lang") === "en" ? "true" : "false");
       });
     }
-    /* The item arrives with the QR. ?clg= overrides it so each outcome can be
-       demonstrated; without it the default sample item is used. A parameter
-       that is present but not 12 digits is NOT the sample item: it is a code
-       that could not be read, and it must reach the notFound outcome. */
-    var carried = params.has("clg") || params.has("code");
+    /* The experience opens only for a visit that carries the QR's validation
+       parameter with a complete code. The parameter is one-shot: it is
+       stripped from the URL, so a reload — like a direct visit — lands on
+       the gate. */
     var raw = (params.get("clg") || params.get("code") || "").replace(/\D+/g, "");
-    ctx.unreadable = carried && raw.length !== 12;
-    ctx.code = raw.length === 12 ? raw : DEFAULT_CODE;
+    var admitted = raw.length === 12;
+    var first = admitted ? "landing" : "gate";
+    if (admitted) {
+      ctx.code = raw;
+      if (historyOK) {
+        try {
+          var clean = location.pathname + (ctx.lang === "en" ? "?lang=en" : "");
+          history.replaceState({ step: "landing", epoch: EPOCH, i: 0 }, "", clean);
+        } catch (_) {}
+      }
+    } else if (historyOK) {
+      try { history.replaceState({ step: "gate", epoch: EPOCH, i: 0 }, ""); } catch (_) {}
+    }
     applyI18n();
-    ctx.stack = ["landing"];
-    ORDER.forEach(function (s) { panels[s].hidden = (s !== "landing"); });
-    ctx.step = "landing";
+    ctx.stack = [first];
+    ORDER.forEach(function (s) { panels[s].hidden = (s !== first); });
+    ctx.step = first;
     $("#btn-back").hidden = true;
+    $("#top").hidden = (first === "gate");
+    $("#demo-bar").hidden = (first === "landing" || first === "gate");
+    syncBarH();
     $("#stage").hidden = true;
     $("#poweredby").hidden = true;
     syncMotionBtn();
