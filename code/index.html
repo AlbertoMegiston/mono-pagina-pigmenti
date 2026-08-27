@@ -157,6 +157,10 @@ img,video{display:block;max-width:100%}
 .brand{display:flex;align-items:center;justify-content:center;min-height:44px}
 .brand img{max-height:34px;width:auto}
 .on-dark .brand__mark--invert{filter:invert(1)}
+/* A brand that supplies only light artwork gets the mirror treatment:
+   inverted on the light landing, untouched on the dark screens. */
+.brand__mark--invert-light{filter:invert(1)}
+.on-dark .brand__mark--invert-light{filter:none}
 .brand__text{
   font-size:clamp(1rem,.93rem + .3vw,1.1875rem);font-weight:700;
   letter-spacing:.14em;text-transform:uppercase;white-space:nowrap;color:var(--ink);
@@ -232,16 +236,30 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 /* ==========================================================================
    STORE STEP
    ========================================================================== */
-.search{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--on-dark);padding-bottom:10px}
+.search{display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--on-dark);padding-bottom:10px;
+  transition:border-color .18s var(--ease)}
 .search svg{flex:none;color:var(--on-dark)}
 .search input{flex:1 1 auto;min-width:0;background:none;border:0;padding:8px 0;
   font-size:1rem;color:var(--on-dark)}
 .search input::placeholder{color:rgba(255,255,255,.62)}
 .search input:focus{outline:none}
-.search:focus-within{border-bottom-color:var(--focus-on-dark)}
+/* Focus must change more than hue: the box-shadow thickens the underline into
+   a double-stroke bar, layout-neutral (border-width stays 2px, no reflow).
+   The dark second layer bounds the pale --focus-on-dark stroke so the
+   indicator survives a near-white brand photograph — the same defensive
+   reasoning as #stage .scrim. Both fields (.search, .codefield) depend on
+   --focus-on-dark reading as an indicator, not as decoration. */
+.search:focus-within{
+  border-bottom-color:var(--focus-on-dark);
+  box-shadow:0 3px 0 -1px var(--focus-on-dark),
+             0 5px 0 -1px rgba(0,0,0,.75);
+}
 @media (forced-colors:active){.search input:focus{outline:3px solid Highlight;outline-offset:3px}}
 
 .searchrow{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:18px}
+/* SALTA keeps its right edge whether or not the location button is present
+   (it is hidden on the online-site variant, where it has no meaning). */
+#btn-skip{margin-left:auto}
 .iconbtn{display:inline-flex;align-items:center;gap:10px;cursor:pointer;color:var(--on-dark);
   padding:10px 2px;font-size:var(--fs-small)}
 .ghost{
@@ -272,6 +290,8 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   font-size:var(--fs-action);font-weight:600;text-decoration:underline;text-underline-offset:4px}
 
 .note{margin-top:18px;font-size:var(--fs-small);line-height:1.55;color:var(--on-dark-quiet);min-height:1.4em}
+/* The hint (static description) and the status (responses only) stack. */
+#place-status{margin-top:6px}
 
 /* ==========================================================================
    CODE — manual CLG entry, the alternative to scanning
@@ -287,7 +307,8 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 #clg::placeholder{color:rgba(255,255,255,.42);font-weight:400}
 #clg:focus{outline:none}
 .codefield:focus-within{border-bottom-color:var(--focus-on-dark);
-  box-shadow:0 3px 0 -1px var(--focus-on-dark)}
+  box-shadow:0 3px 0 -1px var(--focus-on-dark),
+             0 5px 0 -1px rgba(0,0,0,.75)}
 @media (forced-colors:active){#clg:focus{outline:3px solid Highlight;outline-offset:4px}}
 .codefield[data-state="error"]{border-bottom-color:#ff9b9b}
 .fieldnote{min-height:1.4em;margin-top:10px;font-size:var(--fs-small);
@@ -340,10 +361,36 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   position:relative;cursor:pointer;transition:background .18s var(--ease)}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;
   border-radius:50%;background:#fff;transition:transform .18s var(--ease)}
-.switch[aria-checked="true"]{background:#2e7d46}
+.switch[aria-checked="true"]{background:#c47f00}
 .switch[aria-checked="true"]::after{transform:translateX(20px)}
 @media (prefers-reduced-motion:reduce){.switch,.switch::after{transition:none}}
 @media (forced-colors:active){.switch{border:2px solid ButtonText}}
+
+/* Interstitial shown when skipping the camera: the reference discourages the
+   skip before allowing it. */
+.scanask{position:absolute;inset:0;z-index:5;display:flex;align-items:center;
+  justify-content:center;padding:24px;background:rgba(0,0,0,.45)}
+.scanask[hidden]{display:none}
+.scanask__panel{background:#0c0c0e;color:#fff;padding:22px 20px;max-width:340px;
+  display:flex;flex-direction:column;gap:16px;text-align:center}
+.scanask__panel p{font-size:.9375rem;line-height:1.55}
+.scanask__ok{display:flex;align-items:center;justify-content:center;gap:10px;
+  min-height:52px;background:#fff;color:#111;cursor:pointer;
+  font-size:var(--fs-action);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.scanask__ok:hover{background:#ececec}
+.scanask__skip{cursor:pointer;color:#fff;text-decoration:underline;
+  text-underline-offset:4px;font-size:.875rem;font-weight:600;padding:6px}
+
+/* The little toast that welcomes the last step. */
+.toast{position:fixed;left:50%;bottom:calc(24px + var(--bar-h,42px));transform:translateX(-50%);
+  z-index:30;display:flex;align-items:center;gap:12px;max-width:min(340px,86vw);
+  background:#0c0c0e;color:#fff;padding:14px 18px;font-size:.9375rem;line-height:1.4}
+.toast[hidden]{display:none}
+.toast svg{flex:none}
+@media (prefers-reduced-motion:no-preference){
+  .toast{animation:toastup .3s var(--ease) both}
+  @keyframes toastup{from{transform:translate(-50%,16px);opacity:0}to{transform:translate(-50%,0);opacity:1}}
+}
 
 /* ==========================================================================
    PHOTO INTRO
@@ -354,7 +401,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 /* ==========================================================================
    SPLASH — the completed-check screen, gradient full bleed
    ========================================================================== */
-#step-splash{position:relative;min-height:100svh;display:flex;flex-direction:column;
+/* Full-viewport screens subtract the banner's real height (--bar-h, kept
+   current from the script) so the banner never pushes them past the fold. */
+#step-splash{position:relative;min-height:calc(100svh - var(--bar-h,42px));display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;
   background:linear-gradient(160deg,#1f9ec4 0%,#4472c8 55%,#6d43ba 100%);color:#fff}
 #step-splash h1{font-size:clamp(2.1rem,7.6vw,3.3rem);font-weight:700;line-height:1.12;
@@ -363,12 +412,51 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   font-size:.8125rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
   background:rgba(0,0,0,.28);padding:6px 14px;border-radius:999px;white-space:nowrap}
 .splash__service:empty{display:none}
+/* The reticle-and-blob mark that opens the completed-check screen. */
+.splash__blob{position:relative;width:96px;height:96px;flex:none;color:#fff}
+.splash__blob svg{position:absolute;inset:0}
+.splash__blob i{position:absolute;top:50%;left:50%;width:34px;height:34px;
+  transform:translate(-50%,-50%);
+  background:radial-gradient(circle at 32% 30%, #ffd166 0%, #b06ab3 45%, #23244d 100%);
+  border-radius:52% 48% 44% 56%/48% 55% 45% 52%;
+  animation:blob 3.2s ease-in-out infinite alternate}
+@keyframes blob{
+  from{border-radius:52% 48% 44% 56%/48% 55% 45% 52%;transform:translate(-50%,-50%) rotate(0)}
+  to{border-radius:44% 56% 58% 42%/56% 42% 58% 44%;transform:translate(-50%,-50%) rotate(24deg)}}
+@media (prefers-reduced-motion:reduce){.splash__blob i{animation:none}}
+
+/* The outcome screen: the gradient continues and a white sheet rises. */
+#step-result{position:relative;min-height:calc(100svh - var(--bar-h,42px));
+  display:flex;flex-direction:column;padding:0;
+  background:linear-gradient(160deg,#1f9ec4 0%,#4472c8 55%,#6d43ba 100%);color:#fff}
+.result__head{padding:70px 20px 26px;text-align:center}
+.result__head .splash__service{top:20px}
+.result__eyebrow{font-size:clamp(1.5rem,5.4vw,2.1rem);font-weight:700}
+.sheet{margin-top:auto;width:100%;background:#fff;color:#111;
+  padding:26px 20px calc(22px + env(safe-area-inset-bottom))}
+#verdict .verdict__mark{min-height:48px;margin-bottom:14px;color:#555}
+#verdict h1{font-size:var(--fs-title);font-weight:700;line-height:1.3;color:#111;margin-bottom:10px}
+#verdict .lede{font-size:.9375rem;line-height:1.6;color:#333}
+#verdict .steps{margin-top:16px;padding-left:1.3em;list-style:decimal;
+  font-size:.9375rem;line-height:1.65;color:#333}
+#verdict .steps li::marker{color:#111}
+#verdict .cta{margin-top:20px;min-height:60px;background:#111;color:#fff}
+#verdict .cta:hover{background:#2f2f2f}
+#verdict[data-v="genuine"] .verdict__mark{color:var(--ok)}
+#verdict[data-v="suspicious"] .verdict__mark{color:var(--warn)}
+#verdict[data-v="fake"] .verdict__mark{color:var(--bad)}
+#verdict[data-v="notFound"] .verdict__mark{color:var(--warn)}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:rise .34s var(--ease) both}
+  @keyframes rise{from{transform:translateY(26px);opacity:.4}to{transform:none;opacity:1}}
+}
 
 /* ==========================================================================
    SCAN — full-screen camera step, its own dark ground, no brand header
    ========================================================================== */
 #step-scan{
-  min-height:100svh;background:var(--bg-scan);color:var(--on-dark);
+  position:relative;
+  min-height:calc(100svh - var(--bar-h,42px));background:var(--bg-scan);color:var(--on-dark);
   display:flex;flex-direction:column;
   padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
 }
@@ -380,10 +468,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   font-size:var(--fs-action);font-weight:700;letter-spacing:.06em;text-transform:uppercase}
 .scan__skip:hover{background:var(--panel-hover)}
 .scan__stage{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:22px;text-align:center;padding:24px 0}
+  justify-content:center;gap:13px;text-align:center;padding:10px 0}
 /* The reference frame is a tall portrait rectangle with the brand mark near
    the top, a dashed guide, a sweeping teal line and a small corner reticle. */
-.scan__frame{position:relative;width:min(320px,80vw,calc(58svh * .55));aspect-ratio:10/18;
+/* The svh cap subtracts the demo banner's height (x1.8 aspect makes a .55
+   width cut give back ~1 banner of height), so the banner never pushes the
+   camera column further past the fold than the pre-banner layout sat. */
+.scan__frame{position:relative;width:min(300px,78vw,calc((48svh - var(--bar-h,42px)) * .55));aspect-ratio:10/18;
   border:2px solid var(--on-dark);background:rgba(0,0,0,.35)}
 .scan__frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .scan__brand{position:absolute;top:9%;left:0;right:0;display:flex;justify-content:center;
@@ -395,9 +486,11 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 @media (prefers-reduced-motion:no-preference){
   .scan__line{animation:sweep 2.8s ease-in-out infinite alternate}
 }
+/* The pause control governs every looping decoration, not only the video. */
+html[data-motion="paused"] .scan__line{animation:none}
 @keyframes sweep{from{top:14%}to{top:84%}}
 .scan__reticle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff}
-.scan__hint{max-width:24ch;font-size:1.0625rem;line-height:1.5;color:var(--on-dark)}
+.scan__hint{max-width:26ch;font-size:.9375rem;line-height:1.5;color:var(--on-dark)}
 .scan__status{min-height:1.4em;font-size:var(--fs-small);line-height:1.5;color:#ffd166;max-width:36ch}
 .scan__tools{flex:none;display:flex;align-items:center;justify-content:space-between;
   padding:0 clamp(8px,6vw,80px)}
@@ -408,27 +501,66 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 /* ==========================================================================
    PROCESSING + VERDICT
    ========================================================================== */
-.processing{text-align:center;padding:40px 0}
-.spinner{width:46px;height:46px;margin:0 auto 22px;border-radius:50%;
-  border:3px solid rgba(255,255,255,.25);border-top-color:var(--on-dark);
-  animation:spin 900ms linear infinite}
+/* The processing interstitial from the reference: near-black ground with
+   horizontally smeared light trails in the lower half and a thin ring. */
+#step-processing{position:relative;min-height:calc(100svh - var(--bar-h,42px));
+  display:flex;flex-direction:column;align-items:center;
+  background:#0d0b12;color:#fff;overflow:hidden;padding:0 20px}
+#step-processing .streaks{position:absolute;left:-14%;right:-14%;top:26%;bottom:-8%;
+  pointer-events:none;
+  background:
+    radial-gradient(ellipse 70% 3.4% at 28% 20%, rgba(66,214,200,.9), transparent 72%),
+    radial-gradient(ellipse 85% 4.4% at 62% 30%, rgba(74,152,226,.85), transparent 72%),
+    radial-gradient(ellipse 75% 3.2% at 38% 41%, rgba(56,196,186,.8), transparent 72%),
+    radial-gradient(ellipse 90% 4.8% at 58% 52%, rgba(129,92,186,.8), transparent 74%),
+    radial-gradient(ellipse 60% 2.8% at 30% 61%, rgba(214,224,96,.6), transparent 74%),
+    radial-gradient(ellipse 88% 4.6% at 55% 71%, rgba(74,152,226,.78), transparent 74%),
+    radial-gradient(ellipse 78% 3.6% at 42% 81%, rgba(196,106,162,.7), transparent 74%),
+    radial-gradient(ellipse 92% 4.2% at 60% 91%, rgba(56,196,186,.6), transparent 76%);
+  filter:blur(17px) saturate(135%)}
+.ring{width:46px;height:46px;margin-top:16svh;flex:none;border-radius:50%;
+  border:2.5px solid rgba(255,255,255,.9);border-bottom-color:transparent;
+  animation:spin 1s linear infinite;position:relative;z-index:1}
 @keyframes spin{to{transform:rotate(360deg)}}
-@media (prefers-reduced-motion:reduce){.spinner{animation-duration:2.4s}}
-.processing p{color:var(--on-dark-quiet);font-size:var(--fs-lead);min-height:1.5em}
+/* A slowed spinner is still motion: reduce means none. The status line under
+   it already carries the progress in text. */
+@media (prefers-reduced-motion:reduce){.ring{animation:none;border-bottom-color:rgba(255,255,255,.9)}}
+#processing-status{position:relative;z-index:1;margin-top:20px;text-align:center;
+  color:rgba(255,255,255,.82);font-size:var(--fs-lead);min-height:1.5em}
 
-.verdict{padding-bottom:8px}
-.verdict__mark{min-height:56px;margin-bottom:20px;color:var(--on-dark)}
-.verdict h1{font-size:var(--fs-title);font-weight:700;line-height:1.3;color:var(--on-dark);margin-bottom:14px}
-.verdict .lede{font-size:var(--fs-lead);line-height:1.6;color:var(--on-dark-quiet)}
+
 .verdict[data-v="genuine"] .verdict__mark{color:#6ee7a8}
 .verdict[data-v="suspicious"] .verdict__mark{color:#ffd166}
 .verdict[data-v="fake"] .verdict__mark{color:#ff9b9b}
+/* notFound is a misread code, not a counterfeit finding: it carries the same
+   amber as "needs review", never the counterfeit red. */
+.verdict[data-v="notFound"] .verdict__mark{color:#ffd166}
 .steps{margin-top:22px;padding-left:1.3em;list-style:decimal;
   font-size:.9375rem;line-height:1.7;color:var(--on-dark-quiet)}
 .steps li{margin-bottom:6px}
 .steps li::marker{color:var(--on-dark)}
 .cta--light{background:var(--panel);color:var(--panel-ink)}
 .cta--light:hover{background:var(--panel-hover)}
+
+/* ==========================================================================
+   MOTION TOGGLE — pause/play for the looping background video (SC 2.2.2).
+   Appears only while a background video is actually on screen; hidden for
+   reduced-motion users, whose video never starts at all.
+   ========================================================================== */
+.motionbtn{
+  position:fixed;left:max(10px,env(safe-area-inset-left));
+  bottom:max(10px,env(safe-area-inset-bottom));z-index:5;
+  display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;border-radius:50%;cursor:pointer;
+  /* rgba(0,0,0,.6) composites to >=5:1 against the white glyph even over a
+     pure-white photograph — same contrast-floor reasoning as the scrim. */
+  background:rgba(0,0,0,.6);color:#fff;
+}
+.motionbtn[hidden]{display:none}
+/* While the control floats, the page keeps clear of it: the demo notice is
+   the last element in flow and must never be covered at full scroll. */
+html[data-motionbtn] main{padding-bottom:72px}
+@media (forced-colors:active){.motionbtn{border:2px solid ButtonText}}
 
 /* ==========================================================================
    POWERED BY — service attribution slot
@@ -456,6 +588,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   padding:max(12px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));
   transform:translateX(100%);transition:transform .26s var(--ease);
   overflow-y:auto;
+  overscroll-behavior:contain;
 }
 #drawer[hidden]{display:none}
 #drawer.is-open{transform:translateX(0)}
@@ -495,17 +628,24 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .demo a{color:#6a4c0a;text-decoration:underline}
 .demo code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.95em;
   background:#f2e3bf;padding:1px 5px;border-radius:3px;white-space:nowrap}
-.demo__short{display:none}
-.demo[data-mode="compact"]{padding:10px 14px;margin-top:20px}
-.demo[data-mode="compact"] .demo__full{display:none}
-.demo[data-mode="compact"] .demo__short{display:block}
 .demo--dark{background:rgba(0,0,0,.72);border-color:#e0b64d;color:#f6e3b6}
 .demo--dark strong{color:#ffeec0}
 .demo--dark code{background:rgba(255,255,255,.14);color:#ffeec0}
 .demo--dark a{color:#ffd98a}
+/* The one-line banner in the shell chrome. The full block above sits at the
+   end of the flow and lands below the fold exactly where the hedge matters
+   most (the landing and the negative outcomes on small phones), so this line
+   stays pinned above every screen, camera and splash included. */
+.demo--bar{position:sticky;top:0;z-index:6;flex:none;width:100%;max-width:none;
+  margin:0;padding:7px 14px;text-align:center;border-width:0 0 1px 0}
 
 @media (min-width:700px){
   :root{--pad:24px}
+  .hero{aspect-ratio:16/9}
+}
+@media (max-height:700px){
+  /* Short screens: a shallower hero buys back the banner's height, so the
+     landing CTA stays above the fold. */
   .hero{aspect-ratio:16/9}
 }
 </style>
@@ -514,7 +654,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 
 <div id="stage" hidden>
   <div class="placeholder" id="stage-placeholder"></div>
-  <video id="stage-video" playsinline muted loop hidden></video>
+  <!-- Decorative photography: hidden from assistive technology like the
+       alt="" on its sibling image, so it can never surface as an unnamed
+       (or, on a failed load, "Unable to play media") Video node. -->
+  <video id="stage-video" playsinline muted loop hidden aria-hidden="true"></video>
   <img id="stage-img" alt="" hidden>
   <div class="scrim"></div>
 </div>
@@ -538,26 +681,36 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     </button>
   </header>
 
+  <!-- The one-line demo banner: filled from renderDemo(), styled per step
+       from showStep(). Always on screen, so the simulation is disclosed
+       above the fold on every screen and at every phone size. -->
+  <p class="demo demo--bar" id="demo-bar"></p>
+
   <main>
 
     <!-- LANDING ---------------------------------------------------------- -->
     <section class="step" id="step-landing">
       <div class="hero" id="hero">
         <div class="placeholder" id="hero-placeholder" data-i18n="ui.imageSlot">Spazio immagine prodotto</div>
-        <video id="hero-video" playsinline muted loop hidden></video>
+        <video id="hero-video" playsinline muted loop hidden aria-hidden="true"></video>
         <img id="hero-img" alt="" hidden>
       </div>
       <div class="col welcome">
         <h1 id="h-landing" tabindex="-1" data-i18n="landing.title">Benvenuto</h1>
         <p data-i18n="landing.lead">Verifica che il tuo prodotto sia autentico e accedi ai contenuti pensati per te.</p>
         <button class="cta" id="btn-verify" type="button" data-i18n="landing.cta">Verifica l'autenticità</button>
+        <!-- The legal line describes what a real service would do: no Terms
+             or Privacy Policy actually exist here, so the page must not
+             assert that tapping the CTA forms an agreement. The note below
+             is static and always rendered — not a tap-to-reveal, and not a
+             live region (it never mutates except on a language switch). -->
         <p class="legal">
-          <span data-i18n="landing.legalLead">Iniziando l'autenticazione accetti i nostri</span>
+          <span data-i18n="landing.legalLead">In un servizio reale, iniziando l'autenticazione accetteresti i nostri</span>
           <button type="button" class="legal-link" data-i18n="ui.terms">Termini e Condizioni</button>
           <span data-i18n="landing.legalAnd">e la</span>
           <button type="button" class="legal-link" data-i18n="ui.privacy">Privacy Policy</button>
         </p>
-        <p class="legal" id="legal-note" role="status" aria-live="polite"></p>
+        <p class="legal" id="legal-note" data-i18n="landing.legalNote">In questo prototipo non viene stipulato alcun accordo e i documenti legali non sono collegati.</p>
       </div>
     </section>
 
@@ -579,7 +732,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       <form id="form-place" novalidate>
         <div class="search">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
-          <input id="place-q" type="search" autocomplete="off" spellcheck="false" aria-describedby="place-note">
+          <input id="place-q" type="search" autocomplete="off" spellcheck="false" aria-describedby="place-hint">
         </div>
         <div class="searchrow">
           <button class="iconbtn" id="btn-near" type="button">
@@ -592,9 +745,17 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
           </button>
         </div>
       </form>
-      <ul class="stores" id="stores"></ul>
+      <!-- The caveat sits ABOVE the list: the entries below must be read as
+           sample data before they are read as nearby shops. Split on purpose:
+           the hint is the field's static description; the status region
+           carries only responses to the two buttons, so a response is a real
+           mutation and actually announces. -->
+      <p class="note" id="place-hint" data-i18n="place.note">In questo prototipo l'elenco è di esempio: la posizione non viene rilevata e la ricerca non è collegata a un archivio.</p>
+      <!-- role="list" survives WebKit's list-semantics stripping on ul with
+           list-style:none — same protection the verdict list already has. -->
+      <ul class="stores" id="stores" role="list"></ul>
       <button class="morelink" id="btn-more" type="button" data-i18n="place.all">Vedi tutti i negozi</button>
-      <p class="note" id="place-note" role="status" aria-live="polite"></p>
+      <p class="note" id="place-status" role="status" aria-live="polite"></p>
     </section>
 
     <!-- SIGN IN ------------------------------------------------------------ -->
@@ -607,7 +768,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <p class="card__service" id="signin-service"></p>
         <div class="field">
           <label for="email" data-i18n="signin.label">La tua email</label>
-          <input id="email" name="email" type="email" autocomplete="email" spellcheck="false" enterkeyhint="go">
+          <input id="email" name="email" type="email" autocomplete="email" spellcheck="false" enterkeyhint="go" aria-describedby="email-note">
         </div>
         <p class="fieldnote" id="email-note" role="status" aria-live="polite" data-i18n="signin.demo">Prototipo: nessuna email viene inviata.</p>
         <button class="cta" type="submit">
@@ -633,7 +794,11 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
           <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
           <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
         </div>
-        <p id="otp-wait" role="status" aria-live="polite"></p>
+        <!-- The countdown repaints every second: as a live region it would be
+             spoken sixty times a minute. It stays visual; the events that
+             matter (code re-sent, resend available) go through #otp-status. -->
+        <p id="otp-wait"></p>
+        <p class="visually-hidden" id="otp-status" role="status" aria-live="polite"></p>
         <button class="linklike" id="otp-resend" type="button" hidden data-i18n="otp.resend">Invia di nuovo il codice</button>
         <p class="fieldnote" data-i18n="otp.demo">Prototipo: qualsiasi codice a 4 cifre è valido.</p>
         <button class="linklike" id="otp-edit" type="button" data-i18n="otp.edit">Modifica l'indirizzo email</button>
@@ -648,14 +813,18 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <button type="button" class="legal-link" data-i18n="ui.privacy">Privacy Policy</button>
         <span data-i18n="consent.tail">e liberamente acconsento al trattamento dei miei dati per le seguenti finalità:</span>
       </p>
-      <p class="consent__purpose" data-i18n="consent.promo">La promozione di prodotti e servizi di:</p>
+      <p class="note" id="consent-note" role="status" aria-live="polite"></p>
+      <!-- Each switch's accessible name includes its purpose sentence: both
+           are otherwise labelled with the same brand name, and two switches
+           that both announce as "Il tuo brand" cannot be told apart. -->
+      <p class="consent__purpose" id="consent-promo-p" data-i18n="consent.promo">La promozione di prodotti e servizi di:</p>
       <div class="consent__row">
-        <button class="switch" id="sw-promo" type="button" role="switch" aria-checked="false" aria-labelledby="sw-promo-label"></button>
+        <button class="switch" id="sw-promo" type="button" role="switch" aria-checked="false" aria-labelledby="consent-promo-p sw-promo-label"></button>
         <span id="sw-promo-label" data-i18n="ui.brand">Il tuo brand</span>
       </div>
-      <p class="consent__purpose" data-i18n="consent.profiling">La profilazione delle mie preferenze e abitudini ai fini dello svolgimento di attività promozionali in linea con i miei interessi e le mie esigenze da parte di:</p>
+      <p class="consent__purpose" id="consent-prof-p" data-i18n="consent.profiling">La profilazione delle mie preferenze e abitudini ai fini dello svolgimento di attività promozionali in linea con i miei interessi e le mie esigenze da parte di:</p>
       <div class="consent__row">
-        <button class="switch" id="sw-prof" type="button" role="switch" aria-checked="false" aria-labelledby="sw-prof-label"></button>
+        <button class="switch" id="sw-prof" type="button" role="switch" aria-checked="false" aria-labelledby="consent-prof-p sw-prof-label"></button>
         <span id="sw-prof-label" data-i18n="ui.brand">Il tuo brand</span>
       </div>
       <button class="cta cta--light" id="btn-consent" type="button">
@@ -672,6 +841,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
       </button>
       <button class="notag" id="btn-notag" type="button" data-i18n="photo.notag">Non trovo il TAG</button>
+      <div class="toast" id="photo-toast" hidden role="status">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/></svg>
+        <span data-i18n="photo.toast">Un ultimo passaggio e ci siamo!</span>
+      </div>
     </section>
 
     <!-- SCAN --------------------------------------------------------------- -->
@@ -689,7 +862,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       </div>
       <div class="scan__stage">
         <div class="scan__frame">
-          <video id="scan-video" playsinline muted></video>
+          <!-- Functional, but its outcome is narrated by #scan-status: the
+               live preview itself must not read as an unnamed Video node. -->
+          <video id="scan-video" playsinline muted aria-hidden="true"></video>
           <div class="scan__brand" id="scan-brand" aria-hidden="true"></div>
           <span class="scan__dash" aria-hidden="true"></span>
           <span class="scan__line" aria-hidden="true"></span>
@@ -711,6 +886,17 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
           <span class="visually-hidden" data-i18n="scan.help">Aiuto</span>
           <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.6 9.2a2.5 2.5 0 1 1 3.2 2.9c-.6.2-.8.7-.8 1.3v.3"/><path d="M12 17h.01"/></svg>
         </button>
+      </div>
+      <div class="scanask" id="scanask" hidden role="alertdialog" aria-labelledby="scanask-text">
+        <div class="scanask__panel">
+          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" style="margin:0 auto" aria-hidden="true"><path d="M4 8V4h4M16 4h4v4M20 16v4h-4M8 20H4v-4"/><circle cx="12" cy="12" r="3"/></svg>
+          <p id="scanask-text" data-i18n="scan.mustTitle">Questo è un passaggio obbligatorio, scatta le foto richieste per ottenere la risposta.</p>
+          <button class="scanask__ok" id="scanask-ok" type="button">
+            <span data-i18n="scan.mustOk">Ok, ho capito</span>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+          </button>
+          <button class="scanask__skip" id="scanask-skip" type="button" data-i18n="ui.skip">Salta</button>
+        </div>
       </div>
       <input type="file" id="scan-file" accept="image/*" class="visually-hidden">
     </section>
@@ -734,33 +920,58 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     </section>
 
     <!-- PROCESSING -------------------------------------------------------- -->
-    <section class="step col on-dark" id="step-processing" hidden>
-      <div class="step-head"><h1 id="h-processing" tabindex="-1" data-i18n="when.title">Sto verificando l'autenticità:</h1></div>
-      <div class="processing">
-        <div class="spinner" aria-hidden="true"></div>
-        <p id="processing-status" role="status" aria-live="polite"></p>
-      </div>
+    <section class="step" id="step-processing" aria-busy="true" hidden>
+      <span class="streaks" aria-hidden="true"></span>
+      <p class="splash__service" id="processing-service"></p>
+      <h1 id="h-processing" tabindex="-1" class="visually-hidden" data-i18n="when.title">Sto verificando l'autenticità:</h1>
+      <div class="ring" aria-hidden="true"></div>
+      <!-- Deliberately NOT a live region: three polite messages inside 2.4s
+           would queue and push the verdict's own announcement seconds past
+           the result. Entry is announced once by the focused heading; the
+           strings stay visible progress. -->
+      <p id="processing-status"></p>
     </section>
 
     <!-- SPLASH ------------------------------------------------------------- -->
     <section class="step" id="step-splash" hidden>
       <p class="splash__service" id="splash-service"></p>
-      <h1 id="h-splash" tabindex="-1" role="status" data-i18n="splash.title">Verifica completata</h1>
+      <!-- No role="status": it would replace the heading role, and the text
+           never mutates, so as a live region it announced nothing anyway.
+           showStep's focus on this h1 is what announces the splash. -->
+      <div class="splash__blob" aria-hidden="true">
+        <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="4"><path d="M10 30V10h20M66 10h20v20M86 66v20H66M30 86H10V66"/></svg>
+        <i></i>
+      </div>
+      <h1 id="h-splash" tabindex="-1" data-i18n="splash.title">Verifica completata</h1>
     </section>
 
     <!-- RESULT ------------------------------------------------------------ -->
-    <section class="step col on-dark" id="step-result" hidden>
-      <div class="verdict" id="verdict" data-v="">
+    <section class="step" id="step-result" hidden>
+      <div class="result__head">
+        <p class="splash__service" id="result-service"></p>
+        <p class="result__eyebrow" data-i18n="splash.title">Verifica completata</p>
+      </div>
+      <div class="sheet verdict" id="verdict" data-v="">
         <div class="verdict__mark" id="verdict-mark" aria-hidden="true"></div>
         <h1 id="h-result" tabindex="-1"></h1>
         <p class="lede" id="verdict-lede" role="status" aria-live="polite" aria-atomic="true"></p>
         <ol class="steps" id="verdict-steps" role="list"></ol>
-        <button class="cta cta--light" id="btn-again" type="button" data-i18n="result.again">Ricomincia</button>
+        <button class="cta" id="btn-again" type="button" data-i18n="result.again">Ricomincia</button>
       </div>
     </section>
 
     <aside class="demo" id="demo"></aside>
   </main>
+
+  <!-- MOTION TOGGLE — the looping background video must be stoppable in-page
+       (SC 2.2.2). Shown only while a background video is on screen. The label
+       swaps between pause and play with the icon (APG toggle pattern with a
+       changing name, so no aria-pressed alongside it). -->
+  <button class="motionbtn" id="btn-motion" type="button" hidden>
+    <span class="visually-hidden" id="motion-label" data-i18n="ui.videoPause">Metti in pausa il video di sfondo</span>
+    <svg class="mi-pause" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M9 5v14M15 5v14"/></svg>
+    <svg class="mi-play" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" hidden><path d="M8 5.2v13.6L19 12Z"/></svg>
+  </button>
 
   <div class="poweredby" id="poweredby" hidden>
     <span data-i18n="ui.poweredBy">Powered by</span>
@@ -770,7 +981,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 </div>
 
 <div id="drawer-backdrop" hidden></div>
-<nav id="drawer" hidden aria-label="Menu">
+<!-- A modal dialog, not a navigation landmark: it traps Tab, dismisses on
+     Escape and inerts the shell, so its declared role must say so. Not a
+     <nav>: it holds ten buttons and zero links — nothing here navigates.
+     aria-modal is load-bearing: #stage is a sibling of #shell, so the
+     shell's inert does not cover it; aria-modal is what removes that layer
+     from the assistive-technology tree while the drawer is open. -->
+<div id="drawer" hidden role="dialog" aria-modal="true" aria-label="Menu">
   <div class="drawer__bar">
     <button class="drawer__close" id="drawer-close" type="button">
       <span class="visually-hidden" data-i18n="ui.close">Chiudi</span>
@@ -779,7 +996,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   </div>
   <div class="drawer__nav">
     <div class="drawer__group">
-      <button type="button" id="btn-lang">
+      <button type="button" id="btn-lang" aria-expanded="false" aria-controls="lang-group">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 2.5 15 0 18M12 3c-2.5 2.6-2.5 15 0 18"/></svg>
         <span data-i18n="menu.lang">Cambia lingua</span>
       </button>
@@ -820,7 +1037,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     </div>
   </div>
   <p class="drawer__note" id="drawer-note" role="status" aria-live="polite"></p>
-</nav>
+</div>
 
 <script>
 (function () {
@@ -850,6 +1067,15 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     backgroundVideo: "assets/background.mp4"
   };
 
+  /* ------------------------------------------------------------------------
+     LIVE BACKEND (optional). Set url to the deployed verify endpoint — e.g.
+     https://<project>.supabase.co/functions/v1/verify-clg — and the outcome
+     comes from the brand's uploaded code list instead of the simulation.
+     On any network failure the page falls back to the simulation, which the
+     demo notice already declares.
+     ------------------------------------------------------------------------ */
+  var VERIFY = { url: "" };
+
   /* ---------------------------------------------------------------- i18n */
   var I18N = {
     it: {
@@ -865,13 +1091,15 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "ui.service": "Servizio di autenticazione",
       "ui.imageSlot": "Spazio immagine prodotto",
       "ui.lang": "Lingua",
+      "ui.videoPause": "Metti in pausa il video di sfondo",
+      "ui.videoPlay": "Riprendi il video di sfondo",
 
       "landing.title": "Benvenuto",
       "landing.lead": "Verifica che il tuo prodotto sia autentico e accedi ai contenuti pensati per te.",
       "landing.cta": "Verifica l'autenticità",
-      "landing.legalLead": "Iniziando l'autenticazione accetti i nostri",
+      "landing.legalLead": "In un servizio reale, iniziando l'autenticazione accetteresti i nostri",
       "landing.legalAnd": "e la",
-      "landing.legalNote": "In questo prototipo i documenti legali non sono collegati.",
+      "landing.legalNote": "In questo prototipo non viene stipulato alcun accordo e i documenti legali non sono collegati.",
 
       "menu.lang": "Cambia lingua",
       "menu.cookie": "Cookie policy",
@@ -879,6 +1107,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "menu.help": "Aiuto",
       "menu.signin": "Accedi",
       "menu.note": "In questo prototipo le voci di menu non conducono ad alcuna pagina.",
+      "menu.noteDoc": "— questa voce non conduce ad alcuna pagina in questo prototipo.",
 
       "when.title": "Sto verificando l'autenticità:",
       "when.before": "Prima dell'acquisto",
@@ -896,9 +1125,14 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.near": "Usa la mia posizione",
       "place.all": "Vedi tutti i negozi",
       "place.allOnline": "Vedi tutti i siti",
-      "place.note": "In questo prototipo l'elenco è di esempio e la ricerca non è collegata a un archivio.",
-      "place.noGeo": "La posizione non è disponibile in questo prototipo: l'elenco qui sopra è di esempio.",
+      "place.note": "In questo prototipo l'elenco è di esempio: la posizione non viene rilevata e la ricerca non è collegata a un archivio.",
+      "place.noGeo": "La posizione non è disponibile in questo prototipo: l'elenco è di esempio.",
+      "place.allNote": "L'elenco completo non fa parte di questo prototipo: le voci qui sopra sono un esempio.",
       "place.picked": "Hai scelto {name}.",
+      "place.sampleStore1": "Negozio di esempio 1",
+      "place.sampleStore2": "Negozio di esempio 2",
+      "place.siteOfficial": "Sito ufficiale del brand",
+      "place.siteRetailer": "Rivenditore online autorizzato",
 
       "signin.title": "Accedi",
       "signin.sub": "Per utenti nuovi e di ritorno",
@@ -911,6 +1145,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "otp.wait": "Attendi {s} secondi per richiedere un nuovo codice",
       "otp.resend": "Invia di nuovo il codice",
       "otp.resent": "Codice inviato di nuovo.",
+      "otp.canResend": "Ora puoi richiedere un nuovo codice.",
       "otp.edit": "Modifica l'indirizzo email",
       "otp.digit": "Cifra {n} di 4",
       "otp.group": "Codice di verifica",
@@ -961,6 +1196,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "result.s2": "Fotografa l'etichetta con il codice ben leggibile.",
       "result.s3": "Contatta il servizio clienti del brand e riferisci l'esito.",
       "result.s4": "Se hai acquistato online, segnala l'inserzione alla piattaforma.",
+      "result.nf3": "Riprova la scansione; se l'esito non cambia, contatta il servizio clienti del brand.",
 
       "demo.title": "Prototipo dimostrativo.",
       "demo.body": "Questa pagina non esegue alcuna verifica reale: l'esito è simulato dal browser e non proviene da un servizio di autenticazione. Non usarla per stabilire se un prodotto è autentico.",
@@ -970,6 +1206,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "demo.f": "non autentico",
       "demo.n": "non registrato",
       "demo.try": "Esiti di prova:",
+      "scan.mustTitle": "Questo è un passaggio obbligatorio, scatta le foto richieste per ottenere la risposta.",
+      "scan.mustOk": "Ok, ho capito",
+      "photo.toast": "Un ultimo passaggio e ci siamo!",
+      "demo.live": "L'esito viene confrontato con la lista codici caricata dal brand (ambiente di prova).",
       "demo.short": "L'esito è simulato: nessuna verifica reale viene effettuata."
     },
     en: {
@@ -985,13 +1225,15 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "ui.service": "Authentication service",
       "ui.imageSlot": "Product image slot",
       "ui.lang": "Language",
+      "ui.videoPause": "Pause the background video",
+      "ui.videoPlay": "Resume the background video",
 
       "landing.title": "Welcome",
       "landing.lead": "Check that your product is authentic and unlock the content made for you.",
       "landing.cta": "Check authenticity",
-      "landing.legalLead": "By starting the authentication you accept our",
+      "landing.legalLead": "In a real service, starting the authentication would mean accepting our",
       "landing.legalAnd": "and the",
-      "landing.legalNote": "In this prototype the legal documents are not linked.",
+      "landing.legalNote": "In this prototype no agreement is formed and the legal documents are not linked.",
 
       "menu.lang": "Change language",
       "menu.cookie": "Cookie policy",
@@ -999,6 +1241,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "menu.help": "Help",
       "menu.signin": "Sign in",
       "menu.note": "In this prototype the menu entries do not lead anywhere.",
+      "menu.noteDoc": "— this entry does not lead to any page in this prototype.",
 
       "when.title": "Checking authenticity:",
       "when.before": "Before purchase",
@@ -1016,9 +1259,14 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "place.near": "Use my location",
       "place.all": "See all shops",
       "place.allOnline": "See all sites",
-      "place.note": "In this prototype the list is sample data and the search is not connected to a directory.",
-      "place.noGeo": "Location is not available in this prototype: the list above is sample data.",
+      "place.note": "In this prototype the list is sample data: your location is not detected and the search is not connected to a directory.",
+      "place.noGeo": "Location is not available in this prototype: the list is sample data.",
+      "place.allNote": "The full directory is not part of this prototype: the entries above are sample data.",
       "place.picked": "You picked {name}.",
+      "place.sampleStore1": "Sample shop 1",
+      "place.sampleStore2": "Sample shop 2",
+      "place.siteOfficial": "Official brand site",
+      "place.siteRetailer": "Authorised online retailer",
 
       "signin.title": "Sign in",
       "signin.sub": "For new and returning users",
@@ -1031,6 +1279,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "otp.wait": "Wait {s} seconds to request a new code",
       "otp.resend": "Send the code again",
       "otp.resent": "Code sent again.",
+      "otp.canResend": "You can now request a new code.",
       "otp.edit": "Edit the email address",
       "otp.digit": "Digit {n} of 4",
       "otp.group": "Verification code",
@@ -1081,6 +1330,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "result.s2": "Photograph the label with the code clearly readable.",
       "result.s3": "Contact the brand's customer service and report the outcome.",
       "result.s4": "If you bought online, report the listing to the platform.",
+      "result.nf3": "Try the scan again; if the outcome does not change, contact the brand's customer service.",
 
       "demo.title": "Demonstration prototype.",
       "demo.body": "This page performs no real verification: the outcome is simulated in the browser and does not come from an authentication service. Do not use it to decide whether a product is genuine.",
@@ -1090,15 +1340,22 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       "demo.f": "not authentic",
       "demo.n": "not registered",
       "demo.try": "Sample outcomes:",
+      "scan.mustTitle": "This step is required: take the requested photos to get the answer.",
+      "scan.mustOk": "OK, got it",
+      "photo.toast": "One last step and we are there!",
+      "demo.live": "The outcome is checked against the code list uploaded by the brand (test environment).",
       "demo.short": "The outcome is simulated: no real verification is performed."
     }
   };
 
   var ctx = {
     lang: "it", step: "landing",
-    code: "", when: null, where: null, place: "",
+    code: "", unreadable: false, when: null, where: null, place: "",
+    placeNote: "",
     verdict: null, runId: 0, timers: [],
-    stack: ["landing"], drawerOpen: false, lastFocus: null, hasService: false,
+    stack: ["landing"], depth: 0, eatPop: false,
+    drawerOpen: false, drawerRaf: 0, lastFocus: null, pendingFocus: null,
+    hasService: false,
     email: "", otpOk: false, consentDone: false, otpTimer: null,
     logoEl: null, logoDark: "", logoLight: "", placeholders: true
   };
@@ -1170,13 +1427,21 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   }
 
   /* ------------------------------------------------------------- routing */
+  /* Every history entry carries the flow generation it belongs to and its
+     own depth. After a restart (or a reload) the generation changes, so a
+     stale entry is recognised on both Back and Forward and renders the
+     landing instead of re-entering a flow the user has already left. */
+  var EPOCH = Date.now() + "." + Math.random();
   var historyOK = (function () {
-    try { history.replaceState({ step: "landing" }, ""); return true; }
+    try { history.replaceState({ step: "landing", epoch: EPOCH, i: 0 }, ""); return true; }
     catch (_) { return false; }
   })();
   function pushStep(step) {
     ctx.stack.push(step);
-    if (historyOK) { try { history.pushState({ step: step }, ""); } catch (_) { historyOK = false; } }
+    if (historyOK) {
+      try { history.pushState({ step: step, epoch: EPOCH, i: ctx.depth + 1 }, ""); ctx.depth++; }
+      catch (_) { historyOK = false; }
+    }
   }
   function cancelTimers() {
     ctx.timers.forEach(clearTimeout); ctx.timers = [];
@@ -1195,10 +1460,11 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     var onDark = (step !== "landing");
     /* Camera and splash are their own full-bleed surfaces: no product photo,
        no brand header, no attribution row — as in the reference sequence. */
-    var bleed = (step === "scan" || step === "splash");
+    var bleed = (step === "scan" || step === "splash" || step === "processing" || step === "result");
     $("#stage").hidden = !onDark || bleed;
     $("#top").hidden = bleed;
-    $("#poweredby").hidden = !onDark || bleed || !ctx.hasService;
+    syncPoweredBy();
+    syncMotionBtn();
     $("#shell").classList.toggle("on-dark", onDark);
     /* Absent when the page is embedded in a host that supplies its own head. */
     var tc = document.querySelector('meta[name="theme-color"]');
@@ -1207,10 +1473,22 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (ctx.logoEl && ctx.logoLight) {
       ctx.logoEl.src = onDark ? ctx.logoLight : ctx.logoDark;
     }
-    var demo = $("#demo");
-    demo.className = onDark ? "demo demo--dark" : "demo";
-    demo.dataset.mode = onDark ? "compact" : "full";
+    /* The sticky banner carries the disclosure on every screen; the full
+       block (with the sample-outcome links) belongs to the light landing,
+       where there is room to read it — the drawer's "Info sul servizio"
+       entry repeats the full text everywhere else. */
+    $("#demo-bar").className = onDark ? "demo demo--bar demo--dark" : "demo demo--bar";
+    $("#demo").hidden = onDark;
     if (step === "scan") startScanCamera(); else stopScanCamera();
+    if (step !== "scan") { var ask = $("#scanask"); if (ask) ask.hidden = true; }
+    var toast = $("#photo-toast");
+    if (step === "phototag") {
+      toast.hidden = false;
+      var trun = ctx.runId;
+      ctx.timers.push(setTimeout(function () {
+        if (trun === ctx.runId) toast.hidden = true;
+      }, 3800));
+    } else { toast.hidden = true; }
     if (step === "otp") { renderOtpBody(); startOtpCountdown(); } else stopOtpCountdown();
     if (step === "splash") {
       /* The splash replaces itself in history: stepping back from the result
@@ -1220,18 +1498,55 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
         if (run !== ctx.runId || ctx.step !== "splash") return;
         showStep("result");
         ctx.stack[ctx.stack.length - 1] = "result";
-        if (historyOK) { try { history.replaceState({ step: "result" }, ""); } catch (_) {} }
+        if (historyOK) { try { history.replaceState({ step: "result", epoch: EPOCH, i: ctx.depth }, ""); } catch (_) {} }
       }, 1900));
     }
+    shownAt = Date.now();
+    /* The drawer is modal: the shell behind it is inert, so a focus() call
+       now would be discarded. Remember where focus belongs, apply on close. */
+    if (ctx.drawerOpen) { ctx.pendingFocus = FOCUS[step]; return; }
     var target = $(FOCUS[step]);
     if (target) target.focus();
   }
+
+  /* Step panels swap instantly (.step[hidden]{display:none}), so the second
+     press of a double-tap is hit-tested against whatever the incoming screen
+     placed at those coordinates. The "when" and "where" option rows share
+     identical geometry by design, so that stray press silently answers the
+     next question. Swallow a pointer activation that lands on the screen that
+     has just appeared, at the point the previous activation was aimed at,
+     inside one tap window. Keyboard activation (detail 0) is never shielded,
+     and a press anywhere else is untouched. */
+  var GHOST_MS = 350, GHOST_PX = 24;
+  var shownAt = 0, lastPt = null;
+  function isGhost(e) {
+    if (!e.detail || !lastPt) return false;
+    if (Date.now() - shownAt >= GHOST_MS) return false;
+    if (Math.abs(e.clientX - lastPt.x) >= GHOST_PX) return false;
+    if (Math.abs(e.clientY - lastPt.y) >= GHOST_PX) return false;
+    var panel = panels[ctx.step];
+    if (!panel || panel.hidden || !panel.contains(e.target)) return false;
+    var el = e.target.closest("button,a,input,select,textarea,[tabindex]");
+    return !!(el && panel.contains(el));
+  }
+  /* mousedown carries the focus side effect, so it has to be stopped too:
+     without it the second tap still pops the keyboard on the place search. */
+  document.addEventListener("mousedown", function (e) {
+    if (isGhost(e)) { e.preventDefault(); e.stopPropagation(); }
+  }, true);
+  document.addEventListener("click", function (e) {
+    if (isGhost(e)) { e.preventDefault(); e.stopPropagation(); return; }
+    if (e.detail) lastPt = { x: e.clientX, y: e.clientY };
+  }, true);
 
   function goto(step, push) {
     if (ctx.step === "processing" && step !== "processing") { cancelTimers(); ctx.runId++; }
     if (!stepAllowed(step)) step = "landing";
     showStep(step);
-    if (push !== false) pushStep(step);
+    /* The processing screen is transient and must never own a history entry:
+       an entry for it would make one Back press a visible no-op. Back while
+       it runs simply returns to the step the run started from. */
+    if (push !== false && step !== "processing") pushStep(step);
     if (step === "processing") startProcessing();
   }
 
@@ -1250,10 +1565,23 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   }
 
   window.addEventListener("popstate", function (e) {
-    var step = (e.state && e.state.step) || "landing";
+    var st = e.state, fresh = !!st && st.epoch === EPOCH;
+    if (fresh && typeof st.i === "number") {
+      ctx.depth = st.i;
+      ctx.stack.length = Math.max(1, ctx.depth + 1);
+    }
+    /* closeDrawer consumed the drawer's own entry: swallow that pop. */
+    if (ctx.eatPop) { ctx.eatPop = false; return; }
+    /* The open drawer is the top history entry: Back closes it, only. */
+    if (ctx.drawerOpen) { closeDrawer(true); return; }
+    if (fresh && st.drawer) { openDrawer(true); return; }
+    if (!fresh) { ctx.depth = 0; ctx.stack.length = 1; }
+    var step = fresh ? (st.step || "landing") : "landing";
+    if (step === ctx.step) return;
     cancelTimers(); ctx.runId++;
     if (step === "processing") step = previousOf("processing");
     if (!stepAllowed(step)) step = "landing";
+    ctx.stack[ctx.stack.length - 1] = step;
     showStep(step);
   });
 
@@ -1271,7 +1599,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 
   /* -------------------------------------------------------------- landing */
   $("#btn-verify").addEventListener("click", function () {
-    ctx.when = null; ctx.where = null; ctx.place = ""; ctx.verdict = null;
+    ctx.when = null; ctx.where = null; ctx.place = ""; ctx.placeNote = ""; ctx.verdict = null;
     goto("when");
   });
 
@@ -1295,25 +1623,29 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   function paintWhen() {
     renderOptions($("#opts-when"), [
       { key: "when.before", value: "before" }, { key: "when.after", value: "after" }
-    ], function (v) { ctx.when = v; ctx.where = null; ctx.place = ""; goto("where"); });
+    ], function (v) { ctx.when = v; ctx.where = null; ctx.place = ""; ctx.placeNote = ""; goto("where"); });
   }
   function paintWhere() {
     renderOptions($("#opts-where"), whereItems(), function (v) {
-      ctx.where = v; ctx.place = "";
+      ctx.where = v; ctx.place = ""; ctx.placeNote = "";
       goto(v === "gift" ? afterPlace() : "place");
     });
   }
 
   /* ----------------------------------------------------------- place step */
-  /* Sample directory. Replace with the real one when the endpoint exists. */
+  /* Sample directory, and unmistakably so: generic localised names, no
+     invented distances or street addresses, no real trade names — the page
+     never asks for the user's position, so it must not render one. The real
+     directory replaces this when the endpoint exists; entries may then carry
+     dist and addr again, which the renderer below still supports. */
   var SAMPLE = {
     store: [
-      { name: "Paco Perez — Vestiti Tango", dist: "963 m", addr: "Via Kennedy 12A, Casalserugo", solid: true },
-      { name: "Agostini Point", dist: "1026 m", addr: "Italia", solid: false }
+      { key: "place.sampleStore1", solid: true },
+      { key: "place.sampleStore2", solid: false }
     ],
     online: [
-      { name: "Sito ufficiale del brand", dist: "", addr: "", solid: true },
-      { name: "Rivenditore online autorizzato", dist: "", addr: "", solid: false }
+      { key: "place.siteOfficial", solid: true },
+      { key: "place.siteRetailer", solid: false }
     ]
   };
 
@@ -1326,16 +1658,24 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     q.value = ctx.place || "";
     $("#near-label").textContent = t("place.near");
     $("#btn-near").setAttribute("aria-label", t("place.near"));
+    /* A website has no "near me": the control only renders on the shop
+       variant, so the page never implies it can locate a purchase site. */
+    $("#btn-near").hidden = online;
     $("#btn-more").textContent = t(online ? "place.allOnline" : "place.all");
-    $("#place-note").textContent = t("place.note");
+    /* The status region holds only what the user has triggered on this visit
+       (ctx-backed so it survives — translated — a language switch). */
+    if (ctx.placeNote) setLive("#place-status", ctx.placeNote);
+    else setLive("#place-status", null);
 
     var host = $("#stores"); host.textContent = "";
     SAMPLE[online ? "online" : "store"].forEach(function (s) {
-      var li = elem("li");
+      /* Explicit listitem: the li are flex items, and WebKit needs the roles
+         restated once list-style:none has stripped them. */
+      var li = elem("li"); li.setAttribute("role", "listitem");
       var b = elem("button", "store" + (s.solid ? "" : " store--outline"));
       b.type = "button";
       var body = elem("div", "store__body");
-      var name = elem("div", "store__name"); name.textContent = s.name; body.appendChild(name);
+      var name = elem("div", "store__name"); name.textContent = t(s.key); body.appendChild(name);
       if (s.dist) {
         var meta = elem("div", "store__meta");
         meta.appendChild(svgNode("M3 11 21 3l-8 18-2-7-8-3Z", "14", { fill: "currentColor" }));
@@ -1345,30 +1685,45 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       if (s.addr) { var ad = elem("div", "store__addr"); ad.textContent = s.addr; body.appendChild(ad); }
       b.appendChild(body);
       b.appendChild(chevron());
-      b.addEventListener("click", function () { ctx.place = s.name; goto(afterPlace()); });
+      b.addEventListener("click", function () { ctx.place = t(s.key); goto(afterPlace()); });
       li.appendChild(b); host.appendChild(li);
     });
   }
 
+  /* What is typed lives in ctx, not only in the DOM: a language switch
+     re-runs renderPlace for its labels and would otherwise wipe the field. */
+  $("#place-q").addEventListener("input", function () { ctx.place = this.value; });
   $("#form-place").addEventListener("submit", function (e) {
     e.preventDefault();
     ctx.place = $("#place-q").value.trim();
     goto(afterPlace());
   });
-  $("#btn-near").addEventListener("click", function () { $("#place-note").textContent = t("place.noGeo"); });
-  $("#btn-more").addEventListener("click", function () { $("#place-note").textContent = t("place.note"); });
+  /* Each button gets its own, distinct response, and announce() guarantees a
+     repeat press is spoken again instead of silently rewriting itself. */
+  $("#btn-near").addEventListener("click", function () { ctx.placeNote = "place.noGeo"; announce("#place-status", ctx.placeNote); });
+  $("#btn-more").addEventListener("click", function () { ctx.placeNote = "place.allNote"; announce("#place-status", ctx.placeNote); });
 
   /* ---------------------------------------------------- manual code entry */
   var clg = $("#clg"), clgField = $("#codefield"), clgNote = $("#clg-note");
   function groupDigits(d) { return d.replace(/(\d{3})(?=\d)/g, "$1 "); }
   function digitsOnly(v) { return String(v == null ? "" : v).replace(/\D+/g, "").slice(0, 12); }
-  function clgSay(msg, isError) {
-    clgNote.textContent = msg;
+  /* Key-based so the note follows a language switch through the [data-i18n]
+     repaint pass (a message with variables cannot, so it opts out), and with
+     the clear-then-write dance so a repeated identical error — pressing
+     "Inizia" twice on the same short code — is announced each time. */
+  function clgSay(key, vars, isError) {
+    var msg = t(key, vars);
+    if (vars) clgNote.removeAttribute("data-i18n");
+    else clgNote.setAttribute("data-i18n", key);
+    if (clgNote.textContent === msg && key !== "code.hint") {
+      clgNote.textContent = "";
+      setTimeout(function () { clgNote.textContent = msg; }, 60);
+    } else clgNote.textContent = msg;
     clgNote.dataset.state = isError ? "error" : "";
     clgField.dataset.state = isError ? "error" : "";
     clg.setAttribute("aria-invalid", isError ? "true" : "false");
   }
-  function clgReset() { clgSay(t("code.hint"), false); }
+  function clgReset() { clgSay("code.hint", null, false); }
   function clgApply(d, caretDigits) {
     clg.value = groupDigits(d);
     if (caretDigits != null) {
@@ -1382,7 +1737,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     var d = digitsOnly(clg.value);
     clgApply(d, caretDigits);
     if (clgNote.dataset.state === "error") clgReset();
-    if (d.length === 12) clgSay(t("code.complete"), false);
+    if (d.length === 12) clgSay("code.complete", null, false);
   });
   /* The printed label carries the CLG prefix and a scanned tag yields a URL,
      so paste is normalised at every length rather than bounded by maxlength. */
@@ -1399,9 +1754,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   $("#form-code").addEventListener("submit", function (e) {
     e.preventDefault();
     var d = digitsOnly(clg.value);
-    if (!d.length) { clgSay(t("code.errEmpty"), true); clg.focus(); return; }
-    if (d.length < 12) { clgSay(t("code.errShort", { n: 12 - d.length }), true); clg.focus(); return; }
-    ctx.code = d;
+    if (!d.length) { clgSay("code.errEmpty", null, true); clg.focus(); return; }
+    if (d.length < 12) { clgSay("code.errShort", { n: 12 - d.length }, true); clg.focus(); return; }
+    ctx.code = d; ctx.unreadable = false;
     clgReset();
     goto("processing");
   });
@@ -1412,11 +1767,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     var v = $("#email").value.trim();
     var note = $("#email-note");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
-      note.dataset.state = "error"; note.textContent = t("signin.err");
+      /* announce(): a second submit of the same bad address must be spoken
+         again, and the key keeps the error translated across a switch. */
+      note.dataset.state = "error"; announce(note, "signin.err");
       $("#email").setAttribute("aria-invalid", "true"); $("#email").focus();
       return;
     }
-    note.dataset.state = ""; note.textContent = t("signin.demo");
+    note.dataset.state = ""; setLive(note, "signin.demo");
     $("#email").setAttribute("aria-invalid", "false");
     ctx.email = v;
     goto("otp");
@@ -1461,7 +1818,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     resend.hidden = true;
     function tick() {
       if (left > 0) { wait.textContent = t("otp.wait", { s: left }); left--; }
-      else { wait.textContent = ""; resend.hidden = false; stopOtpCountdown(); }
+      else {
+        wait.textContent = ""; resend.hidden = false; stopOtpCountdown();
+        /* The resend button appearing is a state change a screen-reader user
+           cannot see: say so, once, through the events-only status region. */
+        announce("#otp-status", "otp.canResend");
+      }
     }
     tick();
     ctx.otpTimer = setInterval(tick, 1000);
@@ -1470,7 +1832,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (ctx.otpTimer) { clearInterval(ctx.otpTimer); ctx.otpTimer = null; }
   }
   $("#otp-resend").addEventListener("click", function () {
-    $("#otp-wait").textContent = t("otp.resent");
+    /* Not written into #otp-wait: the countdown's first tick would overwrite
+       it in the same task, so it was never visible nor announced. */
+    announce("#otp-status", "otp.resent");
     startOtpCountdown();
   });
   $("#otp-edit").addEventListener("click", function () { goto("signin"); });
@@ -1492,7 +1856,9 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 
   /* ------------------------------------------------------------------ scan */
   var scanStream = null, scanDetector = null, scanRaf = 0;
-  function scanSay(key) { $("#scan-status").textContent = key ? t(key) : ""; }
+  /* announce(): "no code recognised" must be spoken on every failed attempt,
+     not only the first, and the key keeps the message on the right language. */
+  function scanSay(key) { if (key) announce("#scan-status", key); else setLive("#scan-status", null); }
   function extractCode(text) {
     var m = String(text).match(/(?:clg\D{0,4})?((?:\d\D{0,2}){12})/i);
     return m ? m[1].replace(/\D+/g, "").slice(0, 12) : "";
@@ -1501,7 +1867,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     /* A recognised tag identifies the item for the simulation; anything not
        a complete code stays on this screen with an honest message. */
     if (!/^\d{12}$/.test(d)) { scanSay("scan.noCode"); return; }
-    ctx.code = d;
+    ctx.code = d; ctx.unreadable = false;
     goto("processing");
   }
   function startScanCamera() {
@@ -1539,7 +1905,28 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (scanStream) { scanStream.getTracks().forEach(function (tr) { tr.stop(); }); scanStream = null; }
     var v = $("#scan-video"); if (v) v.srcObject = null;
   }
-  $("#scan-skip").addEventListener("click", function () { goto("processing"); });
+  /* The reference discourages skipping the photos: the pill opens an
+     interstitial, and only its inner "Salta" actually proceeds. */
+  $("#scan-skip").addEventListener("click", function () {
+    var ask = $("#scanask");
+    ask.hidden = false;
+    $("#scanask-ok").focus();
+  });
+  $("#scanask-ok").addEventListener("click", function () {
+    $("#scanask").hidden = true;
+    $("#scan-skip").focus();
+  });
+  $("#scanask-skip").addEventListener("click", function () {
+    $("#scanask").hidden = true;
+    goto("processing");
+  });
+  $("#scanask").addEventListener("keydown", function (e) {
+    if (e.key === "Escape") { e.preventDefault(); this.hidden = true; $("#scan-skip").focus(); return; }
+    if (e.key !== "Tab") return;
+    var a = $("#scanask-ok"), b = $("#scanask-skip");
+    if (e.shiftKey && document.activeElement === a) { e.preventDefault(); b.focus(); }
+    else if (!e.shiftKey && document.activeElement === b) { e.preventDefault(); a.focus(); }
+  });
   $("#scan-back").addEventListener("click", goBack);
   $("#scan-help").addEventListener("click", function () { scanSay("scan.helpText"); });
   $("#scan-manual").addEventListener("click", function () { goto("code"); });
@@ -1569,21 +1956,59 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (!isComplete(ctx.code)) { ctx.verdict = null; showStep("landing"); return; }
     var run = ++ctx.runId;
     var status = $("#processing-status");
-    status.textContent = t("processing.p1");
+    setLive(status, "processing.p1");
+    /* Kick the live check in parallel with the staged progress copy. */
+    var live = null;
+    if (VERIFY.url && !ctx.unreadable) {
+      live = fetch(VERIFY.url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code: ctx.code,
+          context: { when: ctx.when, where: ctx.where, place: ctx.place } })
+      }).then(function (r) { return r.json(); })
+        .then(function (j) {
+          return { genuine: "genuine", suspicious: "suspicious", fake: "fake",
+                   not_found: "notFound", invalid: "notFound" }[j.outcome] || null;
+        })
+        .catch(function () { return null; });
+    }
     ctx.timers = [
-      setTimeout(function () { if (run === ctx.runId) status.textContent = t("processing.p2"); }, T.P2),
-      setTimeout(function () { if (run === ctx.runId) status.textContent = t("processing.p3"); }, T.P3),
+      setTimeout(function () { if (run === ctx.runId) setLive(status, "processing.p2"); }, T.P2),
+      setTimeout(function () { if (run === ctx.runId) setLive(status, "processing.p3"); }, T.P3),
       setTimeout(function () {
         if (run !== ctx.runId) return;
         ctx.timers = [];
-        var v = computeVerdict(ctx.code);
+        var finish = function (v) {
+          if (run !== ctx.runId) return;
+          if (!v) { showStep("landing"); return; }
+          land(v);
+        };
+        /* A carried code that could not be read is never sent to the
+           authenticator: it resolves to the outcome written for that case. */
+        var sim = ctx.unreadable ? "notFound" : computeVerdict(ctx.code);
+        if (live) { live.then(function (lv) { finish(lv || sim); }); return; }
+        var v = sim;
         if (!v) { showStep("landing"); return; }
-        ctx.verdict = v;
-        renderResult();
-        showStep("splash");
-        pushStep("splash");
+        land(v);
       }, T.DONE)
     ];
+
+    function land(v) {
+      ctx.verdict = v;
+      renderResult();
+      /* The flow may land while the menu drawer is open: close it without
+         consuming history, then reuse its entry instead of stacking a new
+         one — otherwise the first Back on the result re-opens a drawer the
+         user already dismissed. */
+      if (ctx.drawerOpen) closeDrawer(true);
+      showStep("splash");
+      if (historyOK && history.state && history.state.drawer) {
+        ctx.stack.push("splash");
+        try { history.replaceState({ step: "splash", epoch: EPOCH, i: ctx.depth }, ""); } catch (_) {}
+      } else {
+        pushStep("splash");
+      }
+    }
   }
 
   /* ---------------------------------------------------------------- result */
@@ -1596,15 +2021,23 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   function renderResult() {
     var v = ctx.verdict;
     if (!v) return;
-    $("#verdict").dataset.v = (v === "notFound" ? "fake" : v);
+    /* The attribute stays truthful: notFound is a misread code, and dressing
+       it as "fake" gave a scanning error the counterfeit red and the
+       seller-reporting instructions. Its own CSS rule paints it amber. */
+    $("#verdict").dataset.v = v;
     var mark = $("#verdict-mark"); mark.textContent = "";
     mark.appendChild(svgNode(MARKS[v] || MARKS.suspicious, "56", { w: "2.2" }));
     $("#h-result").textContent = t("result." + v + ".title");
     $("#verdict-lede").textContent = t("result." + v + ".lede");
     var steps = $("#verdict-steps"); steps.textContent = "";
+    /* Only the explicit counterfeit branch carries the escalation steps:
+       any outcome name the real API may later return falls through to the
+       neutral list, mirroring MARKS[v] || MARKS.suspicious above. notFound
+       swaps the "report the outcome" step for a re-scan suggestion. */
     var keys = v === "genuine" ? ["result.s1", "result.s2"]
-             : v === "suspicious" ? ["result.s1", "result.s2", "result.s3"]
-             : ["result.s1", "result.s2", "result.s3", "result.s4"];
+             : v === "fake" ? ["result.s1", "result.s2", "result.s3", "result.s4"]
+             : v === "notFound" ? ["result.s1", "result.s2", "result.nf3"]
+             : ["result.s1", "result.s2", "result.s3"];
     keys.forEach(function (k) {
       var li = elem("li"); li.setAttribute("role", "listitem"); li.textContent = t(k); steps.appendChild(li);
     });
@@ -1612,24 +2045,63 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 
   $("#btn-again").addEventListener("click", function () {
     cancelTimers(); ctx.runId++;
-    ctx.when = null; ctx.where = null; ctx.place = ""; ctx.verdict = null;
+    ctx.when = null; ctx.where = null; ctx.place = ""; ctx.placeNote = "";
+    ctx.verdict = null; ctx.pendingFocus = null;
     $("#verdict").dataset.v = "";
     $("#verdict-mark").textContent = "";
     $("#h-result").textContent = "";
     $("#verdict-lede").textContent = "";
     $("#verdict-steps").textContent = "";
-    $("#legal-note").textContent = "";
+    setLive("#consent-note", null);
     Array.prototype.forEach.call(document.querySelectorAll(".otp__box"), function (b) { b.value = ""; });
-    ctx.stack = [];
-    goto("landing");
+    /* Retire the finished run's history entries: unwind to the first entry
+       and change generation, so Back and Forward can no longer re-enter it.
+       showStep, not goto - goto would push yet another entry; and paint
+       synchronously, because history.go is asynchronous. */
+    ctx.stack = ["landing"];
+    var d = historyOK ? ctx.depth : 0;
+    EPOCH = Date.now() + "." + Math.random();
+    ctx.depth = 0;
+    showStep("landing");
+    if (historyOK) {
+      if (d > 0) { try { history.go(-d); } catch (_) {} }
+      else { try { history.replaceState({ step: "landing", epoch: EPOCH, i: 0 }, ""); } catch (_) {} }
+    }
   });
 
   /* --------------------------------------------------------------- drawer */
-  function openDrawer() {
+  /* inert stops focus and hit-testing but not wheel/touch scrolling of the
+     document, so the modal needs its own scroll lock (body-fixed technique:
+     it also holds on iOS). */
+  var scrollLockY = 0;
+  function lockScroll() {
+    scrollLockY = window.scrollY || document.documentElement.scrollTop || 0;
+    var bs = document.body.style;
+    bs.position = "fixed";
+    bs.top = (-scrollLockY) + "px";
+    bs.left = "0";
+    bs.right = "0";
+    bs.width = "100%";
+  }
+  function unlockScroll() {
+    var bs = document.body.style;
+    bs.position = ""; bs.top = ""; bs.left = ""; bs.right = ""; bs.width = "";
+    window.scrollTo(0, scrollLockY);
+  }
+  function openDrawer(fromPop) {
+    if (ctx.drawerOpen) return;
     ctx.lastFocus = document.activeElement;
     ctx.drawerOpen = true;
+    /* The drawer is a modal layer: it owns the top history entry while open,
+       so the system Back button (or gesture) closes it instead of silently
+       rewinding the flow underneath. popstate reopens without re-pushing. */
+    if (fromPop !== true && historyOK) {
+      try { history.pushState({ drawer: true, epoch: EPOCH }, ""); } catch (_) { historyOK = false; }
+    }
+    lockScroll();
     $("#drawer").hidden = false; $("#drawer-backdrop").hidden = false;
-    requestAnimationFrame(function () {
+    ctx.drawerRaf = requestAnimationFrame(function () {
+      if (!ctx.drawerOpen) return;
       $("#drawer").classList.add("is-open");
       $("#drawer-backdrop").classList.add("is-open");
     });
@@ -1639,37 +2111,71 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     var sh = $("#shell");
     sh.setAttribute("aria-hidden", "true");
     if ("inert" in HTMLElement.prototype) sh.inert = true;
-    $("#drawer-close").focus();
+    $("#drawer-close").focus({ preventScroll: true });
   }
-  function closeDrawer() {
+  function closeDrawer(fromPop) {
+    if (!ctx.drawerOpen) return;
     ctx.drawerOpen = false;
+    if (ctx.drawerRaf) { cancelAnimationFrame(ctx.drawerRaf); ctx.drawerRaf = 0; }
     var sh = $("#shell");
     sh.removeAttribute("aria-hidden");
     if ("inert" in HTMLElement.prototype) sh.inert = false;
+    unlockScroll();
     $("#drawer").classList.remove("is-open");
     $("#drawer-backdrop").classList.remove("is-open");
     $("#btn-menu").setAttribute("aria-expanded", "false");
-    $("#drawer-note").textContent = "";
+    setLive("#drawer-note", null);
     $("#lang-group").hidden = true;
+    $("#btn-lang").setAttribute("aria-expanded", "false");
     var d = $("#drawer"), bd = $("#drawer-backdrop");
     setTimeout(function () { if (!ctx.drawerOpen) { d.hidden = true; bd.hidden = true; } }, 280);
-    if (ctx.lastFocus && ctx.lastFocus.focus) ctx.lastFocus.focus();
+    /* Consume the drawer's own history entry when closed in-page; the pop it
+       triggers is swallowed via eatPop so the flow does not react to it. */
+    if (fromPop !== true && historyOK && history.state && history.state.drawer) {
+      ctx.eatPop = true;
+      try { history.back(); } catch (_) { ctx.eatPop = false; }
+    }
+    /* A navigation that happened behind the open drawer parked its focus
+       target: apply it now that the shell is interactive again, and re-fire
+       the outcome's live region, which was written inside a hidden subtree. */
+    var pend = ctx.pendingFocus ? $(ctx.pendingFocus) : null;
+    ctx.pendingFocus = null;
+    if (pend) {
+      pend.focus();
+      var lede = $("#verdict-lede"), txt = lede.textContent;
+      if (txt) { lede.textContent = ""; setTimeout(function () { lede.textContent = txt; }, 60); }
+      return;
+    }
+    if (ctx.lastFocus && ctx.lastFocus.focus) ctx.lastFocus.focus({ preventScroll: true });
   }
   $("#btn-menu").addEventListener("click", function () { ctx.drawerOpen ? closeDrawer() : openDrawer(); });
-  $("#drawer-close").addEventListener("click", closeDrawer);
-  $("#drawer-backdrop").addEventListener("click", closeDrawer);
+  $("#drawer-close").addEventListener("click", function () { closeDrawer(); });
+  $("#drawer-backdrop").addEventListener("click", function () { closeDrawer(); });
   $("#btn-lang").addEventListener("click", function () {
     var g = $("#lang-group"); g.hidden = !g.hidden;
+    /* The disclosure state is the only feedback when collapsing: focus stays
+       on the button and the group simply vanishes. */
+    this.setAttribute("aria-expanded", String(!g.hidden));
     if (!g.hidden) g.querySelector("button").focus();
   });
   Array.prototype.forEach.call(document.querySelectorAll(".doc-link"), function (b) {
     b.addEventListener("click", function () {
       var about = b.querySelector("[data-i18n='menu.about']");
-      $("#drawer-note").textContent = about ? t("demo.title") + " " + t("demo.body") : t("menu.note");
+      /* The response names the entry that was activated, so consecutive
+         different links read differently, and announce() makes a repeat of
+         the same link speak again. menu.noteDoc opens with an em-dash so the
+         space-joined key pair reads as one sentence. */
+      var span = b.querySelector("[data-i18n]");
+      announce("#drawer-note", about ? "demo.title demo.body"
+        : (span ? span.getAttribute("data-i18n") + " menu.noteDoc" : "menu.note"));
     });
   });
+  /* Escape must work wherever focus sits while the drawer is open - a click
+     on the drawer's padding moves focus to <body>, outside its subtree. */
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && ctx.drawerOpen) { e.preventDefault(); closeDrawer(); }
+  });
   $("#drawer").addEventListener("keydown", function (e) {
-    if (e.key === "Escape") { e.preventDefault(); closeDrawer(); return; }
     if (e.key !== "Tab") return;
     var f = Array.prototype.filter.call(this.querySelectorAll("button"), function (n) { return n.offsetParent !== null; });
     if (!f.length) return;
@@ -1680,7 +2186,13 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 
   /* --------------------------------------------------------------- legal */
   Array.prototype.forEach.call(document.querySelectorAll(".legal-link"), function (b) {
-    b.addEventListener("click", function () { $("#legal-note").textContent = t("landing.legalNote"); });
+    b.addEventListener("click", function () {
+      /* On the landing the explanation is permanently on screen right under
+         the links (#legal-note is static markup now), so a tap needs no
+         dynamic response there. The consent screen still answers on the
+         screen the button is on. */
+      if (panels.consent.contains(b)) announce("#consent-note", "landing.legalNote");
+    });
   });
 
   /* -------------------------------------------------------------- assets */
@@ -1693,76 +2205,238 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     if (was !== ctx.placeholders) renderDemo();
   }
 
+  /* Each media slot's pass is numbered so a re-run can retire the previous
+     pass's callbacks before arming its own: handlers must never accumulate,
+     and a leftover callback must never fire into a later pass's state. */
+  var MEDIA_PASS = {};
+
   function fillMedia(imgId, videoId, phId, images, video, position) {
     var img = $(imgId), vid = $(videoId), ph = $(phId);
     var list = [].concat(images).filter(Boolean);
-    img.hidden = true; vid.hidden = true; ph.hidden = false;
     if (position) { img.style.objectPosition = position; vid.style.objectPosition = position; }
+    /* Idempotent: applyAssets re-runs on every language switch, and nothing
+       about the imagery is language-dependent. A re-run with the same request
+       must not tear resolved media down to the placeholder, nor restart a
+       download that is still in flight. The key is the REQUEST (video plus
+       the whole candidate list), so it matches whichever candidate won. */
+    var key = (video || "") + "|" + list.join(",");
+    if (img.getAttribute("data-media-key") === key) return;
+    img.setAttribute("data-media-key", key);
+
+    var pass = MEDIA_PASS[videoId] = (MEDIA_PASS[videoId] || 0) + 1;
+    function stale() { return pass !== MEDIA_PASS[videoId]; }
+    /* Retire the previous pass before this one arms anything. */
+    img.onload = img.onerror = null;
+    vid.onerror = vid.onloadeddata = null;
+    img.hidden = true; vid.hidden = true; ph.hidden = false;
 
     /* Walk the candidates in order and stop at the first that actually loads;
        if none does, the placeholder simply stays. */
     function useImage(i) {
       i = i || 0;
-      if (i >= list.length) { img.hidden = true; ph.hidden = false; refreshPlaceholderState(); return; }
-      img.onload = function () { img.hidden = false; ph.hidden = true; refreshPlaceholderState(); };
-      img.onerror = function () { useImage(i + 1); };
+      if (stale()) return;
+      /* Exhausted: the placeholder returns only if the video is not showing. */
+      if (i >= list.length) { img.hidden = true; ph.hidden = !vid.hidden; refreshPlaceholderState(); return; }
+      img.onload = function () {
+        if (stale()) return;
+        /* The video may have won while this file was still downloading: the
+           still must never paint over a video already on screen. */
+        if (!vid.hidden) { img.hidden = true; return; }
+        img.hidden = false; ph.hidden = true; refreshPlaceholderState();
+      };
+      img.onerror = function () { if (!stale()) useImage(i + 1); };
       img.src = list[i];
     }
 
-    if (video) {
-      vid.onerror = function () { vid.hidden = true; useImage(0); };
-      vid.addEventListener("loadeddata", function () {
-        vid.hidden = false; ph.hidden = true; img.hidden = true; refreshPlaceholderState();
-      }, { once: true });
-      if (list.length) vid.setAttribute("poster", list[0]);
+    /* Reduced motion skips the video branch entirely, not just play(): with
+       src assigned, loadeddata would still swap a paused first frame in over
+       the still, and the whole file would download against the preference.
+       The already-tested image path serves the still instead. */
+    if (video && !prefersReduce()) {
+      vid.onerror = function () {
+        if (stale()) return;
+        vid.hidden = true;
+        syncMotionBtn();
+        /* Re-arm the still: it usually is already up (it starts at t=0
+           below), but a video that dies after taking the screen must hand
+           it back to the image, not to a black stage. */
+        useImage(0);
+      };
+      /* Property assignment, not addEventListener: it self-replaces, so a
+         video that never reports data cannot accumulate dead listeners
+         across repeated passes. */
+      vid.onloadeddata = function () {
+        if (stale()) return;
+        vid.hidden = false; ph.hidden = true; img.hidden = true;
+        /* Abort the bridge still: it must not finish later and paint over
+           the playing video, nor keep downloading for nothing. */
+        img.onload = img.onerror = null;
+        img.removeAttribute("src");
+        /* A pause chosen earlier in the session still stands. */
+        if (mediaPaused) vid.pause();
+        syncMotionBtn();
+        refreshPlaceholderState();
+      };
       vid.src = video;
       var pr = vid.play(); if (pr && pr.catch) pr.catch(function () {});
-      /* A video that never reports data (blocked autoplay, missing file) must
-         not leave the screen on the placeholder. */
-      setTimeout(function () { if (vid.hidden) useImage(0); }, 1200);
+      /* The still image is the bridge while the video buffers: a poster
+         could never paint here ([hidden] keeps the element display:none
+         until loadeddata), and starting the still at t=0 also covers a
+         video that never reports data at all — 404, blocked autoplay,
+         stalled network — with no fallback timer to leak or misfire. */
+      useImage(0);
     } else {
       useImage(0);
     }
   }
 
-  function applyAssets() {
+  /* ------------------------------------------------- background motion */
+  /* SC 2.2.2 Pause, Stop, Hide: the background video loops for as long as
+     the visit lasts, so the page itself must offer a way to stop it. The
+     choice is remembered for the session — a user who paused must not be
+     re-exposed on the next step or the next run. Reduced-motion users never
+     need the control: their video is never started at all (fillMedia), so
+     the button, keyed to a visible video, never appears for them. */
+  var mediaPaused = false;
+  try { mediaPaused = sessionStorage.getItem("bg-motion") === "paused"; } catch (_) {}
+  function prefersReduce() {
+    return !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+  }
+  function bgVideos() { return [$("#hero-video"), $("#stage-video")]; }
+  function syncMotionBtn() {
+    var btn = $("#btn-motion");
+    var showing = (!$("#stage").hidden && !$("#stage-video").hidden) ||
+                  (ctx.step === "landing" && !$("#hero-video").hidden);
+    btn.hidden = !showing;
+    /* Reserve the floating control's corner so it never covers the demo
+       notice (or anything else) at full scroll. */
+    if (showing) document.documentElement.setAttribute("data-motionbtn", "");
+    else document.documentElement.removeAttribute("data-motionbtn");
+    setLive("#motion-label", mediaPaused ? "ui.videoPlay" : "ui.videoPause");
+    /* toggleAttribute, not .hidden: these are SVG elements, and the hidden
+       PROPERTY exists only on HTMLElement — on an SVG it is an inert expando
+       that never reaches the [hidden]{display:none} rule. */
+    btn.querySelector(".mi-pause").toggleAttribute("hidden", mediaPaused);
+    btn.querySelector(".mi-play").toggleAttribute("hidden", !mediaPaused);
+    /* The same preference freezes the CSS loops (the scan sweep line). */
+    document.documentElement.setAttribute("data-motion", mediaPaused ? "paused" : "");
+  }
+  $("#btn-motion").addEventListener("click", function () {
+    mediaPaused = !mediaPaused;
+    try { sessionStorage.setItem("bg-motion", mediaPaused ? "paused" : "playing"); } catch (_) {}
+    bgVideos().forEach(function (v) {
+      if (mediaPaused) v.pause();
+      else if (v.src) { var p = v.play(); if (p && p.catch) p.catch(function () {}); }
+    });
+    syncMotionBtn();
+  });
+
+  /* Loads a candidate off-screen and reports whether it is usable. */
+  function probeImage(url, done) {
+    if (!url) { done(false); return; }
+    var p = new Image();
+    p.onload = function () { done(true); };
+    p.onerror = function () { done(false); };
+    p.src = url;
+  }
+
+  /* The attribution row appears only on the dark, non-full-bleed steps, and
+     only once a service mark or name has really materialised. Re-evaluated
+     from showStep and from the mark's own onload, whichever comes last. */
+  function syncPoweredBy() {
+    var bleed = (ctx.step === "scan" || ctx.step === "splash" ||
+                 ctx.step === "processing" || ctx.step === "result");
+    $("#poweredby").hidden = (ctx.step === "landing") || bleed || !ctx.hasService;
+  }
+
+  /* The header logo, scan-overlay logo and service mark are built exactly
+     once: their sources are not language-dependent, so a language switch
+     must not refetch them — only their alt text is refreshed. */
+  var brandBuilt = false, headerLogo = null, serviceImg = null;
+
+  function buildBrand() {
     var b = $("#brand");
-    if (ASSETS.logo || ASSETS.logoLight) {
-      var i = new Image();
-      i.alt = t("ui.brand");
-      /* Most brand marks are supplied as black artwork. Without a light
-         counterpart it would vanish on the dark screens, so invert it there. */
-      i.className = ASSETS.logoLight ? "brand__mark" : "brand__mark brand__mark--invert";
-      i.onload = function () { b.textContent = ""; b.appendChild(i); };
-      i.onerror = function () { /* keep the typographic placeholder */ };
-      i.src = ASSETS.logoLight || ASSETS.logo;
-      if (ASSETS.logoLight) {
-        ctx.logoDark = ASSETS.logo; ctx.logoLight = ASSETS.logoLight; ctx.logoEl = i;
-      }
-    }
-    /* The attribution row only appears once the service mark or name is set;
-       an empty placeholder there would read as a real credit. */
+    /* The scan overlay shows the brand name in type until (unless) a logo
+       file proves itself; setLive keeps that text on the language it should
+       be, through the [data-i18n] repaint pass. */
+    setLive("#scan-brand", "ui.brand");
+    if (!ASSETS.logo && !ASSETS.logoLight) return;
+    /* Establish which artwork files really exist BEFORE anything enters the
+       header: appending destroys the typographic fallback, and the live
+       element must never be pointed at an unproven URL — a 404ing variant
+       would leave a broken-image glyph with nothing to fall back to. */
+    probeImage(ASSETS.logo, function (darkOK) {
+      probeImage(ASSETS.logoLight, function (lightOK) {
+        if (!darkOK && !lightOK) return; /* typographic placeholder stays */
+        var i = new Image();
+        i.alt = t("ui.brand");
+        if (darkOK && lightOK) {
+          /* Both proven: swap on navigation. The landing is light, so the
+             dark artwork is what the first paint must show. */
+          i.className = "brand__mark"; i.src = ASSETS.logo;
+          ctx.logoDark = ASSETS.logo; ctx.logoLight = ASSETS.logoLight; ctx.logoEl = i;
+        } else if (darkOK) {
+          /* Black artwork only: invert it on the dark screens. */
+          i.className = "brand__mark brand__mark--invert"; i.src = ASSETS.logo;
+        } else {
+          /* Light artwork only: invert it on the light landing instead. */
+          i.className = "brand__mark brand__mark--invert-light"; i.src = ASSETS.logoLight;
+        }
+        b.textContent = ""; b.appendChild(i); headerLogo = i;
+        /* The probes are asynchronous: the user may already be past the
+           landing, so re-sync the swap to the step on screen. */
+        if (ctx.logoEl) ctx.logoEl.src = (ctx.step !== "landing") ? ctx.logoLight : ctx.logoDark;
+        /* The scan overlay sits on a dark surface: prefer the proven light
+           artwork, otherwise invert the proven dark one. Only a proven file
+           replaces the typographic name. */
+        var sb = $("#scan-brand");
+        var bi = new Image(); bi.alt = "";
+        bi.style.maxHeight = "30px";
+        if (!lightOK) bi.style.filter = "invert(1)";
+        bi.src = lightOK ? ASSETS.logoLight : ASSETS.logo;
+        sb.removeAttribute("data-i18n"); sb.textContent = ""; sb.appendChild(bi);
+      });
+    });
+  }
+
+  function buildService() {
     var sm = $("#service-mark"); sm.textContent = "";
-    ctx.hasService = !!(ASSETS.serviceLogo || ASSETS.serviceName);
+    /* The row only counts a mark that has really loaded: a 404 must not
+       render a broken glyph as a credit. Until (unless) the logo proves
+       itself, the name alone carries the row — or the row stays hidden. */
+    ctx.hasService = !!ASSETS.serviceName;
+    if (ASSETS.serviceName) sm.textContent = ASSETS.serviceName;
     if (ASSETS.serviceLogo) {
-      var si = new Image(); si.src = ASSETS.serviceLogo; si.alt = ASSETS.serviceName || t("ui.service");
-      si.style.maxHeight = "16px"; sm.appendChild(si);
-    } else if (ASSETS.serviceName) {
-      sm.textContent = ASSETS.serviceName;
+      var si = new Image();
+      si.alt = ASSETS.serviceName || t("ui.service");
+      si.style.maxHeight = "16px";
+      si.onload = function () {
+        sm.textContent = ""; sm.appendChild(si);
+        serviceImg = si;
+        ctx.hasService = true; syncPoweredBy();
+      };
+      si.onerror = function () { /* the name stands alone, or the row stays hidden */ };
+      si.src = ASSETS.serviceLogo;
+    }
+    syncPoweredBy();
+  }
+
+  function applyAssets() {
+    if (!brandBuilt) {
+      brandBuilt = true;
+      buildBrand();
+      buildService();
+    } else {
+      /* Language-only refresh: no rebuild, no refetch. */
+      if (headerLogo) headerLogo.alt = t("ui.brand");
+      if (serviceImg && !ASSETS.serviceName) serviceImg.alt = t("ui.service");
     }
     var serviceText = ASSETS.serviceName || t("ui.service");
     $("#signin-service").textContent = serviceText;
     $("#otp-service").textContent = serviceText;
     $("#splash-service").textContent = ASSETS.serviceName || "";
-    var sb = $("#scan-brand"); sb.textContent = "";
-    if (ASSETS.logoLight || ASSETS.logo) {
-      var bi = new Image(); bi.alt = "";
-      bi.style.maxHeight = "30px";
-      if (!ASSETS.logoLight) bi.style.filter = "invert(1)";
-      bi.onerror = function () { sb.textContent = t("ui.brand"); };
-      bi.src = ASSETS.logoLight || ASSETS.logo;
-      sb.appendChild(bi);
-    } else { sb.textContent = t("ui.brand"); }
+    $("#processing-service").textContent = ASSETS.serviceName || "";
+    $("#result-service").textContent = ASSETS.serviceName || "";
     fillMedia("#hero-img", "#hero-video", "#hero-placeholder",
               [ASSETS.hero], ASSETS.heroVideo, ASSETS.heroPosition);
     /* The landing photo doubles as the full-bleed background when no separate
@@ -1772,39 +2446,83 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   }
 
   /* ----------------------------------------------------------- demo note */
+  /* The banner is in normal flow, so the full-viewport screens (camera,
+     splash) subtract exactly its rendered height via --bar-h; its height
+     depends on language and wrapping, so it is measured, not assumed. */
+  function syncBarH() {
+    var h = $("#demo-bar").offsetHeight || 0;
+    document.documentElement.style.setProperty("--bar-h", h + "px");
+  }
+  window.addEventListener("resize", syncBarH);
+
   function renderDemo() {
     var host = $("#demo"); host.textContent = "";
-    var short = elem("p", "demo__short");
-    var ss = elem("strong"); ss.textContent = t("demo.title"); short.appendChild(ss);
-    short.appendChild(document.createTextNode(" " + t("demo.short")));
-    host.appendChild(short);
-    var full = elem("div", "demo__full");
     var p1 = elem("p");
     var st = elem("strong"); st.textContent = t("demo.title"); p1.appendChild(st);
     p1.appendChild(document.createTextNode(" " + t("demo.body")));
-    full.appendChild(p1);
+    host.appendChild(p1);
     if (ctx.placeholders) {
-      var p2 = elem("p"); p2.textContent = t("demo.assets"); full.appendChild(p2);
+      var p2 = elem("p"); p2.textContent = t("demo.assets"); host.appendChild(p2);
+    }
+    if (VERIFY.url) {
+      var pl = elem("p"); pl.textContent = t("demo.live"); host.appendChild(pl);
     }
     var p3 = elem("p");
     p3.appendChild(document.createTextNode(t("demo.try") + " "));
     [["demo.g", "123456789012"], ["demo.s", "123456789013"],
      ["demo.f", "123456789014"], ["demo.n", "000000000000"]].forEach(function (pair, n) {
       if (n) p3.appendChild(document.createTextNode(" · "));
-      var a = elem("a"); a.href = "?clg=" + pair[1];
+      var a = elem("a");
+      /* The links reload the page, so they must carry the chosen language:
+         without it an English reader lands back in an Italian disclaimer. */
+      a.href = "?clg=" + pair[1] + (ctx.lang !== "it" ? "&lang=" + ctx.lang : "");
       var c = elem("code"); c.textContent = t(pair[0]);
       a.appendChild(c); p3.appendChild(a);
     });
-    full.appendChild(p3);
-    host.appendChild(full);
+    host.appendChild(p3);
+    /* The one-line banner in the chrome (see .demo--bar). */
+    var bar = $("#demo-bar"); bar.textContent = "";
+    var bs = elem("strong"); bs.textContent = t("demo.title"); bar.appendChild(bs);
+    bar.appendChild(document.createTextNode(" " + t("demo.short")));
+    syncBarH();
   }
 
   /* ------------------------------------------------------------ language */
+  /* Strings written by code, not markup, must still follow a language
+     switch: record the key(s) on the node so the [data-i18n] pass repaints
+     them. No markup data-i18n value contains a space, so a space-separated
+     key list is unambiguous. */
+  function setLive(el, keys) {
+    if (typeof el === "string") el = $(el);
+    if (!keys) { el.removeAttribute("data-i18n"); el.textContent = ""; return; }
+    el.setAttribute("data-i18n", keys);
+    el.textContent = keys.split(" ").map(function (k) { return t(k); }).join(" ");
+  }
+  /* setLive for live regions that answer a control the user can press more
+     than once: rewriting a region with the string it already holds is not a
+     mutation, so assistive technology announces nothing. When the message is
+     unchanged, clear now and rewrite in a later task so the write is a real
+     mutation and the response is spoken every time. The rewrite re-reads the
+     key(s) so a language switch inside the 60 ms window cannot resurrect the
+     old language. */
+  function announce(el, keys) {
+    if (typeof el === "string") el = $(el);
+    el.setAttribute("data-i18n", keys);
+    var msg = keys.split(" ").map(function (k) { return t(k); }).join(" ");
+    if (el.textContent === msg) {
+      el.textContent = "";
+      setTimeout(function () {
+        var k = el.getAttribute("data-i18n");
+        if (k) el.textContent = k.split(" ").map(function (q) { return t(q); }).join(" ");
+      }, 60);
+    } else el.textContent = msg;
+  }
   function applyI18n() {
     document.documentElement.lang = ctx.lang;
     document.title = t("meta.title");
     Array.prototype.forEach.call(document.querySelectorAll("[data-i18n]"), function (n) {
-      n.textContent = t(n.getAttribute("data-i18n"));
+      n.textContent = n.getAttribute("data-i18n").split(" ")
+        .map(function (k) { return t(k); }).join(" ");
     });
     $("#lang-group").setAttribute("aria-label", t("ui.lang"));
     paintWhen(); paintWhere();
@@ -1834,8 +2552,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
       });
     }
     /* The item arrives with the QR. ?clg= overrides it so each outcome can be
-       demonstrated; without it the default sample item is used. */
+       demonstrated; without it the default sample item is used. A parameter
+       that is present but not 12 digits is NOT the sample item: it is a code
+       that could not be read, and it must reach the notFound outcome. */
+    var carried = params.has("clg") || params.has("code");
     var raw = (params.get("clg") || params.get("code") || "").replace(/\D+/g, "");
+    ctx.unreadable = carried && raw.length !== 12;
     ctx.code = raw.length === 12 ? raw : DEFAULT_CODE;
     applyI18n();
     ctx.stack = ["landing"];
@@ -1844,6 +2566,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
     $("#btn-back").hidden = true;
     $("#stage").hidden = true;
     $("#poweredby").hidden = true;
+    syncMotionBtn();
   })();
 })();
 </script>
