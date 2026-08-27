@@ -412,6 +412,15 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   font-size:.8125rem;font-weight:600;letter-spacing:.16em;text-transform:uppercase;
   background:rgba(0,0,0,.28);padding:6px 14px;border-radius:999px;white-space:nowrap}
 .splash__service:empty{display:none}
+/* The brand mark that crowns the gradient screens, as in the reference.
+   Same treatment as the camera frame's mark: light artwork preferred, black
+   artwork inverted. While no file is proven, the brand name stands in. */
+.splash__brand{position:absolute;top:22px;left:0;right:0;display:flex;justify-content:center;
+  font-size:1rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fff}
+.splash__brand img{max-height:30px;width:auto}
+/* When a service name is also set, it sits below the brand mark. */
+.splash__brand ~ .splash__service{top:64px}
+.result__head .splash__brand{top:20px}
 /* The reticle-and-blob mark that opens the completed-check screen. The mark
    crunches (particle bursts on the canvas), the headline fades in, then the
    blob dies down and the reticle parks small and empty. */
@@ -969,6 +978,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       <!-- No role="status": it would replace the heading role, and the text
            never mutates, so as a live region it announced nothing anyway.
            showStep's focus on this h1 is what announces the splash. -->
+      <div class="splash__brand" id="splash-brand" aria-hidden="true"></div>
       <h1 id="h-splash" tabindex="-1" data-i18n="splash.title">Verifica completata</h1>
       <div class="splash__blob" aria-hidden="true">
         <canvas id="splash-fx" width="260" height="260"></canvas>
@@ -980,6 +990,7 @@ html[data-motionbtn] main{padding-bottom:72px}
     <!-- RESULT ------------------------------------------------------------ -->
     <section class="step" id="step-result" hidden>
       <div class="result__head">
+        <div class="splash__brand" id="result-brand" aria-hidden="true"></div>
         <p class="splash__service" id="result-service"></p>
         <p class="result__eyebrow" data-i18n="splash.title">Verifica completata</p>
       </div>
@@ -2484,6 +2495,8 @@ html[data-motionbtn] main{padding-bottom:72px}
        file proves itself; setLive keeps that text on the language it should
        be, through the [data-i18n] repaint pass. */
     setLive("#scan-brand", "ui.brand");
+    setLive("#splash-brand", "ui.brand");
+    setLive("#result-brand", "ui.brand");
     if (!ASSETS.logo && !ASSETS.logoLight) return;
     /* Establish which artwork files really exist BEFORE anything enters the
        header: appending destroys the typographic fallback, and the live
@@ -2513,12 +2526,14 @@ html[data-motionbtn] main{padding-bottom:72px}
         /* The scan overlay sits on a dark surface: prefer the proven light
            artwork, otherwise invert the proven dark one. Only a proven file
            replaces the typographic name. */
-        var sb = $("#scan-brand");
-        var bi = new Image(); bi.alt = "";
-        bi.style.maxHeight = "30px";
-        if (!lightOK) bi.style.filter = "invert(1)";
-        bi.src = lightOK ? ASSETS.logoLight : ASSETS.logo;
-        sb.removeAttribute("data-i18n"); sb.textContent = ""; sb.appendChild(bi);
+        ["#scan-brand", "#splash-brand", "#result-brand"].forEach(function (sel) {
+          var host = $(sel);
+          var bi = new Image(); bi.alt = "";
+          bi.style.maxHeight = "30px";
+          if (!lightOK) bi.style.filter = "invert(1)";
+          bi.src = lightOK ? ASSETS.logoLight : ASSETS.logo;
+          host.removeAttribute("data-i18n"); host.textContent = ""; host.appendChild(bi);
+        });
       });
     });
   }
