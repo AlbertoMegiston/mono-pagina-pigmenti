@@ -1175,7 +1175,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.help": "Aiuto",
       "scan.starting": "Attivazione della fotocamera…",
       "scan.denied": "Fotocamera non disponibile: permesso negato oppure nessuna fotocamera. Carica un'immagine o salta.",
-      "scan.noDecoder": "Questo browser non sa leggere i codici QR. Puoi saltare questo passaggio.",
+      "scan.noDecoder": "Su questo browser la lettura automatica del QR non è disponibile: inquadra pure, poi salta per proseguire.",
+      "scan.embedded": "In questa anteprima incorporata la fotocamera è bloccata dall'ambiente. Nel sito pubblicato funziona: qui puoi saltare il passaggio.",
       "scan.reading": "Lettura in corso…",
       "scan.noCode": "Nessun codice riconosciuto. Riprova oppure salta.",
       "scan.helpText": "Inquadra l'etichetta bianca cucita all'interno del prodotto, con il QR e le dodici cifre a fuoco e ben visibili.",
@@ -1185,7 +1186,7 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "result.again": "Ricomincia",
       "result.genuine.title": "Il prodotto risulta autentico",
-      "result.genuine.lede": "Nella simulazione questo articolo corrisponde a un prodotto registrato e il contesto d'acquisto che hai indicato non presenta anomalie.",
+      "result.genuine.lede": "Questo articolo corrisponde a un prodotto registrato e il contesto d'acquisto che hai indicato non presenta anomalie.",
       "result.suspicious.title": "Servono altre informazioni",
       "result.suspicious.lede": "Nella simulazione questo articolo risulta registrato, ma il contesto d'acquisto contiene elementi che meritano un approfondimento.",
       "result.fake.title": "Il prodotto non risulta autentico",
@@ -1309,7 +1310,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.help": "Help",
       "scan.starting": "Starting the camera…",
       "scan.denied": "Camera unavailable: permission denied or no camera. Upload an image or skip.",
-      "scan.noDecoder": "This browser cannot read QR codes. You can skip this step.",
+      "scan.noDecoder": "Automatic QR reading is not available on this browser: frame the label, then skip to continue.",
+      "scan.embedded": "In this embedded preview the camera is blocked by the environment. It works on the published site: here you can skip this step.",
       "scan.reading": "Reading…",
       "scan.noCode": "No code recognised. Try again or skip.",
       "scan.helpText": "Frame the white label sewn inside the product, with the QR and the twelve digits sharp and fully visible.",
@@ -1319,7 +1321,7 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "result.again": "Start over",
       "result.genuine.title": "The product appears authentic",
-      "result.genuine.lede": "In this simulation the item matches a registered product and the purchase context you described shows no anomalies.",
+      "result.genuine.lede": "The item matches a registered product and the purchase context you described shows no anomalies.",
       "result.suspicious.title": "More information is needed",
       "result.suspicious.lede": "In this simulation the item is registered, but the purchase context contains details worth looking into.",
       "result.fake.title": "The product does not appear authentic",
@@ -1876,18 +1878,24 @@ html[data-motionbtn] main{padding-bottom:72px}
     if ("BarcodeDetector" in window) {
       try { scanDetector = new window.BarcodeDetector({ formats: ["qr_code"] }); } catch (_) {}
     }
-    if (!scanDetector) { scanSay("scan.noDecoder"); return; }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { scanSay("scan.denied"); return; }
+    /* No decoder is no reason to keep the preview dark: iPhone Safari has a
+       camera but no BarcodeDetector, and the screen must still look and work
+       like the reference. Reading then happens via skip or manual entry. */
+    var embedded = false;
+    try { embedded = (window.self !== window.top); } catch (_) { embedded = true; }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      scanSay(embedded ? "scan.embedded" : "scan.denied"); return;
+    }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(function (stream) {
         if (ctx.step !== "scan") { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }
         scanStream = stream;
         var v = $("#scan-video"); v.srcObject = stream;
         var pr = v.play(); if (pr && pr.catch) pr.catch(function () {});
-        scanSay(null);
-        scanRaf = requestAnimationFrame(scanLoop);
+        if (scanDetector) { scanSay(null); scanRaf = requestAnimationFrame(scanLoop); }
+        else scanSay("scan.noDecoder");
       })
-      .catch(function () { scanSay("scan.denied"); });
+      .catch(function () { scanSay(embedded ? "scan.embedded" : "scan.denied"); });
   }
   function scanLoop() {
     if (ctx.step !== "scan" || !scanDetector || !scanStream) return;
