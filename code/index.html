@@ -2695,9 +2695,12 @@ html[data-motionbtn] main{padding-bottom:72px}
     /* The experience opens only for a visit that carries the QR's validation
        parameter with a complete code. The parameter is one-shot: it is
        stripped from the URL, so a reload — like a direct visit — lands on
-       the gate. */
+       the gate. window.GATE_DISABLED (set by the shared demo build, whose
+       host cannot forward URL parameters) admits every visit with the demo
+       code instead. */
     var raw = (params.get("clg") || params.get("code") || "").replace(/\D+/g, "");
     var admitted = raw.length === 12;
+    if (!admitted && window.GATE_DISABLED) { raw = "123456789012"; admitted = true; }
     var first = admitted ? "landing" : "gate";
     if (admitted) {
       ctx.code = raw;
