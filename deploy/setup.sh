@@ -38,7 +38,7 @@ DATADIR=/var/lib/autenticatore
 echo "==> 1/8 pacchetti"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw curl >/dev/null
+apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw curl openssl >/dev/null
 
 echo "==> 2/8 utente e cartelle"
 id -u autenticatore >/dev/null 2>&1 || \
@@ -125,6 +125,47 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
+echo "==> 5b/8 pannello di amministrazione"
+install -m 755 "$QUI/api/admin_server.py" "$APPDIR/admin_server.py"
+install -m 755 "$QUI/api/imposta-password-pannello" /usr/local/bin/imposta-password-pannello
+install -m 644 "$QUI/api/autenticatore-pannello.service" \
+  /etc/systemd/system/autenticatore-pannello.service
+systemctl daemon-reload
+systemctl enable autenticatore-pannello >/dev/null
+systemctl restart autenticatore-pannello
+# Pezzi nginx del pannello: il limite d'accesso (contesto http) e la location
+# (inclusa nel server del sito). Restano fuori dal file che tocca certbot.
+install -m 644 "$QUI/nginx/pannello.http.conf" /etc/nginx/conf.d/autenticatore-pannello.conf
+install -d /etc/nginx/snippets
+install -m 644 "$QUI/nginx/pannello.location.conf" /etc/nginx/snippets/autenticatore-pannello.conf
+# Password iniziale: se non e' ancora impostata, ne creiamo una casuale forte e
+# la salviamo in un file leggibile solo da root. Si cambia con:
+#   imposta-password-pannello
+HTP=/etc/nginx/.htpasswd-autenticatore
+if [[ ! -s "$HTP" ]]; then
+  PW="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
+  umask 077
+  printf 'admin:%s\n' "$(openssl passwd -apr1 "$PW")" > "$HTP"
+  chmod 640 "$HTP"; chown root:www-data "$HTP" 2>/dev/null || true
+  printf 'Pannello di amministrazione\nindirizzo: /pannello/\nutente: admin\npassword: %s\n' "$PW" > /root/pannello-password.txt
+  chmod 600 /root/pannello-password.txt
+  echo "    credenziali iniziali salvate in /root/pannello-password.txt"
+  echo "    (cambiale quando vuoi con: imposta-password-pannello)"
+else
+  echo "    accesso al pannello gia' configurato"
+fi
+# Includiamo la location del pannello nel server del sito (una volta sola).
+if ! grep -q "autenticatore-pannello.conf" "$CONF"; then
+  sed -i '/root \/var\/www\/autenticatore;/a\    include snippets/autenticatore-pannello.conf;' "$CONF"
+fi
+nginx -t
+systemctl reload nginx
+if systemctl is-active --quiet autenticatore-pannello; then
+  echo "    pannello attivo su /pannello/"
+else
+  echo "    ATTENZIONE: il pannello non e' partito: journalctl -u autenticatore-pannello -n 30" >&2
+fi
+
 echo "==> 6/8 firewall"
 if [[ "$FIREWALL" == "no-firewall" ]]; then
   echo "    saltato su richiesta"
@@ -181,9 +222,10 @@ Fatto.
 
   Sito       $PROTO://$DOMINIO
   Test QR    $PROTO://$DOMINIO/?clg=123456789012
+  Pannello   $PROTO://$DOMINIO/pannello/   (utente e password in /root/pannello-password.txt)
 
-Finche' c'e' solo la lista demo, danno un esito diverso da "non trovato" solo
-i tre codici di prova. Per caricare la lista vera:
+Dal pannello carichi la lista dei codici e vedi le statistiche, senza riga di
+comando. In alternativa, da qui:
 
   clgadmin svuota --conferma
   clgadmin importa /root/codici.csv --lotto "primo-lotto"

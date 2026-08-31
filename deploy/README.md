@@ -77,6 +77,29 @@ configurato né rimette i codici demo.
 
 Alla fine il sito risponde su `https://iltuodominio.it`.
 
+## Il pannello di amministrazione
+
+Da `https://iltuodominio.it/pannello/` gestisci la lista **senza riga di
+comando**: carichi i codici (incollandoli o da file), vedi le statistiche,
+revochi un singolo codice, svuoti la lista.
+
+È protetto da **utente e password** (su HTTPS), con un limite ai tentativi di
+accesso. All'installazione viene creata una password casuale, salvata sul
+server in `/root/pannello-password.txt` (leggibile solo da root):
+
+```bash
+cat /root/pannello-password.txt
+```
+
+Per impostarne una tua:
+
+```bash
+imposta-password-pannello
+```
+
+Il servizio del pannello ascolta solo su localhost: si raggiunge unicamente
+attraverso nginx, dopo il login. Non è indicizzato dai motori di ricerca.
+
 ## La lista dei codici
 
 Appena installato ci sono solo i **tre codici dimostrativi** (`…012` autentico,
