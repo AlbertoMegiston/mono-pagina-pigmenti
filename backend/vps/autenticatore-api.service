@@ -13,6 +13,7 @@ Environment=CLG_BIND_HOST=127.0.0.1
 Environment=CLG_BIND_PORT=8787
 Environment=CLG_DUP_LIMIT=10
 Environment=CLG_DUP_DAYS=30
+Environment=CLG_RETENTION_DAYS=180
 Restart=on-failure
 RestartSec=2
 

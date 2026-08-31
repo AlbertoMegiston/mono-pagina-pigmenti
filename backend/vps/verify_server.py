@@ -27,12 +27,14 @@ Configurazione via variabili d'ambiente (vedi autenticatore-api.service):
     CLG_DUP_LIMIT   verifiche oltre le quali un codice valido diventa
                     sospetto (default 10)
     CLG_DUP_DAYS    finestra in giorni per quel conteggio (default 30)
+    CLG_RETENTION_DAYS  eta' oltre la quale il registro viene potato (default 180)
 """
 
 import hashlib
 import hmac
 import json
 import os
+import random
 import re
 import sqlite3
 import sys
@@ -45,6 +47,10 @@ HOST = os.environ.get("CLG_BIND_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CLG_BIND_PORT", "8787"))
 DUP_LIMIT = int(os.environ.get("CLG_DUP_LIMIT", "10"))
 DUP_DAYS = int(os.environ.get("CLG_DUP_DAYS", "30"))
+# Oltre questa eta' le righe del registro vengono potate: il conteggio
+# anti-clonazione guarda solo gli ultimi CLG_DUP_DAYS, quindi tenerne una
+# manciata di mesi basta e impedisce al registro di crescere all'infinito.
+RETENTION_DAYS = int(os.environ.get("CLG_RETENTION_DAYS", "180"))
 
 CODE_RE = re.compile(r"^\d{12}$")
 MAX_BODY = 4096  # il corpo legittimo sta in poche centinaia di byte
@@ -161,6 +167,15 @@ def log_check(code, outcome, ip_hash, ctx):
     except sqlite3.Error as e:
         # Il registro non deve mai impedire una risposta all'utente.
         print("log fallito:", e, file=sys.stderr, flush=True)
+    # Ogni tanto (circa una verifica su 200) potiamo le righe piu' vecchie di
+    # RETENTION_DAYS: tiene il registro limitato senza un processo pianificato.
+    if random.random() < 0.005:
+        try:
+            with connect() as cx:
+                cx.execute("DELETE FROM checks WHERE ts < ?",
+                           (int(time.time()) - RETENTION_DAYS * 86400,))
+        except sqlite3.Error:
+            pass
 
 
 class Handler(BaseHTTPRequestHandler):

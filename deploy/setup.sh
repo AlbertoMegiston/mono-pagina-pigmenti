@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 #
-# Installazione completa dell'autenticatore su un server Debian/Ubuntu pulito.
+# Installazione completa dell'autenticatore su un server Debian pulito
+# (testato per Debian 12 e 13, accesso come root).
 #
-#   sudo ./setup.sh autenticatore.tuodominio.it tua@email.it
+#   ./setup.sh crtilogo.com tua@email.it
 #
 # Fa tutto: pacchetti, sito statico, servizio di verifica, nginx, firewall e
 # certificato HTTPS. Si puo' rilanciare senza danni: ogni passo controlla se e'
-# gia' a posto.
+# gia' a posto. Va eseguito come root (su Debian minimale sudo non c'e', ma il
+# login e' gia' root, quindi non serve).
 #
 set -euo pipefail
 
@@ -15,12 +17,12 @@ EMAIL="${2:-}"
 FIREWALL="${3:-firewall}"
 
 if [[ -z "$DOMINIO" || -z "$EMAIL" ]]; then
-  echo "Uso: sudo ./setup.sh <dominio> <email> [no-firewall]" >&2
-  echo "Es.: sudo ./setup.sh autenticatore.miodominio.it io@miodominio.it" >&2
+  echo "Uso: ./setup.sh <dominio> <email> [no-firewall]" >&2
+  echo "Es.: ./setup.sh crtilogo.com io@dominio.it" >&2
   exit 1
 fi
 if [[ $EUID -ne 0 ]]; then
-  echo "Serve root: rilancia con sudo." >&2
+  echo "Va eseguito come root." >&2
   exit 1
 fi
 if ! command -v apt-get >/dev/null; then
@@ -56,18 +58,24 @@ fi
 echo "==> 4/8 servizio di verifica"
 install -m 755 "$QUI/api/verify_server.py" "$APPDIR/verify_server.py"
 install -m 755 "$QUI/api/clg_import.py" "$APPDIR/clg_import.py"
-cat > /usr/local/bin/clgadmin <<'EOF'
+# clgadmin gira come root: cosi' puo' leggere un file di codici ovunque si trovi
+# (anche in /root, che e' 0700), e alla fine restituisce la proprieta' del
+# database all'utente del servizio, che deve poterci scrivere.
+cat > /usr/local/bin/clgadmin <<EOF
 #!/bin/sh
-# Gestione della lista codici. Gira come l'utente del servizio, cosi' i file
-# del database restano suoi.
-exec setpriv --reuid=autenticatore --regid=autenticatore --init-groups \
-     /usr/bin/python3 /opt/autenticatore/clg_import.py "$@"
+/usr/bin/python3 $APPDIR/clg_import.py "\$@"
+rc=\$?
+chown -R autenticatore:autenticatore $DATADIR 2>/dev/null || true
+exit \$rc
 EOF
 chmod 755 /usr/local/bin/clgadmin
 install -m 644 "$QUI/api/autenticatore-api.service" \
   /etc/systemd/system/autenticatore-api.service
 systemctl daemon-reload
-systemctl enable --now autenticatore-api >/dev/null
+systemctl enable autenticatore-api >/dev/null
+# restart, non "enable --now": a un rilancio applica anche codice e unit
+# aggiornati (enable --now non riavvia un servizio gia' attivo).
+systemctl restart autenticatore-api
 sleep 1
 if systemctl is-active --quiet autenticatore-api; then
   echo "    servizio attivo"
@@ -76,28 +84,31 @@ else
 fi
 
 echo "==> 4b/8 codici dimostrativi"
-# Con la lista vuota ogni codice risulterebbe "non trovato", demo compresi.
-# Seminiamo i tre codici di prova solo se la lista e' ancora vuota, cosi' il
-# sito e' subito mostrabile; si tolgono con "clgadmin svuota --conferma".
-# Il database lo crea il servizio al primo avvio: aspettiamo che ci sia,
-# altrimenti non sapremmo distinguere "lista vuota" da "non ancora pronto".
-for _ in $(seq 1 20); do [[ -f "$DATADIR/clg.db" ]] && break; sleep 0.5; done
-if [[ ! -f "$DATADIR/clg.db" ]]; then
-  echo "    database non ancora creato, seme saltato" >&2
-elif [[ -f "$QUI/api/codici-dimostrativi.csv" ]]; then
-  CONTA="$(clgadmin stato-lista 2>/dev/null | awk '/codici in lista:/ {print $4}')"
-  if [[ "$CONTA" == "0" ]]; then
-    clgadmin importa "$QUI/api/codici-dimostrativi.csv" --lotto "dimostrativi" >/dev/null
-    echo "    seminati 3 codici di prova (svuota con: sudo clgadmin svuota --conferma)"
+# Solo alla PRIMA installazione. Un sentinella evita di riseminare i codici
+# demo dopo che l'operatore ha caricato la lista vera (magari svuotando prima
+# quella demo): un rilancio non deve reintrodurli. Tutto qui e' non fatale.
+SENTINELLA="$DATADIR/.demo-seed-done"
+if [[ -e "$SENTINELLA" ]]; then
+  echo "    gia' fatto in una installazione precedente, salto"
+else
+  # Il database lo crea il servizio al primo avvio: aspettiamo che ci sia.
+  for _ in $(seq 1 20); do [[ -f "$DATADIR/clg.db" ]] && break; sleep 0.5; done
+  if [[ -f "$DATADIR/clg.db" && -f "$QUI/api/codici-dimostrativi.csv" ]]; then
+    if clgadmin importa "$QUI/api/codici-dimostrativi.csv" --lotto "dimostrativi" >/dev/null 2>&1; then
+      touch "$SENTINELLA"
+      echo "    seminati 3 codici di prova (via con: clgadmin svuota --conferma)"
+    else
+      echo "    ATTENZIONE: seme demo non riuscito (non blocca l'installazione)" >&2
+    fi
   else
-    echo "    lista gia' popolata (${CONTA:-?} codici), nessun seme aggiunto"
+    echo "    database non ancora pronto, seme demo saltato" >&2
   fi
 fi
 
 echo "==> 5/8 nginx"
 CONF=/etc/nginx/sites-available/autenticatore
-# Al rilancio non riscriviamo una configurazione che certbot ha gia' completato
-# con il blocco HTTPS: la sovrascrittura riporterebbe il sito su solo HTTP.
+# Una volta che certbot ha aggiunto il blocco HTTPS (listen 443), non
+# rigeneriamo il file: lo sovrascriveremmo riportando il sito a solo HTTP.
 if [[ -f "$CONF" ]] && grep -q "listen 443" "$CONF"; then
   echo "    configurazione con HTTPS gia' presente, lasciata com'e'"
 else
@@ -118,22 +129,40 @@ echo "==> 6/8 firewall"
 if [[ "$FIREWALL" == "no-firewall" ]]; then
   echo "    saltato su richiesta"
 else
-  # La porta SSH viene letta dalla configurazione reale: mai chiudersi fuori.
-  SSHPORT="$(awk '/^[[:space:]]*Port[[:space:]]+[0-9]+/ {print $2; exit}' /etc/ssh/sshd_config 2>/dev/null || true)"
-  ufw allow "${SSHPORT:-22}/tcp" >/dev/null
+  # La porta SSH da tenere aperta la prendiamo dalla connessione in corso
+  # (SSH_CONNECTION: l'ultimo campo e' la porta del server): e' esattamente
+  # quella da cui sei entrato, quindi non c'e' modo di chiudersi fuori. In
+  # mancanza la chiediamo a sshd (che risolve anche gli Include di
+  # sshd_config.d), infine 22.
+  SSHPORT="$(awk '{print $4}' <<<"${SSH_CONNECTION:-}")"
+  if ! [[ "$SSHPORT" =~ ^[0-9]+$ ]]; then
+    SSHPORT="$(sshd -T 2>/dev/null | awk '$1=="port"{print $2; exit}' || true)"
+  fi
+  [[ "$SSHPORT" =~ ^[0-9]+$ ]] || SSHPORT=22
+  ufw allow "$SSHPORT/tcp" >/dev/null
   ufw allow 'Nginx Full' >/dev/null
   ufw --force enable >/dev/null
-  echo "    attivo (SSH su ${SSHPORT:-22}, web aperto)"
+  echo "    attivo (SSH su $SSHPORT, web aperto)"
 fi
 
 echo "==> 7/8 certificato HTTPS"
-if [[ -d "/etc/letsencrypt/live/$DOMINIO" ]]; then
-  echo "    certificato gia' presente, rinnovo automatico gestito da certbot"
-elif certbot --nginx -d "$DOMINIO" --non-interactive --agree-tos -m "$EMAIL" --redirect >/dev/null 2>&1; then
-  echo "    certificato ottenuto, rinnovo automatico attivo"
+# Stesso criterio del passo 5: se il file nginx non ha ancora il blocco 443,
+# chiediamo (o ri-applichiamo) il certificato. Con --keep-until-expiring
+# certbot riusa un certificato gia' emesso invece di richiederne un altro.
+if grep -q "listen 443" "$CONF"; then
+  echo "    HTTPS gia' configurato, rinnovo automatico gestito da certbot"
 else
-  echo "    NON riuscito. Quasi sempre e' il DNS che non punta ancora qui." >&2
-  echo "    Controlla il record A e rilancia:  sudo certbot --nginx -d $DOMINIO --redirect" >&2
+  CERTLOG="$(mktemp)"
+  if certbot --nginx -d "$DOMINIO" --non-interactive --agree-tos -m "$EMAIL" \
+       --redirect --keep-until-expiring >"$CERTLOG" 2>&1; then
+    echo "    certificato ottenuto, rinnovo automatico attivo"
+  else
+    echo "    NON riuscito. Ultime righe di certbot:" >&2
+    tail -n 8 "$CERTLOG" | sed 's/^/      /' >&2
+    echo "    (Spesso e' il DNS che non punta ancora qui. Sistemato quello, rilancia:" >&2
+    echo "     certbot --nginx -d $DOMINIO --redirect )" >&2
+  fi
+  rm -f "$CERTLOG"
 fi
 
 echo "==> 8/8 verifica finale"
@@ -141,20 +170,23 @@ systemctl reload nginx
 if curl -fsS --max-time 5 http://127.0.0.1:8787/api/health >/dev/null 2>&1; then
   echo "    servizio di verifica attivo"
 else
-  echo "    API non raggiungibile da nginx: journalctl -u autenticatore-api -n 30" >&2
+  echo "    servizio non raggiungibile: journalctl -u autenticatore-api -n 30" >&2
 fi
 
+PROTO=http
+grep -q "listen 443" "$CONF" && PROTO=https
 cat <<FINE
 
 Fatto.
 
-  Sito       https://$DOMINIO
-  Test QR    https://$DOMINIO/?clg=123456789012
+  Sito       $PROTO://$DOMINIO
+  Test QR    $PROTO://$DOMINIO/?clg=123456789012
 
-Finche' la lista codici e' vuota ogni codice risulta "non trovato".
-Carica la lista vera con:
+Finche' c'e' solo la lista demo, danno un esito diverso da "non trovato" solo
+i tre codici di prova. Per caricare la lista vera:
 
-  sudo clgadmin importa /percorso/codici.csv --lotto "primo-lotto"
-  sudo clgadmin stato-lista
+  clgadmin svuota --conferma
+  clgadmin importa /root/codici.csv --lotto "primo-lotto"
+  clgadmin stato-lista
 
 FINE

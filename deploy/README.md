@@ -1,7 +1,10 @@
 # Messa online sul server
 
-Tutto quello che serve per mettere l'autenticatore su un VPS (Debian o Ubuntu)
+Tutto quello che serve per mettere l'autenticatore su un VPS Debian (12 o 13)
 con dominio, HTTPS e verifica reale dei codici. Un solo script fa il lavoro.
+
+Il login sul server è come **root**, quindi i comandi si danno senza `sudo`
+(su Debian minimale `sudo` non è nemmeno installato).
 
 ## Cosa finisce sul server
 
@@ -28,44 +31,51 @@ installare, niente database server da amministrare.
 Servono due cose:
 
 1. **Il server**, con il suo indirizzo IP pubblico.
-2. **Un record DNS** che punti il dominio a quell'indirizzo. Nel pannello dove
+2. **Record DNS** che puntino il dominio a quell'indirizzo. Nel pannello dove
    hai comprato il dominio:
 
    | Tipo | Nome | Valore |
    |------|------|--------|
-   | A    | `autenticatore` (oppure `@` per il dominio nudo) | l'IP del server |
+   | A    | `@` (o il sottodominio scelto) | l'IPv4 del server |
+   | AAAA | lo stesso nome                 | l'IPv6 del server, se il server ne ha uno |
 
    Aspetta che il DNS si propaghi prima del passo 3, altrimenti il certificato
-   HTTPS non si può ottenere. Controlla con `dig +short iltuodominio.it`.
+   HTTPS non si può ottenere. Controlla dal server con
+   `getent hosts iltuodominio.it` (deve rispondere l'IP giusto).
+
+   > Attenzione all'AAAA: se lo imposti, deve essere **corretto**. Let's Encrypt
+   > prova prima l'IPv6, e un AAAA sbagliato fa fallire il certificato. Se non
+   > vuoi l'IPv6, meglio non mettere l'AAAA che metterlo errato.
 
 ## I tre passi
 
-**1. Copia il pacchetto sul server**
+**1. Copia il pacchetto sul server** (dal tuo computer):
 
 ```bash
-scp autenticatore-deploy.tar.gz root@IP_DEL_SERVER:/root/
+scp -i ~/.ssh/LA_TUA_CHIAVE autenticatore-deploy.tar.gz root@IP_DEL_SERVER:/root/
 ```
 
-**2. Entra e scompatta**
+**2. Entra e scompatta**:
 
 ```bash
-ssh root@IP_DEL_SERVER
+ssh -i ~/.ssh/LA_TUA_CHIAVE root@IP_DEL_SERVER
 tar xzf autenticatore-deploy.tar.gz
 cd autenticatore-deploy
 ```
 
-**3. Lancia l'installazione**
+**3. Lancia l'installazione**:
 
 ```bash
-sudo ./setup.sh autenticatore.tuodominio.it tua@email.it
+./setup.sh iltuodominio.it tua@email.it
 ```
 
 Lo script installa i pacchetti, mette la pagina al suo posto, avvia il servizio
 di verifica, configura nginx, apre il firewall (lasciando aperta la porta SSH da
 cui sei collegato) e chiede il certificato HTTPS. Si può rilanciare quante volte
-vuoi: ogni passo controlla se è già a posto.
+vuoi: ogni passo controlla se è già a posto, e un rilancio non tocca l'HTTPS già
+configurato né rimette i codici demo.
 
-Alla fine il sito risponde su `https://autenticatore.tuodominio.it`.
+Alla fine il sito risponde su `https://iltuodominio.it`.
 
 ## La lista dei codici
 
@@ -75,13 +85,13 @@ la lista vera:
 
 ```bash
 # via i codici di prova
-sudo clgadmin svuota --conferma
+clgadmin svuota --conferma
 
-# carica la lista del brand
-sudo clgadmin importa /root/codici.csv --lotto "lotto-2026-01"
+# carica la lista del brand (il file può stare anche in /root)
+clgadmin importa /root/codici.csv --lotto "lotto-2026-01"
 
 # controlla
-sudo clgadmin stato-lista
+clgadmin stato-lista
 ```
 
 Il file può essere un elenco semplice (un codice per riga) oppure un CSV con
@@ -91,7 +101,7 @@ vengono ignorati, le righe non valide vengono saltate e riepilogate alla fine.
 Per bruciare un singolo codice (da lì in poi l'esito è "falso"):
 
 ```bash
-sudo clgadmin stato 558420726815 revoked
+clgadmin stato 558420726815 revoked
 ```
 
 Stati possibili: `valid`, `suspicious`, `revoked`.
@@ -122,18 +132,23 @@ Quando cambia qualcosa nel sito, si rigenera il file unico e si ricarica:
 ```bash
 # sul tuo computer, dentro il repository
 python3 deploy/build-standalone.py
-scp deploy/site/index.html root@IP_DEL_SERVER:/var/www/autenticatore/index.html
+scp -i ~/.ssh/LA_TUA_CHIAVE deploy/site/index.html root@IP_DEL_SERVER:/var/www/autenticatore/index.html
 ```
 
 Non serve riavviare niente: la pagina non è messa in cache a lungo, il
 cambiamento si vede subito.
+
+> Nota: dopo il primo HTTPS lo script non riscrive più la configurazione di
+> nginx (per non cancellare il blocco che aggiunge certbot). Se cambi header o
+> CSP nel template, applicali a mano in `/etc/nginx/sites-available/autenticatore`
+> e poi `nginx -t && systemctl reload nginx`.
 
 ## I QR code dei prodotti
 
 Ogni QR deve puntare al dominio con il codice del pezzo:
 
 ```
-https://autenticatore.tuodominio.it/?clg=558420726815
+https://iltuodominio.it/?clg=558420726815
 ```
 
 Chi arriva così entra direttamente nell'esperienza. Chi apre il dominio senza
@@ -144,9 +159,10 @@ parametro — o ricarica la pagina — trova la schermata bianca con il bottone
 
 - Gli **indirizzi IP non vengono conservati**: nel registro finisce solo
   un'impronta calcolata con un sale segreto, che basta a contare i dispositivi
-  diversi ma non permette di risalire a chi ha verificato.
-- L'API accetta **20 richieste al minuto per indirizzo**: frena chi provasse a
-  tentare codici a caso.
+  diversi ma non permette di risalire a chi ha verificato. Il registro viene
+  potato automaticamente (righe più vecchie di 180 giorni).
+- L'API accetta **20 richieste al minuto per indirizzo** (per IPv6 per blocco
+  /64): frena chi provasse a tentare codici a caso.
 - La lista codici **si amministra solo dal server**, da riga di comando. Non
   esiste una pagina di amministrazione da proteggere né una password in giro.
 - Il servizio gira con un utente dedicato senza privilegi e può scrivere solo
@@ -167,5 +183,5 @@ Se il certificato non è stato rilasciato al primo colpo, quasi sempre è il DNS
 che non puntava ancora al server. Sistemato quello:
 
 ```bash
-sudo certbot --nginx -d autenticatore.tuodominio.it --redirect
+certbot --nginx -d iltuodominio.it --redirect
 ```

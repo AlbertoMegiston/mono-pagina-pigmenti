@@ -3,7 +3,15 @@
 
 # Limite di richieste sull'API: un codice valido si verifica una volta ogni
 # tanto, non venti volte al minuto. Frena chi provasse a tentare codici a caso.
-limit_req_zone $binary_remote_addr zone=clgapi:10m rate=20r/m;
+# Chiave del limite: per IPv4 l'indirizzo intero; per IPv6 il /64 (i primi
+# quattro gruppi). Un singolo assegnatario IPv6 dispone di un intero /64 e
+# potrebbe altrimenti aggirare il limite cambiando indirizzo a ogni richiesta;
+# le forme compresse (con "::") non catturate ricadono sull'indirizzo pieno.
+map $remote_addr $clg_limit_key {
+    default                                                    $remote_addr;
+    "~^(?<blocco64>[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+):"  $blocco64;
+}
+limit_req_zone $clg_limit_key zone=clgapi:10m rate=20r/m;
 
 server {
     listen 80;
