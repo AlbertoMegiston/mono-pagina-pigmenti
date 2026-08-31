@@ -36,7 +36,7 @@ DATADIR=/var/lib/autenticatore
 echo "==> 1/8 pacchetti"
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
-apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw >/dev/null
+apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw curl >/dev/null
 
 echo "==> 2/8 utente e cartelle"
 id -u autenticatore >/dev/null 2>&1 || \
@@ -138,8 +138,8 @@ fi
 
 echo "==> 8/8 verifica finale"
 systemctl reload nginx
-if curl -fsS --max-time 5 http://127.0.0.1/api/health >/dev/null 2>&1; then
-  echo "    API raggiungibile"
+if curl -fsS --max-time 5 http://127.0.0.1:8787/api/health >/dev/null 2>&1; then
+  echo "    servizio di verifica attivo"
 else
   echo "    API non raggiungibile da nginx: journalctl -u autenticatore-api -n 30" >&2
 fi
