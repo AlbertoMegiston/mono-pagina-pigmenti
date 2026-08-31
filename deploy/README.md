@@ -1,0 +1,171 @@
+# Messa online sul server
+
+Tutto quello che serve per mettere l'autenticatore su un VPS (Debian o Ubuntu)
+con dominio, HTTPS e verifica reale dei codici. Un solo script fa il lavoro.
+
+## Cosa finisce sul server
+
+```
+    visitatore
+       │  https
+       ▼
+    nginx ──── /            →  /var/www/autenticatore/index.html   (la pagina)
+       └────── /api/verify  →  127.0.0.1:8787                      (il servizio)
+                                    │
+                                    ▼
+                              /var/lib/autenticatore/clg.db
+                              (lista codici + registro verifiche)
+```
+
+La pagina è **un unico file**: font, logo e fotografie sono dentro. Non ci sono
+cartelle di risorse da tenere allineate.
+
+Il servizio di verifica usa solo Python di sistema e SQLite: niente pacchetti da
+installare, niente database server da amministrare.
+
+## Prima di cominciare
+
+Servono due cose:
+
+1. **Il server**, con il suo indirizzo IP pubblico.
+2. **Un record DNS** che punti il dominio a quell'indirizzo. Nel pannello dove
+   hai comprato il dominio:
+
+   | Tipo | Nome | Valore |
+   |------|------|--------|
+   | A    | `autenticatore` (oppure `@` per il dominio nudo) | l'IP del server |
+
+   Aspetta che il DNS si propaghi prima del passo 3, altrimenti il certificato
+   HTTPS non si può ottenere. Controlla con `dig +short iltuodominio.it`.
+
+## I tre passi
+
+**1. Copia il pacchetto sul server**
+
+```bash
+scp autenticatore-deploy.tar.gz root@IP_DEL_SERVER:/root/
+```
+
+**2. Entra e scompatta**
+
+```bash
+ssh root@IP_DEL_SERVER
+tar xzf autenticatore-deploy.tar.gz
+cd autenticatore-deploy
+```
+
+**3. Lancia l'installazione**
+
+```bash
+sudo ./setup.sh autenticatore.tuodominio.it tua@email.it
+```
+
+Lo script installa i pacchetti, mette la pagina al suo posto, avvia il servizio
+di verifica, configura nginx, apre il firewall (lasciando aperta la porta SSH da
+cui sei collegato) e chiede il certificato HTTPS. Si può rilanciare quante volte
+vuoi: ogni passo controlla se è già a posto.
+
+Alla fine il sito risponde su `https://autenticatore.tuodominio.it`.
+
+## La lista dei codici
+
+Appena installato ci sono solo i **tre codici dimostrativi** (`…012` autentico,
+`…013` sospetto, `…014` falso), così il sito è subito mostrabile. Quando arriva
+la lista vera:
+
+```bash
+# via i codici di prova
+sudo clgadmin svuota --conferma
+
+# carica la lista del brand
+sudo clgadmin importa /root/codici.csv --lotto "lotto-2026-01"
+
+# controlla
+sudo clgadmin stato-lista
+```
+
+Il file può essere un elenco semplice (un codice per riga) oppure un CSV con
+intestazione `code,status,note`. I codici sono di 12 cifre; trattini e spazi
+vengono ignorati, le righe non valide vengono saltate e riepilogate alla fine.
+
+Per bruciare un singolo codice (da lì in poi l'esito è "falso"):
+
+```bash
+sudo clgadmin stato 558420726815 revoked
+```
+
+Stati possibili: `valid`, `suspicious`, `revoked`.
+
+## Come vengono decisi gli esiti
+
+| Situazione | Esito mostrato |
+|---|---|
+| codice non in lista | non trovato |
+| stato `revoked` | falso |
+| stato `suspicious` | sospetto |
+| valido, ma verificato da più di 10 dispositivi diversi in 30 giorni | sospetto |
+| valido | autentico |
+
+L'ultima riga è il segnale anti-clonazione: un codice autentico vive su un pezzo
+solo, quindi non viene verificato da decine di telefoni diversi. Le soglie si
+cambiano in `/etc/systemd/system/autenticatore-api.service`
+(`CLG_DUP_LIMIT`, `CLG_DUP_DAYS`), poi `systemctl daemon-reload && systemctl
+restart autenticatore-api`.
+
+**Se il servizio non risponde**, la pagina non si blocca e non inventa un esito
+"vero": ripiega sull'esito simulato, e l'avviso in testa alla pagina lo dichiara.
+
+## Aggiornare la pagina
+
+Quando cambia qualcosa nel sito, si rigenera il file unico e si ricarica:
+
+```bash
+# sul tuo computer, dentro il repository
+python3 deploy/build-standalone.py
+scp deploy/site/index.html root@IP_DEL_SERVER:/var/www/autenticatore/index.html
+```
+
+Non serve riavviare niente: la pagina non è messa in cache a lungo, il
+cambiamento si vede subito.
+
+## I QR code dei prodotti
+
+Ogni QR deve puntare al dominio con il codice del pezzo:
+
+```
+https://autenticatore.tuodominio.it/?clg=558420726815
+```
+
+Chi arriva così entra direttamente nell'esperienza. Chi apre il dominio senza
+parametro — o ricarica la pagina — trova la schermata bianca con il bottone
+**Verifica codice**, com'è stato voluto.
+
+## Privacy e sicurezza, in breve
+
+- Gli **indirizzi IP non vengono conservati**: nel registro finisce solo
+  un'impronta calcolata con un sale segreto, che basta a contare i dispositivi
+  diversi ma non permette di risalire a chi ha verificato.
+- L'API accetta **20 richieste al minuto per indirizzo**: frena chi provasse a
+  tentare codici a caso.
+- La lista codici **si amministra solo dal server**, da riga di comando. Non
+  esiste una pagina di amministrazione da proteggere né una password in giro.
+- Il servizio gira con un utente dedicato senza privilegi e può scrivere solo
+  nella cartella del proprio database.
+- La pagina resta `noindex`: non finisce nei motori di ricerca.
+
+## Se qualcosa non va
+
+```bash
+systemctl status autenticatore-api      # il servizio è vivo?
+journalctl -u autenticatore-api -n 50   # cosa dice
+curl -s localhost:8787/api/health       # risponde?
+nginx -t && systemctl reload nginx      # la configurazione web è valida?
+certbot certificates                    # stato del certificato
+```
+
+Se il certificato non è stato rilasciato al primo colpo, quasi sempre è il DNS
+che non puntava ancora al server. Sistemato quello:
+
+```bash
+sudo certbot --nginx -d autenticatore.tuodominio.it --redirect
+```

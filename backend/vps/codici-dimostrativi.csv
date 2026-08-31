@@ -1,0 +1,4 @@
+code,status,note
+123456789012,valid,codice dimostrativo - esito autentico
+123456789013,suspicious,codice dimostrativo - esito sospetto
+123456789014,revoked,codice dimostrativo - esito falso

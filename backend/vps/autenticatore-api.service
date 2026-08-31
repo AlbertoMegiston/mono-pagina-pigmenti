@@ -1,0 +1,33 @@
+[Unit]
+Description=Autenticatore CLG - servizio di verifica dei codici
+After=network.target
+
+[Service]
+Type=simple
+User=autenticatore
+Group=autenticatore
+ExecStart=/usr/bin/python3 /opt/autenticatore/verify_server.py
+Environment=CLG_DB=/var/lib/autenticatore/clg.db
+Environment=CLG_SALT_FILE=/var/lib/autenticatore/ip-salt
+Environment=CLG_BIND_HOST=127.0.0.1
+Environment=CLG_BIND_PORT=8787
+Environment=CLG_DUP_LIMIT=10
+Environment=CLG_DUP_DAYS=30
+Restart=on-failure
+RestartSec=2
+
+# Il servizio tocca solo il proprio database: tutto il resto del disco gli e'
+# in sola lettura, e non puo' acquisire privilegi.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/autenticatore
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+MemoryMax=256M
+
+[Install]
+WantedBy=multi-user.target

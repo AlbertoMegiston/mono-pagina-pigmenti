@@ -1255,7 +1255,9 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.mustTitle": "Questo è un passaggio obbligatorio, scatta le foto richieste per ottenere la risposta.",
       "scan.mustOk": "Ok, ho capito",
       "photo.toast": "Un ultimo passaggio e ci siamo!",
-      "demo.live": "L'esito viene confrontato con la lista codici caricata dal brand (ambiente di prova).",
+      "demo.titleLive": "Ambiente di prova.",
+      "demo.bodyLive": "L'esito viene confrontato con la lista di codici caricata dal brand. Se il servizio di verifica non risponde, la pagina ripiega su un esito simulato. Non usare questa pagina come prova legale di autenticità.",
+      "demo.shortLive": "Ambiente di prova: la verifica usa la lista caricata dal brand.",
       "demo.short": "L'esito è simulato: nessuna verifica reale viene effettuata."
     },
     en: {
@@ -1392,7 +1394,9 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.mustTitle": "This step is required: take the requested photos to get the answer.",
       "scan.mustOk": "OK, got it",
       "photo.toast": "One last step and we are there!",
-      "demo.live": "The outcome is checked against the code list uploaded by the brand (test environment).",
+      "demo.titleLive": "Test environment.",
+      "demo.bodyLive": "The outcome is checked against the code list uploaded by the brand. If the verification service does not answer, the page falls back to a simulated outcome. Do not use this page as legal proof of authenticity.",
+      "demo.shortLive": "Test environment: verification uses the list uploaded by the brand.",
       "demo.short": "The outcome is simulated: no real verification is performed."
     }
   };
@@ -2596,15 +2600,17 @@ html[data-motionbtn] main{padding-bottom:72px}
 
   function renderDemo() {
     var host = $("#demo"); host.textContent = "";
+    /* With a live authenticator configured the outcome is no longer simulated,
+       so the notice must say what is actually true — including the fallback
+       that takes over when the service cannot be reached. */
+    var live = !!VERIFY.url;
     var p1 = elem("p");
-    var st = elem("strong"); st.textContent = t("demo.title"); p1.appendChild(st);
-    p1.appendChild(document.createTextNode(" " + t("demo.body")));
+    var st = elem("strong");
+    st.textContent = t(live ? "demo.titleLive" : "demo.title"); p1.appendChild(st);
+    p1.appendChild(document.createTextNode(" " + t(live ? "demo.bodyLive" : "demo.body")));
     host.appendChild(p1);
     if (ctx.placeholders) {
       var p2 = elem("p"); p2.textContent = t("demo.assets"); host.appendChild(p2);
-    }
-    if (VERIFY.url) {
-      var pl = elem("p"); pl.textContent = t("demo.live"); host.appendChild(pl);
     }
     var p3 = elem("p");
     p3.appendChild(document.createTextNode(t("demo.try") + " "));
@@ -2621,8 +2627,9 @@ html[data-motionbtn] main{padding-bottom:72px}
     host.appendChild(p3);
     /* The one-line banner in the chrome (see .demo--bar). */
     var bar = $("#demo-bar"); bar.textContent = "";
-    var bs = elem("strong"); bs.textContent = t("demo.title"); bar.appendChild(bs);
-    bar.appendChild(document.createTextNode(" " + t("demo.short")));
+    var bs = elem("strong");
+    bs.textContent = t(live ? "demo.titleLive" : "demo.title"); bar.appendChild(bs);
+    bar.appendChild(document.createTextNode(" " + t(live ? "demo.shortLive" : "demo.short")));
     syncBarH();
   }
 
