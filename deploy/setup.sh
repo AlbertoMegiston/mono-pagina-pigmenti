@@ -143,7 +143,10 @@ install -m 644 "$QUI/nginx/pannello.location.conf" /etc/nginx/snippets/autentica
 #   imposta-password-pannello
 HTP=/etc/nginx/.htpasswd-autenticatore
 if [[ ! -s "$HTP" ]]; then
-  PW="$(tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)"
+  # Password casuale robusta. Niente "tr </dev/urandom | head": sotto
+  # set -o pipefail quel costrutto fa uscire tr con SIGPIPE e lo script
+  # abortirebbe. La generiamo con python (gia' presente).
+  PW="$(python3 -c 'import secrets,string;print("".join(secrets.choice(string.ascii_letters+string.digits) for _ in range(16)))')"
   umask 077
   printf 'admin:%s\n' "$(openssl passwd -apr1 "$PW")" > "$HTP"
   chmod 640 "$HTP"; chown root:www-data "$HTP" 2>/dev/null || true
