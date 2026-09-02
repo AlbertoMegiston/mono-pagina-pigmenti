@@ -650,7 +650,6 @@ html[data-motionbtn] main{padding-bottom:72px}
 .drawer__nav button span{text-decoration:underline;text-underline-offset:4px}
 .drawer__nav button:hover span{text-decoration-thickness:2px}
 .drawer__nav svg{flex:none;opacity:.9}
-.drawer__note{margin:24px 34px 0;font-size:var(--fs-small);line-height:1.6;color:#bdbdbd;min-height:1.4em}
 
 /* ==========================================================================
    DOC — full-screen reading layer for the legal pages (white, above the drawer)
@@ -671,10 +670,22 @@ html[data-motionbtn] main{padding-bottom:72px}
 .doc__sub{color:var(--ink-quiet);margin:0 0 20px}
 .doc__text h2{font-size:.95rem;font-weight:700;letter-spacing:.03em;margin:26px 0 8px}
 .doc__text p{margin:0 0 12px}
-.doc__text ol{margin:0 0 12px;padding-left:24px}
+.doc__text ol{margin:0 0 12px;padding-left:24px;list-style:decimal}
+.doc__text ol[type="a"]{list-style:lower-alpha}
+.doc__text ol[type="i"]{list-style:lower-roman}
 .doc__text li{margin:0 0 8px}
 .doc__text a{color:inherit;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
 .doc__text hr{border:0;border-top:1px solid #e6e6e6;margin:22px 0}
+.doc__text h3{font-size:.9rem;font-weight:700;margin:18px 0 6px}
+.doc__text ul{margin:0 0 12px;padding-left:22px;list-style:disc}
+.doc__text li ol,.doc__text li ul{margin:8px 0 0}
+/* A link between documents: reads as a link, is a button (no hash, no history). */
+.doc__inline{display:inline;margin:0;padding:0;border:0;background:none;font:inherit;color:inherit;
+  cursor:pointer;text-decoration:underline;text-underline-offset:3px}
+.doc__tablewrap{overflow-x:auto;margin:0 0 14px}
+.doc__text table{width:100%;min-width:420px;border-collapse:collapse;font-size:.85rem;line-height:1.45}
+.doc__text th,.doc__text td{text-align:left;vertical-align:top;padding:8px 6px;border-bottom:1px solid #e6e6e6}
+.doc__text th{font-weight:700}
 
 .lang{display:flex;gap:8px;margin:6px 0 0 42px}
 .lang button{min-width:44px;height:36px;cursor:pointer;border:1px solid rgba(255,255,255,.4);
@@ -746,11 +757,10 @@ html[data-motionbtn] main{padding-bottom:72px}
         <h1 id="h-landing" tabindex="-1" data-i18n="landing.title">Benvenuto</h1>
         <p data-i18n="landing.lead">Verifica che il tuo prodotto sia autentico e accedi ai contenuti pensati per te.</p>
         <button class="cta" id="btn-verify" type="button" data-i18n="landing.cta">Verifica l'autenticità</button>
-        <!-- The legal line: the linked documents open in the reading layer
-             (#doc). Terms has no text yet, so that link is inert for now. -->
+        <!-- The legal line: both documents open in the reading layer (#doc). -->
         <p class="legal">
           <span data-i18n="landing.legalLead">In un servizio reale, iniziando l'autenticazione accetteresti i nostri</span>
-          <button type="button" class="legal-link" data-i18n="ui.terms">Termini e Condizioni</button>
+          <button type="button" class="legal-link" data-doc="terms" data-i18n="ui.terms">Termini e Condizioni</button>
           <span data-i18n="landing.legalAnd">e la</span>
           <button type="button" class="legal-link" data-doc="privacy" data-i18n="ui.privacy">Privacy Policy</button>
         </p>
@@ -1056,33 +1066,20 @@ html[data-motionbtn] main{padding-bottom:72px}
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
         <span data-i18n="ui.privacy">Privacy Policy</span>
       </button>
-      <button type="button" class="doc-link">
+      <button type="button" class="doc-link" data-doc="cookie">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
         <span data-i18n="menu.cookie">Cookie policy</span>
       </button>
-      <button type="button" class="doc-link">
+      <button type="button" class="doc-link" data-doc="accessibility">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="7.6" r="1.1" fill="currentColor" stroke="none"/><path d="M7.8 10.3h8.4M12 10.3v3.6M12 13.9l-2.3 4.1M12 13.9l2.3 4.1"/></svg>
+        <span data-i18n="menu.accessibility">Accessibilità</span>
+      </button>
+      <button type="button" class="doc-link" data-doc="terms">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
         <span data-i18n="ui.terms">Termini e Condizioni</span>
       </button>
     </div>
-    <div class="drawer__group">
-      <button type="button" class="doc-link">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="3.4"/><path d="M5.5 20c.6-3.4 3.3-5.2 6.5-5.2s5.9 1.8 6.5 5.2"/></svg>
-        <span data-i18n="menu.about">Info sul servizio</span>
-      </button>
-      <button type="button" class="doc-link">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3.6 6.4 8.4 6 8.4-6"/></svg>
-        <span data-i18n="menu.help">Aiuto</span>
-      </button>
-    </div>
-    <div class="drawer__group">
-      <button type="button" class="doc-link">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H6v18h8"/><path d="M10 12h11M13.5 8.5 10 12l3.5 3.5"/></svg>
-        <span data-i18n="menu.signin">Accedi</span>
-      </button>
-    </div>
   </div>
-  <p class="drawer__note" id="drawer-note" role="status" aria-live="polite"></p>
 </div>
 
 <!-- DOC — the reading layer for the legal pages. A modal dialog that always
@@ -1188,6 +1185,338 @@ html[data-motionbtn] main{padding-bottom:72px}
       <hr>
       <p>La Società non è responsabile per l’aggiornamento di tutti i link visualizzabili nella presente informativa, pertanto ogni qualvolta un link non sia funzionante e/o aggiornato, l’Utente riconosce ed accetta che dovrà sempre far riferimento al documento e/o sezione dei siti internet richiamati da tale link.</p>
     </article>
+    <article class="doc__text" id="doc-cookie" lang="it" hidden>
+      <h1>Cookie Policy</h1>
+      <p class="doc__sub">(version 1.0 del 23 Ottobre 2019)</p>
+      <p>Gentile Visitatore/Visitatrice (di seguito, ‘Tu’ o l’‘Utente’),</p>
+      <p>Questo sito Internet <a href="https://www.certilogo.com/" target="_blank" rel="noopener">https://www.certilogo.com/</a> (di seguito, il ‘Sito’) è di proprietà della società Certilogo S.p.A. con sede legale in Milano (Italia), Via Cernaia 2 - 20121, P. IVA n. 05258270965 (di seguito, ‘Noi’ o la ‘Società’)</p>
+      <p>Poiché sul nostro Sito sono utilizzati dei c.d. cookie per diverse finalità, con questa informativa (di seguito, l’“Informativa Cookie”) vogliamo spiegarti cosa sono i cookie e come vengono utilizzati sul Sito.</p>
+      <p>Alcuni cookie (c.d. cookie propri o di prima parte) sono veicolati e controllati direttamente da noi. Attraverso questi cookie, la Società raccoglie e tratta alcuni dati personali che ti riguardano. In questa Informativa Cookie, ai sensi dell’art. 13 del Regolamento UE 2016/679 del 27 aprile 2016 relativo alla protezione delle persone fisiche con riguardo al trattamento dei dati personali (di seguito, il “Regolamento”), ti spieghiamo come raccogliamo questi dati, per quali finalità e quali sono i tuoi diritti.</p>
+      <p>Altri cookie (c.d. cookie di terze parti), sono, invece, veicolati e controllati da soggetti terzi. Su questa Informativa Cookie troverai dei link alle informative pubblicate da questi soggetti terzi, che ti preghiamo di leggere con attenzione.</p>
+      <p>Se non hai familiarità con i cookie, ti preghiamo di leggere attentamente questa Informativa Cookie e l’Informativa Privacy generale del Sito, così che tu possa essere consapevole delle tue scelte.</p>
+      <p>Il Titolare tiene nella massima considerazione il diritto alla privacy e alla protezione dei dati personali dei propri Utenti. Per qualsiasi informazione relativa alla presente Informativa Cookie, gli Utenti possono contattare il Titolare in qualsiasi momento, utilizzando i seguenti metodi:</p>
+      <ul>
+        <li>Inviando una raccomandata a/r alla sede operativa del Titolare: Via Cernaia, 2 - 20121 - Milano;</li>
+        <li>Inviando un messaggio di posta elettronica: <a href="mailto:privacy@certilogo.com">privacy@certilogo.com</a>. Gli Utenti potranno altresì contattare il Responsabile della protezione dei dati (RPD o DPO) del Titolare, i cui dati di contatto sono di seguito riportati: Lapo Curini Galletti – e-mail: <a href="mailto:privacy@certilogo.com">privacy@certilogo.com</a>.</li>
+      </ul>
+
+      <h2>A. Cosa sono i cookie ed a cosa servono</h2>
+      <p>I cookie sono piccoli file di testo che i siti visitati dall’utente inviano direttamente al suo terminale (solitamente al browser), dove vengono memorizzati per essere poi ritrasmessi agli stessi siti alla successiva visita del medesimo utente (c.d. cookie propri di prima parte). Nel corso della navigazione su un sito, l’utente può ricevere sul suo terminale anche cookie di siti o di web server diversi (c.d. cookie di terze parti); ciò accade perché sul sito web visitato possono essere presenti elementi come, ad esempio, immagini, mappe, suoni, specifici link a pagine web di altri domini che risiedono su server diversi da quello sul quale si trova la pagina richiesta. In altre parole, sono quei cookie che vengono impostati da un sito web diverso da quello che si sta attualmente visitando.</p>
+      <p>I cookie possono avere una durata limitata ad una singola sessione di navigazione sul browser (c.d. cookie di sessione), ed in tal caso si disattivano automaticamente al momento della chiusura del browser da parte dell’utente; oppure possono avere una scadenza predeterminata e, in tal caso, rimarranno memorizzati ed attivi nel tuo hard disk fino a tale data di scadenza, continuando a raccogliere informazioni nel corso di differenti sessioni di navigazione sul browser (c.d. cookie permanenti).</p>
+      <p>I cookie sono utilizzati per diverse funzioni. Alcuni sono necessari per consentirti di navigare sul Sito e usufruire delle sue funzionalità (c.d. cookie tecnici). Altri sono utilizzati per ottenere informazioni statistiche, in forma aggregata o non, sul numero degli utenti che accedono al Sito e su come il Sito viene utilizzato (c.d. cookie di monitoraggio o analytics). Altri, infine, sono utilizzati per tracciare un tuo profilo di consumatore e farti visualizzare annunci pubblicitari sul Sito che possano essere per te interessanti, in quanto coerenti con i tuoi gusti e le tue abitudini di consumo (c.d. cookie di profilazione).</p>
+      <p>Per conoscere più in dettaglio queste diverse categorie di cookie continua a leggere questa Informativa Cookie. Scopri come funzionano ed a cosa servono, e scegli liberamente se acconsentire al loro utilizzo o impedirlo.</p>
+
+      <h2>B. I cookie tecnici</h2>
+      <p>I cookie tecnici sono utilizzati sul Sito al solo fine di rendere possibile la tua navigazione sul Sito e consentirti di utilizzarne le funzionalità. Si tratta sempre di cookie di prima parte, in quanto sono veicolati direttamente da noi sul Sito.</p>
+      <p>Alcuni cookie tecnici sono indispensabili per offrirti un’ottimale esperienza di navigazione o per consentirti di autenticarti sul sito, ad esempio per realizzare un acquisto sul Sito o entrare nella tua area riservata (c.d. cookie di navigazione). I cookie di navigazione sono normalmente cookie di sessione e, pertanto, una volta chiuso il browser di navigazione, vengono di disattivati automaticamente.</p>
+      <p>Altri cookie tecnici sono utili per consentirti di memorizzare alcune tue preferenze (ad esempio, la lingua o il paese di provenienza) senza doverle reimpostare nel corso delle visite successive (c.d. cookie di funzionalità). Per questo motivo, i cookie di funzionalità sono spesso cookie persistenti, in quanto rimangono memorizzati nel tuo computer anche dopo la chiusura del browser di navigazione, fino alla data di scadenza per essi prevista o fino a quando tu abbia deciso di eliminarli.</p>
+      <p>Sul Sito sono attualmente utilizzati i seguenti cookie tecnici:</p>
+      <div class="doc__tablewrap">
+        <table>
+          <thead><tr><th>Nome del cookie</th><th>Categoria del cookie</th><th>Funzione del cookie</th></tr></thead>
+          <tbody>
+            <tr><td>Cookiepolicy</td><td>cookie tecnico di prima parte<br>di navigazione<br>persistente</td><td>Registra l’accettazione della cookie policy da parte dell’utente</td></tr>
+            <tr><td>pb</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>authenticationId</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>certificateId</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>qr</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>certilogoCode</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>lang</td><td>cookie tecnico di prima parte<br>di funzionalità<br>di sessione</td><td>Funzionalità del sito</td></tr>
+            <tr><td>cluster</td><td>cookie tecnico di prima parte<br>di sessione</td><td>Gestione della sessione</td></tr>
+            <tr><td>ember_simple_auth-session</td><td>cookie tecnico di prima parte<br>di sessione<br>persistente</td><td>Gestione della sessione</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Come previsto dalla normativa vigente in materia di privacy, per l’installazione di tali cookie non è richiesto il tuo preventivo consenso. Naturalmente sei libero di bloccare l’installazione dei cookie tecnici, modificando le impostazioni del tuo browser (leggi il paragrafo E, n. 1 per sapere come fare). Considera, tuttavia, che, bloccando l’installazione dei cookie tecnici, o successivamente eliminando gli stessi, la possibilità di accedere al Sito, di usufruire in tutto o in parte dello stesso, di abilitare o disabilitare determinate funzioni o di ricevere determinati servizi potrebbe essere in tutto o in parte compromessa.</p>
+
+      <h2>C. I cookie di monitoraggio o “analytics”</h2>
+      <p>I cookie analytics sono utilizzati sul Sito per raccogliere informazioni statistiche, in forma aggregata o non, sul numero degli utenti che accedono al Sito e su come questi visitano il Sito stesso.</p>
+      <p>I cookie analytics di questo Sito sono cookie di terze parti, poiché non vengono direttamente veicolati da noi ma da soggetti terzi. Non sono, quindi, installati direttamente dalla Società ma da soggetti terzi.</p>
+      <p>I seguenti cookie analytics di terza parte sono installati sul Sito solo con il tuo previo consenso preventivo, perché essi non sono anonimizzati, potendo le terze parti accedere a dati disaggregati di analytics a livello di indirizzo IP (in altre parole, utilizzando questi cookie, i soggetti terzi potrebbero teoricamente risalire alla tua identità attraverso l’indirizzo IP):</p>
+      <div class="doc__tablewrap">
+        <table>
+          <thead><tr><th>Nome del cookie</th><th>Categoria del cookie</th><th>Link all’informativa / Istruzioni sull’opt-out</th></tr></thead>
+          <tbody>
+            <tr><td>Google Analytics</td><td>cookie analytics di terza parte<br>permanente</td><td><a href="https://www.google.com/analytics/learn/privacy.html?hl=it" target="_blank" rel="noopener">https://www.google.com/analytics/learn/privacy.html?hl=it</a><br><a href="https://www.google.it/policies/privacy/partners/" target="_blank" rel="noopener">www.google.it/policies/privacy/partners/</a></td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>Per questo motivo, quando accedi al Sito viene visualizzato in evidenza un apposito banner, che ti informa che (i) sul Sito sono utilizzati dei cookie analytics di terze parti e che (ii) chiudendo il banner, scorrendo l’home page o cliccando qualunque elemento dell’home page al di fuori del banner, si acconsente all’uso dei cookie. Qualora tu dovessi esprimere il tuo consenso all’installazione dei cookie con questa modalità, terremo traccia del tuo consenso attraverso un apposito cookie tecnico. In questo modo, eviteremo di farti visualizzare il banner sui cookie nel corso delle tue successive visite al Sito. Ti preghiamo di considerare che, qualora tu dovessi eliminare questo cookie tecnico dal tuo browser con le modalità di cui al successivo paragrafo E, n. 1), la traccia del tuo consenso verrebbe persa e, pertanto, nel corso della tua successiva visita al Sito il banner sui cookie sarà visualizzato nuovamente.</p>
+      <p>Naturalmente sei libero di bloccare l’installazione dei cookie analytics in qualsiasi momento, senza che la possibilità di visitare il Sito e fruire dei suoi contenuti sia in qualsiasi modo compromessa. Per sapere come fare, leggi attentamente le informative sui cookie delle terze parti seguendo i link riportati nella tabella qui sopra.</p>
+
+      <h2>D. I cookie di profilazione</h2>
+      <p>I cookie di profilazione sono utilizzati per creare un tuo profilo di utente, basato sulle preferenze ed i gusti da te manifestati durante la navigazione su Internet, e farti visualizzare messaggi pubblicitari coerenti con il tuo profilo. In questo modo i messaggi pubblicitari che visualizzerai sul nostro Sito potranno essere per te maggiormente interessanti.</p>
+      <p>Non sono installati cookie di profilazione attraverso il Sito.</p>
+
+      <h2>E. Come gestire i cookie ed opporti al loro utilizzo</h2>
+      <p>Ci sono diverse opzioni per gestire, disabilitare e cancellare i cookie.</p>
+      <p><strong>(1) Cambia le impostazioni del tuo browser</strong><br>Segui le istruzioni fornite dal produttore del browser che utilizzi per scoprire come gestire, disabilitare o cancellare tutti i cookie (tecnici, analytics e di profilazione):</p>
+      <ul>
+        <li>Explorer: <a href="https://support.microsoft.com/en-us/kb/196955/it" target="_blank" rel="noopener">https://support.microsoft.com/en-us/kb/196955/it</a></li>
+        <li>Chrome: <a href="https://support.google.com/chrome/answer/95647?hl=it" target="_blank" rel="noopener">https://support.google.com/chrome/answer/95647?hl=it</a></li>
+        <li>Firefox: <a href="https://support.mozilla.org/it/kb/Attivare%20e%20disattivare%20i%20cookie" target="_blank" rel="noopener">https://support.mozilla.org/it/kb/Attivare e disattivare i cookie</a></li>
+        <li>Safari: <a href="https://support.apple.com/kb/PH17191?locale=it_IT" target="_blank" rel="noopener">https://support.apple.com/kb/PH17191?locale=it_IT</a></li>
+        <li>Opera: <a href="http://help.opera.com/Windows/10.00/it/cookies.html" target="_blank" rel="noopener">http://help.opera.com/Windows/10.00/it/cookies.html</a></li>
+      </ul>
+      <p>Fai le tue scelte con attenzione. Bloccando indiscriminatamente la ricezione di tutti i cookie, inclusi quelli tecnici, senza prevedere una specifica eccezione per il Sito, potresti, infatti, non essere più in grado di navigare sul Sito o di usufruire in tutto o in parte delle sue funzionalità. Inoltre, cancellando tutti i cookie dal browser, anche i cookie tecnici potrebbero essere rimossi e, pertanto, potresti rimuovere le preferenze che hai impostato utilizzando il Sito o non ritrovare più i prodotti o servizi inseriti nel tuo carrello.</p>
+      <p><strong>(2) Utilizza i nostri strumenti interattivi o quelli forniti dalle terze parti</strong><br>Per disabilitare i cookie di terze parti, consulta le informative privacy dei terzi che installano cookie analytics (vedi il precedente paragrafo C) per conoscere gli altri strumenti a tua disposizione per gestire, disabilitare e cancellare i cookie, e più in generale per opporti al loro utilizzo. Ricordati che, disabilitando i cookie di terze parti, (i) ti opponi al loro utilizzo non soltanto sul Sito ma su tutti i siti Internet su cui tali cookie sono utilizzati e (ii) la possibilità di navigare sul Sito ed utilizzarne le funzionalità non sarà in alcun modo pregiudicata. Quando disabiliti i cookie di terze parti visualizzerai comunque il banner nell’home page sul Sito relativo ai cookie; in questo caso, però, chiudendo il banner, scorrendo l’home page o cliccando qualunque elemento dell’home page al di fuori del banner, non riceverai nessun cookie di terza parte che hai correttamente disabilitato.</p>
+      <p><strong>(3) Utilizza il sito Internet <a href="https://www.youronlinechoices.eu/it/" target="_blank" rel="noopener">www.youronlinechoices.eu/it/</a></strong><br>Your Online Choices è un sito Internet gestito dall’associazione non-profit European Interactive Digital Advertising Alliance (EDAA), la cui versione in lingua italiana è raggiungibile all’indirizzo <a href="https://www.youronlinechoices.eu/it/" target="_blank" rel="noopener">www.youronlinechoices.eu/it/</a>, che fornisce informazioni sulla pubblicità comportamentale basata sui cookie di profilazione (<a href="http://www.youronlinechoices.com/it/a-proposito" target="_blank" rel="noopener">http://www.youronlinechoices.com/it/a-proposito</a>) e consente agli utenti di Internet di opporsi facilmente (opt-out) all’installazione dei principali cookie di profilazione installati dagli operatori pubblicitari ed utilizzati su siti Internet (<a href="http://www.youronlinechoices.com/it/le-tue-scelte" target="_blank" rel="noopener">http://www.youronlinechoices.com/it/le-tue-scelte</a>). Prima di utilizzare questo strumento, ti consigliamo di leggere attentamente le condizioni generali di servizio del sito Your Online Choices (<a href="http://www.youronlinechoices.com/it/condizioni-generali-di-servizio" target="_blank" rel="noopener">http://www.youronlinechoices.com/it/condizioni-generali-di-servizio</a>), le domande frequenti (FAQ) (<a href="http://www.youronlinechoices.com/it/faqs" target="_blank" rel="noopener">http://www.youronlinechoices.com/it/faqs</a>) e la guida per l’utente (<a href="http://www.youronlinechoices.com/it/help" target="_blank" rel="noopener">http://www.youronlinechoices.com/it/help</a>).</p>
+      <p>Utilizza consapevolmente Your Online Choices. Sebbene, infatti, Your Online Choices riunisca molte delle più importanti società del mondo pubblicitario che utilizzano cookie, alcune delle terze parti che installano cookie attraverso il Sito potrebbero non aver aderito a Your Online Choices. Pertanto, l’utilizzo di Your Online Choices non garantisce che si riceveranno cookie di terze parti navigando sul Sito. Ricordati, inoltre, che eliminando tutti i cookie dal proprio browser, anche i cookie tecnici rilasciati da Your Online Choices per ricordare le tue scelte potrebbero essere eliminati, rendendo nuovamente attivi i cookie di terze parti.</p>
+
+      <h2>F. Modalità di trattamento e tempi di conservazione dei dati</h2>
+      <p>Come evidenziato nella premessa di questa Informativa Cookie, la Società raccoglie e tratta alcuni tuoi dati personali attraverso i cookie che essa veicola direttamente sul Sito (cookie di prima parte). La Società agisce in qualità di titolare del trattamento di questi dati, in conformità alle previsioni del Regolamento. Tratteremo i tuoi dati solo con strumenti elettronici, in maniera totalmente automatizzata e senza intermediazione umana. Pertanto, i nostri dipendenti e collaboratori non accederanno mai al contenuto dei tuoi dati personali ottenuti attraverso i cookie, il che significa che non saranno mai in grado di accedere a e/o avere informazioni personali identificative (IPI) dirette.</p>
+      <p>Alcuni dei nostri dipendenti e collaboratori, da noi nominati quali incaricati del trattamento, potrebbero effettuare degli interventi di manutenzione sui sistemi informatici che ospitano i tuoi dati, senza poter mai accedere al loro effettivo contenuto. I dati personali potrebbero essere memorizzati nei server gestiti da soggetti terzi (es. fornitori di sistemi informatici) o potrebbero essere gestiti da soggetti specializzati nella pubblicità online, che agiscono in qualità di responsabili esterni del trattamento sulla base di un’apposita nomina per iscritto da parte della Società. Ti informiamo che, nel rispetto dei presupposti e delle garanzie stabilite dal Regolamento, i tuoi dati potrebbero essere trasferiti in Paesi non appartenenti all’Area Economica Europea, che potrebbero non offrire un livello di tutela della privacy e della protezione dei dati personali paragonabile a quello garantito dalle leggi italiane ed europee sulla privacy, ma come titolare terremo in massima considerazione la sicurezza dei dati, pertanto procederemo nella gestione di tali trasferimenti con tutte le dovute cautele e garanzie. I tuoi dati personali non saranno comunicati a terzi titolari del trattamento né saranno diffusi.</p>
+
+      <h2>G. Your rights</h2>
+      <p>Per esercitare i tuoi diritti, o ottenere alcuna ulteriore informazione o chiarimento in relazione alla presente Informativa Cookie, ti preghiamo di contattare il Titolare con le seguenti modalità:</p>
+      <ul>
+        <li>Inviando una raccomandata a/r alla sede operativa del Titolare: Via Cernaia 2 - 20121 – Milano;</li>
+        <li>Inviando un messaggio di posta elettronica: <a href="mailto:privacy@certilogo.com">privacy@certilogo.com</a>.</li>
+      </ul>
+      <p>Ai sensi del Regolamento, il Titolare informa che gli Utenti hanno il diritto di ottenere l’indicazione:</p>
+      <ol type="i">
+        <li>dell’origine dei dati personali;</li>
+        <li>delle finalità e modalità del trattamento;</li>
+        <li>della logica applicata in caso di trattamento effettuato con l’ausilio di strumenti elettronici;</li>
+        <li>degli estremi identificativi del titolare e dei responsabili;</li>
+        <li>dei soggetti o delle categorie di soggetti ai quali i dati personali possono essere comunicati o che possono venirne a conoscenza in qualità di responsabili o incaricati.</li>
+      </ol>
+      <p>Inoltre, gli Utenti hanno il diritto di ottenere:</p>
+      <ol type="a">
+        <li>l’accesso, l’aggiornamento, la rettificazione ovvero, quando vi hanno interesse, l’integrazione dei dati;</li>
+        <li>la cancellazione, la trasformazione in forma anonima o il blocco dei dati trattati in violazione di legge, compresi quelli di cui non è necessaria la conservazione in relazione agli scopi per i quali i dati sono stati raccolti o successivamente trattati;</li>
+        <li>l’attestazione che le operazioni di cui alle lettere a) e b) sono state portate a conoscenza, anche per quanto riguarda il loro contenuto, di coloro ai quali i dati sono stati comunicati o diffusi, eccettuato il caso in cui tale adempimento si rivela impossibile o comporta un impiego di mezzi manifestamente sproporzionato rispetto al diritto tutelato.</li>
+      </ol>
+      <p>Inoltre, gli Utenti hanno:</p>
+      <ol type="a">
+        <li>il diritto di revocare il consenso in qualsiasi momento, qualora il trattamento si basi sul loro consenso;</li>
+        <li>(laddove applicabile) il diritto alla portabilità dei dati (diritto di ricevere tutti i dati personali che li riguardano in un formato strutturato, di uso comune e leggibile da dispositivo automatico), il diritto alla limitazione del trattamento dei dati personali e il diritto alla cancellazione (“diritto all’oblio”);</li>
+        <li>il diritto di opporsi:
+          <ol type="i">
+            <li>in tutto o in parte, per motivi legittimi al trattamento dei dati personali che li riguardano, ancorché pertinenti allo scopo della raccolta;</li>
+            <li>in tutto o in parte, al trattamento di dati personali che li riguardano a fini di invio di materiale pubblicitario o di vendita diretta o per il compimento di ricerche di mercato o di comunicazione commerciale;</li>
+            <li>qualora i dati personali siano trattati per finalità di marketing diretto, in qualsiasi momento, al trattamento dei Suoi dati effettuato per tale finalità, compresa la profilazione nella misura in cui sia connessa a tale marketing diretto;</li>
+          </ol>
+        </li>
+        <li>qualora ritenessero che il trattamento che li riguarda violi il Regolamento, il diritto di proporre reclamo a un’Autorità di controllo (nello Stato membro in cui risiedono abitualmente, in quello in cui lavorano oppure in quello in cui si è verificata la presunta violazione). L’Autorità di controllo italiana è il Garante per la protezione dei dati personali, con sede in Piazza Venezia n. 11, 00187 – Roma (<a href="http://www.garanteprivacy.it/" target="_blank" rel="noopener">http://www.garanteprivacy.it/</a>).</li>
+      </ol>
+      <hr>
+      <p>Il Titolare non è responsabile per l’aggiornamento di tutti i link visualizzabili nella presente Informativa Cookie, pertanto ogni qualvolta un link non sia funzionante e/o aggiornato, gli Utenti riconoscono ed accettano che dovranno sempre far riferimento al documento e/o sezione dei siti internet richiamati da tale link</p>
+    </article>
+    <article class="doc__text" id="doc-accessibility" lang="it" hidden>
+      <h1>Informativa sull’accessibilità per il sito <a href="https://www.certilogo.com" target="_blank" rel="noopener">www.certilogo.com</a></h1>
+      <p class="doc__sub">Redatta il 30/06/2025</p>
+      <p>Certilogo S.p.A. si impegna a garantire l’accessibilità del sito web <a href="https://www.certilogo.com" target="_blank" rel="noopener">www.certilogo.com</a>, conformemente al Decreto Legislativo 27 maggio 2022, n. 82, in attuazione della Direttiva Europea 2019/882.</p>
+      <p>È convinzione di Certilogo S.p.A. che sia un obbligo morale collettivo permettere a chiunque di accedere a informazioni, prodotti o servizi senza ostacoli o barriere, affinché tutti possano vivere con dignità, uguaglianza e indipendenza. A tal fine sono state investite risorse per rendere il servizio più facile da usare e accessibile a tutti, incluse le persone con disabilità.</p>
+      <p>In ottemperanza al D. Lgs. 82/2022, vengono fornite le seguenti indicazioni:</p>
+      <ul>
+        <li>Informazioni sulla valutazione di come il servizio soddisfa i requisiti di accessibilità</li>
+        <li>Descrizione generale del servizio, in formati accessibili</li>
+        <li>Descrizioni e spiegazioni necessarie per comprendere il funzionamento del servizio</li>
+        <li>Descrizione del modo in cui il servizio soddisfa i requisiti di accessibilità</li>
+        <li>Informazioni sul processo di monitoraggio dell’accessibilità</li>
+        <li>Assistenza e segnalazione di problemi di accessibilità</li>
+      </ul>
+
+      <h2>Requisiti di accessibilità</h2>
+      <p>I requisiti sono definiti dal D. Lgs. 27 maggio 2022, n. 82, che fa riferimento alla norma tecnica <strong>UNI EN 301549</strong>.<br>In particolare, la conformità del sito viene valutata rispetto ai capitoli:</p>
+      <ul>
+        <li>Capitolo 9: Web</li>
+        <li>Capitolo 10: Contenuti non web</li>
+      </ul>
+      <p>Questi richiamano le WCAG 2.1 (Web Content Accessibility Guidelines), livello A+AA, che si fondano su quattro principi:</p>
+      <ol>
+        <li>Percepibile – Contenuti chiari e comprensibili</li>
+        <li>Utilizzabile – Interfaccia navigabile da tutti</li>
+        <li>Comprensibile – Operazioni intuitive</li>
+        <li>Robusto – Compatibilità con tecnologie assistive</li>
+      </ol>
+      <p>L’analisi ha incluso contenuti testuali, non testuali, documenti scaricabili, moduli e processi interattivi (autenticazione, pagamento).</p>
+
+      <h2>Ambiti esclusi dall’applicazione</h2>
+      <p>Ai sensi dell’art. 1 comma 5 del D. Lgs. 82/2022, le disposizioni <strong>non si applicano</strong> a:</p>
+      <ul>
+        <li>Media preregistrati pubblicati prima del 28/06/2025</li>
+        <li>File per ufficio pubblicati prima del 28/06/2025</li>
+        <li>Carte e servizi di cartografia online (se le info essenziali sono accessibili digitalmente)</li>
+        <li>Contenuti di terzi non sviluppati/finanziati/controllati dal gestore</li>
+        <li>Contenuti di siti/app mobili considerati archivi</li>
+      </ul>
+
+      <h2>Descrizione generale del servizio</h2>
+      <p>Il sito <a href="https://www.certilogo.com" target="_blank" rel="noopener">www.certilogo.com</a> consente di <strong>verificare l’autenticità dei prodotti</strong> del settore moda e lusso tramite smart tag.<br>Il servizio prevede:</p>
+      <ul>
+        <li>Verifica online dell’originalità con domande interattive</li>
+        <li>Schede informative sui prodotti (a discrezione del brand):
+          <ul>
+            <li>Materiali</li>
+            <li>Vestibilità</li>
+            <li>Certificazioni</li>
+            <li>Sostenibilità</li>
+            <li>Istruzioni di lavaggio</li>
+            <li>Contenuti multimediali</li>
+          </ul>
+        </li>
+        <li>Accesso a un’area riservata per il profilo e privacy</li>
+        <li>Supporto tramite form di contatto</li>
+      </ul>
+
+      <h2>Funzionamento del servizio</h2>
+      <p>Il sito è fruibile da:</p>
+      <ul>
+        <li>Desktop</li>
+        <li>Tablet</li>
+        <li>Smartphone</li>
+      </ul>
+      <p>Ed è disponibile in diverse lingue: italiano, inglese, tedesco, francese, giapponese, russo, cinese, portoghese, coreano.</p>
+      <h3>Interfaccia principale</h3>
+      <ul>
+        <li>Schermata iniziale per inserire codice CLG</li>
+        <li>Menu con:
+          <ul>
+            <li>Privacy e cookies policy</li>
+            <li>Termini e condizioni</li>
+            <li>Impostazioni di privacy</li>
+            <li>Accesso area riservata</li>
+            <li>Contatti aziendali</li>
+          </ul>
+        </li>
+      </ul>
+      <h3>Funzionalità principali</h3>
+      <ul>
+        <li>Informazioni sul prodotto:
+          <ul>
+            <li>Inserendo il codice CLG, è possibile consultare una scheda con info su produzione, materiali, video promozionali</li>
+          </ul>
+        </li>
+        <li>Verifica autenticità:
+          <ul>
+            <li>Inserendo il codice CLG e cliccando “verifica l’autenticità”</li>
+            <li>Domande a cui rispondere:
+              <ul>
+                <li>Quando si sta effettuando l’analisi (prima/dopo acquisto)</li>
+                <li>Dove si vuole acquistare o si è acquistato</li>
+                <li>Foto dell’etichetta/tag con CLG</li>
+              </ul>
+            </li>
+            <li>Alcuni brand rendono questi passaggi obbligatori</li>
+            <li>È necessario creare o accedere a un account</li>
+            <li>Schermata finale con esito:
+              <ul>
+                <li>Se positivo → link all’ecommerce, social, ecc.</li>
+                <li>Se negativo → form per rimborso o feedback</li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+        <li>Area riservata: accesso o registrazione account</li>
+        <li>Richiesta informazioni: menu “aiuto” → form su dominio dedicato</li>
+      </ul>
+
+      <h2>Soddisfacimento dei requisiti di accessibilità</h2>
+      <p>Certilogo ha incaricato un esperto esterno di effettuare una verifica tecnica, ricevendo un report con le correzioni necessarie.<br>Funzionalità disponibili:</p>
+      <ul>
+        <li>Compatibilità con screen reader (NVDA, JAWS)</li>
+        <li>Navigazione da tastiera</li>
+        <li>Contrasto cromatico adeguato</li>
+        <li>Alternative testuali per contenuti visivi</li>
+        <li>Zoom e ridimensionamento caratteri</li>
+        <li>Sottotitoli e trascrizioni</li>
+        <li>Controllo delle animazioni</li>
+        <li>Etichette chiare nei moduli</li>
+      </ul>
+      <h3>Integrazione widget UserWay PRO</h3>
+      <p>Il widget, gratuito per gli utenti, migliora la conformità WCAG 2.1 offrendo:</p>
+      <ul>
+        <li>Lettore dello schermo</li>
+        <li>Dizionario integrato</li>
+        <li>Testo più grande (4 livelli)</li>
+        <li>Saturazione colori (alta/bassa/scala grigi)</li>
+        <li>Modalità contrasto (chiaro/scuro)</li>
+        <li>Contrasto intelligente</li>
+        <li>Evidenziazione link/pulsanti</li>
+        <li>Stop animazioni</li>
+        <li>Spaziatura del testo</li>
+        <li>Regolazione interlinea</li>
+        <li>Allineamento testo (sx/centro/dx)</li>
+        <li>Font per dislessici</li>
+        <li>Cursore ingrandito (400%)</li>
+        <li>Tooltip per etichette ARIA</li>
+        <li>Visualizzazione struttura pagina</li>
+      </ul>
+      <p>Il widget rileva e corregge molte non conformità in tempo reale, agendo sulla visualizzazione (non sul codice sorgente).</p>
+
+      <h2>Stato di conformità</h2>
+      <p>Utilizzando le linee guida AgID e il modello di autovalutazione:</p>
+      <ul>
+        <li>Il sito è parzialmente conforme</li>
+        <li>Essendo stato pubblicato prima del 28/06/2025, è intenzione di Certilogo raggiungere la piena conformità</li>
+        <li>Le non conformità risolte da UserWay PRO sono considerate soddisfacenti rispetto alla normativa</li>
+      </ul>
+
+      <h2>Processo di monitoraggio dell’accessibilità</h2>
+      <p>Certilogo prevede di:</p>
+      <ul>
+        <li>Eseguire gap analysis tecnica</li>
+        <li>Testare i flussi utenti (anche con tecnologie assistive)</li>
+        <li>Analizzare tecnologie/plugin terzi</li>
+        <li>Documentare e correggere gap e difformità</li>
+        <li>Redigere documentazione pubblica</li>
+        <li>Formare il personale interno</li>
+        <li>Definire policy interne per la gestione delle richieste</li>
+      </ul>
+      <p>Le verifiche saranno periodiche e potranno coinvolgere esperti esterni.</p>
+
+      <h2>Assistenza e segnalazione dei problemi</h2>
+      <p>Per difficoltà di accesso o necessità di assistenza:</p>
+      <ul>
+        <li>Compilare il form su: <a href="https://discover.certilogo.com/pages/help" target="_blank" rel="noopener">https://discover.certilogo.com/pages/help</a></li>
+        <li>Oppure scrivere a: <a href="mailto:help@certilogo.com">help@certilogo.com</a></li>
+      </ul>
+      <p>Indicare:</p>
+      <ul>
+        <li>Nome e cognome</li>
+        <li>URL o sezione del sito</li>
+        <li>Descrizione chiara del problema</li>
+        <li>Strumenti utilizzati (sistema operativo, browser, assistive tech)</li>
+        <li>Suggerimenti per migliorare</li>
+      </ul>
+      <p>Le segnalazioni saranno gestite nel più breve tempo possibile e contribuiranno al miglioramento continuo dell’accessibilità del sito.</p>
+    </article>
+    <article class="doc__text" id="doc-terms" lang="it" hidden>
+      <h1>Termini e Condizioni</h1>
+
+      <h2>PREMESSE</h2>
+      <p>Qualsiasi utilizzo delle pagine dell’intera rete di Certilogo pubblicate sul sito certilogo.com è soggetto ai termini e alle condizioni di seguito indicati (i "Termini"); questi possono essere modificati in qualsiasi momento, mediante pubblicazione su questo sito dei Termini modificati.</p>
+
+      <h2>LEGGE APPLICABILE E GIURISDIZIONE</h2>
+      <p>I Termini sono regolati dalla legge italiana, senza riguardo alle norme di diritto internazionale privato. Per qualsiasi controversia che possa sorgere dall’applicazione, interpretazione o esecuzione dei Termini, sarà competente in via esclusiva il Foro di Milano.</p>
+
+      <h2>SERVIZIO FORNITO E LIMITAZIONE DI RESPONSABILITÀ</h2>
+      <p>Per effetto dell’uso del Sigillo di Autenticazione di Certilogo (il Sigillo) offerto ai venditori on-line, l’utente (i) accetta di utilizzare il Sigillo esclusivamente per i prodotti di cui si è legittimi proprietari, (ii) dichiara di aver acquistato o altrimenti ricevuto tali prodotti da venditori autorizzati, (iii) assicura che verranno seguite accuratamente le istruzioni per l’uso del Sigillo di Autenticazione di Certilogo (il Sigillo) e (iv) dichiara di accettare il risultato del servizio fornito da Certilogo (il "Servizio").</p>
+
+      <h2>PROTEZIONE DEI DATI PERSONALI</h2>
+      <p>Per poter utilizzare il Servizio, gli utenti devono accettare i Termini e la nostra informativa sulla privacy (di seguito, "Informativa Privacy"), disponibile al <button type="button" class="doc__inline" data-doc="privacy">link</button>.</p>
+      <p>Nell’adempimento dei propri obblighi contrattuali, Certilogo s’impegna a rispettare le disposizioni del D. Lgs 196/2003, integrato con le modifiche previste dal D. Lgs. 101/2018 (di seguito, il "Codice") e del Reg. EU 2016/679 (di seguito, il "Regolamento"; il Codice ed il Regolamento insieme, la "Normativa Privacy") e, a tale scopo, si impegna ad adottare ogni misura di sicurezza fisica, logistica ed organizzativa necessaria ed adeguata a garantire il rispetto dell’integrità ed esattezza dei dati personali trattati, nonché la liceità del loro trattamento.</p>
+      <p>L’utente riconosce ed espressamente accetta che, al solo fine di fornire il Servizio oggetto dei presenti Termini all’utente e garantire un sistema di autenticazione efficace, Certilogo può trasmettere l’indirizzo IP dell’utente /o l’indirizzo e-mail dell’utente (così come eventuali informazioni relative al prodotto autenticato dall’utente e al canale di vendita), ai marchi che utilizzano il servizio di protezione Certilogo, qualora nella fornitura del Servizio Certilogo rilevi ovvero abbia il ragionevole dubbio circa l’esistenza di prodotti non autentici o contraffatti e/o prodotti commercializzati in violazione delle leggi applicabili così come qualora Certilogo rilevi dubbi e/o incongruenze circa l’autenticazione dei prodotti effettuata tramite il Servizio.</p>
+      <p>Nel contesto della prestazione all’utente del Servizio da parte di Certilogo, la predetta comunicazione, nei casi sopra indicati, è volta a permettere lo svolgimento di indagini sull’autenticazione dei prodotti effettuata tramite il Servizio, sulla autenticità dei prodotti stessi e/o per garantire la loro conformità alle leggi applicabili, nonché permettere all’utente di approfondire il caso che lo riguarda con il brand di riferimento (che autonomamente contatterà l’utente).</p>
+      <p>I dati personali dell’utente sono trattati mediante strumenti manuali ed informatici, con logiche strettamente correlate alle finalità di trattamento descritte nell’Informativa Privacy e, comunque, in modo da garantire la sicurezza e la riservatezza dei dati stessi. Per meglio conoscere e comprendere come Certilogo utilizza i dati personali dell’utente, Certilogo invita gli utenti a leggere attentamente l’Informativa Privacy.</p>
+      <p>L’utente, accedendo al proprio account, potrà in qualsiasi momento correggere, rettificare o aggiornare i propri dati personali, così come gli eventuali consensi facoltativi resi all’atto della registrazione e/o successivamente.</p>
+
+      <h2>PROPRIETÀ INTELLETTUALE</h2>
+      <p>Tutti i contenuti ed i marchi presenti su questo sito sono di proprietà di, o concessi in licenza a, Certilogo e sono protetti dalle leggi italiane e internazionali in materia di proprietà intellettuale. Certilogo ed i suoi licenziatari conservano tutti i diritti di proprietà sul contenuto di Certilogo. Il contenuto ed i marchi non possono essere riprodotti, trasmessi o distribuiti senza il preventivo consenso scritto di Certilogo. Rendendo disponibile qualsiasi contenuto (come ad esempio video, fotografie, scritti) su questo sito, gli utenti concedono a Certilogo una licenza gratuita di utilizzo, archiviazione, riproduzione e modifica di tale contenuto allo scopo di fornire il Servizio. Tale licenza si intenderà automaticamente cessata in caso di annullamento dell’account dell’utente o di rimozione del contenuto dal sito.</p>
+
+      <h2>ABUSO E USO IMPROPRIO DEL SERVIZIO</h2>
+      <p>L’utente accetta di non abusare o non fare un uso improprio del Servizio e, pertanto, accetta di (a) non utilizzare alcun robot, spider, scraper o altro mezzo automatizzato per accedere al nostro sito per qualsiasi scopo; (b) non intraprendere alcuna azione che imponga o possa imporre (a sola discrezione di Certilogo) un carico irragionevole o sproporzionato sulla nostra infrastruttura; (c) non interferire o tentare di interferire con il corretto funzionamento del nostro sito, dei nostri servizi, o strumenti o di qualsiasi attività svolta su o con il sito, i servizi o gli strumenti; (d) non aggirare le nostre intestazioni di esclusione dei robot o altre misure che potremmo utilizzare per prevenire o limitare l’accesso al sito; (e) non effettuare ripetute richieste di autenticazione dello stesso codice di identificazione; (f) fornire informazioni complete e corrette nell’utilizzare i nostri Servizi; (g) non registrarsi al nostro Servizio utilizzando più di un ID di registrazione; (h) non intraprendere alcuna azione volta alla "reverse engineering" dei nostri Servizi, incluse a mero titolo esemplificativo le azioni volte a rivelare il metodo di Certilogo per l’identificazione e per l’autenticazione del prodotto e di non divulgare o pubblicare un Codice CLG con qualsiasi mezzo diverso dal Sigillo di Autenticazione di Certilogo (il Sigillo); (i) non rendere disponibile su questo sito alcun contenuto offensivo o illegale, per il quale l’utente è integralmente ed esclusivamente responsabile. L’utente prende atto che in caso di abuso o uso improprio dei nostri Servizi, le risposte fornite da Certilogo alle richieste per l’autenticazione del prodotto potrebbero essere incomplete e/o non corrette e che Certilogo potrà, a sua esclusiva discrezione, limitare, sospendere, o cessare il proprio Servizio, vietare l’accesso ai suoi siti ed ai loro contenuti, servizi e strumenti, ritardare o rifiutare le autenticazioni e i report assistenza rimborso, fornire risposte negative, incomplete o non corrette alle richieste di autenticazione e prendere provvedimenti tecnici e legali per proteggere i propri diritti e mantenere gli utenti fuori dal sito, qualora ritenga che gli stessi stiano creando problemi o possibili responsabilità legali, violando qualsiasi diritto di proprietà intellettuale o qualsiasi legge applicabile, o agendo in maniera incompatibile con la lettera o lo spirito dei presenti Termini.</p>
+
+      <h2>REQUISITI DI ETÀ</h2>
+      <p>Il Servizio è riservato a persone che hanno compiuto il diciottesimo anno di età. Non raccoglieremo in maniera consapevole dati personali relativi a soggetti minori di 18 anni, o altro limite di età previsto per il raggiungimento della maggiore età dalla legge applicabile nel suo paese di residenza. Registrandosi al Servizio, l’utente dichiara di avere almeno 18 anni o l’età richiesta dal suo paese di residenza per il raggiungimento della maggiore età.</p>
+
+      <h2>ESCLUSIONE DI GARANZIE E LIMITAZIONE DI RESPONSABILITÀ</h2>
+      <p>IL SERVIZIO È FORNITO DA CERTILOGO "COSÌ COM’È" E "COSÌ COME DISPONIBILE". LA NOSTRA REPUTAZIONE COME FORNITORE ATTENDIBILE DI AUTENTICAZIONI DI PRODOTTO A LIVELLO GLOBALE È STATA FORMATA NEGLI ANNI ED È FONDATA SULLA PROVATA AFFIDABILITÀ DEI SERVIZI CHE FORNIAMO. NESSUN PROCESSO È COMUNQUE INFALLIBILE E CERTILOGO NON È IN GRADO DI RILASCIARE ALCUNA DICHIARAZIONE O GARANZIA DI ALCUN TIPO, ESPLICITA O IMPLICITA, RELATIVA AL FUNZIONAMENTO DEL SERVIZIO, ALLE INFORMAZIONI, AL CONTENUTO O AL MATERIALE INSERITO SU QUESTO SITO, O RELATIVA ALL’ACCURATEZZA DI UN’OPINIONE ESPERTA. EVENTUALI PERDITE SONO DA RITENERSI UNICAMENTE RESPONSABILITÀ DELL’UTENTE E I RELATIVI RECLAMI DOVREBBERO ESSERE INDIRIZZATI DIRETTAMENTE AL POSSESSORE DEL PRODOTTO, VENDITORE O SISTEMA DI PAGAMENTO. CERTILOGO NON SARÀ RESPONSABILE PER EVENTUALI DANNI DI QUALSIASI TIPO DERIVANTI DALL’UTILIZZO DEL PROPRIO SERVIZIO, ATTRAVERSO QUESTO SITO, APPLICAZIONE MOBILI O OGNI ALTRO CANALE, INCLUSI, A MERO TITOLO ESEMPLIFICATIVO I DANNI DIRETTI, INDIRETTI, INCIDENTALI, CONSEQUENZIALI E PUNITIVI.</p>
+      <p>PER QUANTO RIGUARDA L’AUTENTICAZIONE DI PRODOTTI DI MARCHI CHE NON UTILIZZANO ATTUALMENTE IL SERVIZIO DI PROTEZIONE CERTILOGO, OVVERO PER I QUALI NESSUN CODICE CERTILOGO È STATO APPLICATO, CERTILOGO UTILIZZA DELLE TECNOLOGIE AVANZATE DI INTELLIGENZA ARTIFICIALE E DI RICONOSCIMENTO INTELLIGENTE DI IMMAGINI PER DETERMINARE L’AUTENTICITÀ DELL’ARTICOLO. NOI FORNIAMO UN’OPINIONE ESPERTA BASANDOCI SULLE IMMAGINI FORNITE DALL’UTENTE DEL SERVIZIO E CI AFFIDIAMO UNICAMENTE A QUESTE IMMAGINI, QUINDI LA NOSTRA OPINIONE È DA RITENERSI VALIDA SOLO PER QUELL’ARTICOLO SPECIFICO. IN TALI CASI, NOI AGIAMO COME UN FORNITORE INDIPENDENTE DI AUTENTICAZIONE ESPERTA E SI DICHIARA ESPRESSAMENTE CHE CERTILOGO NON HA ALCUNA AFFILIAZIONE, RELAZIONE COMMERCIALE O OBBLIGO CONTRATTUALE CON L’AZIENDA PROPRIETARIA DEL MARCHIO.</p>
+      <p>L’UTENTE ACCETTA ESPRESSAMENTE DI UTILIZZARE QUESTO SITO E I RISULTATI DEL SERVIZIO A PROPRIO ESCLUSIVO RISCHIO.</p>
+    </article>
   </div>
 </div>
 
@@ -1257,12 +1586,7 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "menu.lang": "Cambia lingua",
       "menu.cookie": "Cookie policy",
-      "menu.about": "Info sul servizio",
-      "menu.aboutNote": "Verifica dell'autenticità dei prodotti tramite il codice CLG riportato sul cartellino.",
-      "menu.help": "Aiuto",
-      "menu.signin": "Accedi",
-      "menu.note": "In questo prototipo le voci di menu non conducono ad alcuna pagina.",
-      "menu.noteDoc": "— questa voce non conduce ad alcuna pagina in questo prototipo.",
+      "menu.accessibility": "Accessibilità",
 
       "when.title": "Sto verificando l'autenticità:",
       "when.before": "Prima dell'acquisto",
@@ -1375,12 +1699,7 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "menu.lang": "Change language",
       "menu.cookie": "Cookie policy",
-      "menu.about": "About the service",
-      "menu.aboutNote": "Product authenticity verification through the CLG code printed on the tag.",
-      "menu.help": "Help",
-      "menu.signin": "Sign in",
-      "menu.note": "In this prototype the menu entries do not lead anywhere.",
-      "menu.noteDoc": "— this entry does not lead to any page in this prototype.",
+      "menu.accessibility": "Accessibility",
 
       "when.title": "Checking authenticity:",
       "when.before": "Before purchase",
@@ -2341,7 +2660,6 @@ html[data-motionbtn] main{padding-bottom:72px}
     $("#drawer").classList.remove("is-open");
     $("#drawer-backdrop").classList.remove("is-open");
     $("#btn-menu").setAttribute("aria-expanded", "false");
-    setLive("#drawer-note", null);
     $("#lang-group").hidden = true;
     $("#btn-lang").setAttribute("aria-expanded", "false");
     var d = $("#drawer"), bd = $("#drawer-backdrop");
@@ -2375,19 +2693,6 @@ html[data-motionbtn] main{padding-bottom:72px}
     this.setAttribute("aria-expanded", String(!g.hidden));
     if (!g.hidden) g.querySelector("button").focus();
   });
-  Array.prototype.forEach.call(document.querySelectorAll(".doc-link"), function (b) {
-    b.addEventListener("click", function () {
-      if (b.hasAttribute("data-doc")) return;   /* opens its document instead */
-      var about = b.querySelector("[data-i18n='menu.about']");
-      /* The response names the entry that was activated, so consecutive
-         different links read differently, and announce() makes a repeat of
-         the same link speak again. menu.noteDoc opens with an em-dash so the
-         space-joined key pair reads as one sentence. */
-      var span = b.querySelector("[data-i18n]");
-      announce("#drawer-note", about ? "menu.aboutNote"
-        : (span ? span.getAttribute("data-i18n") + " menu.noteDoc" : "menu.note"));
-    });
-  });
   /* Escape must work wherever focus sits while the drawer is open - a click
      on the drawer's padding moves focus to <body>, outside its subtree. */
   document.addEventListener("keydown", function (e) {
@@ -2409,13 +2714,17 @@ html[data-motionbtn] main{padding-bottom:72px}
      the drawer's own modal machinery: a link outside the drawer opens the
      drawer underneath first (invisibly: the layer covers it) and closing the
      document then closes that drawer with it. A link with data-doc names the
-     document it opens; one without (Terms, until its text exists) is inert. */
+     document it opens; from inside an open document (Terms points at the
+     Privacy Policy) it just swaps the text, and the first opener still owns
+     the drawer and the focus to restore. */
   function openDoc(id) {
     var art = $("#doc-" + id);
     if (!art) return;
-    ctx.docAutoDrawer = !ctx.drawerOpen;
-    if (ctx.docAutoDrawer) openDrawer();
-    ctx.docLastFocus = document.activeElement;
+    if (!ctx.docOpen) {
+      ctx.docAutoDrawer = !ctx.drawerOpen;
+      if (ctx.docAutoDrawer) openDrawer();
+      ctx.docLastFocus = document.activeElement;
+    }
     Array.prototype.forEach.call(document.querySelectorAll("#doc .doc__text"), function (a) { a.hidden = (a !== art); });
     var h = art.querySelector("h1");
     $("#doc").setAttribute("aria-label", h ? h.textContent : "");
