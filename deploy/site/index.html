@@ -491,11 +491,21 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
    SCAN — full-screen camera step, its own dark ground, no brand header
    ========================================================================== */
 #step-scan{
-  position:relative;
+  position:relative;isolation:isolate;
   min-height:100svh;background:var(--bg-scan);color:var(--on-dark);
   display:flex;flex-direction:column;
   padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
 }
+/* Camera on: the blue ground gives way to the live preview, edge to edge,
+   with a light vignette so the controls and copy stay legible. */
+.scan__cam{display:none;position:absolute;inset:0;z-index:0;width:100%;height:100%;object-fit:cover;background:#000}
+#step-scan.is-live{background:#000}
+#step-scan.is-live .scan__cam{display:block}
+#step-scan.is-live::before{content:"";position:absolute;inset:0;z-index:1;pointer-events:none;
+  background:linear-gradient(rgba(0,0,0,.6),rgba(0,0,0,0) 28%,rgba(0,0,0,0) 62%,rgba(0,0,0,.7))}
+.scan__bar,.scan__stage,.scan__tools,.scanask{position:relative;z-index:2}
+#step-scan.is-live .scan__frame{background:transparent}
+#step-scan.is-live .scan__hint,#step-scan.is-live .scan__status{text-shadow:0 1px 4px rgba(0,0,0,.7)}
 .scan__bar{display:flex;align-items:center;justify-content:space-between;flex:none}
 .scan__back{display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;cursor:pointer;color:var(--on-dark)}
@@ -509,7 +519,6 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
    the top, a dashed guide, a sweeping teal line and a small corner reticle. */
 .scan__frame{position:relative;width:min(300px,78vw,calc(48svh * .55));aspect-ratio:10/18;
   border:2px solid var(--on-dark);background:rgba(0,0,0,.35)}
-.scan__frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .scan__brand{position:absolute;top:9%;left:0;right:0;display:flex;justify-content:center;
   font-size:1rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#fff}
 .scan__brand img{max-height:30px;width:auto}
@@ -910,6 +919,11 @@ html[data-motionbtn] main{padding-bottom:72px}
     <!-- SCAN --------------------------------------------------------------- -->
     <section class="step" id="step-scan" hidden>
       <h1 id="h-scan" tabindex="-1" class="visually-hidden" data-i18n="scan.title">Inquadra l'etichetta o il TAG con il Codice CLG</h1>
+      <!-- The live preview fills the whole screen once the camera is on
+           (#step-scan.is-live): the frame, guides and controls sit on top
+           of it. Functional, but its outcome is narrated by #scan-status:
+           the preview itself must not read as an unnamed Video node. -->
+      <video class="scan__cam" id="scan-video" playsinline muted aria-hidden="true"></video>
       <div class="scan__bar">
         <button class="scan__back" id="scan-back" type="button">
           <span class="visually-hidden" data-i18n="ui.back">Indietro</span>
@@ -922,9 +936,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       </div>
       <div class="scan__stage">
         <div class="scan__frame">
-          <!-- Functional, but its outcome is narrated by #scan-status: the
-               live preview itself must not read as an unnamed Video node. -->
-          <video id="scan-video" playsinline muted aria-hidden="true"></video>
           <div class="scan__brand" id="scan-brand" aria-hidden="true"></div>
           <span class="scan__dash" aria-hidden="true"></span>
           <span class="scan__line" aria-hidden="true"></span>
@@ -1666,7 +1677,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.starting": "Attivazione della fotocamera…",
       "scan.denied": "Fotocamera non disponibile: permesso negato oppure nessuna fotocamera. Carica un'immagine o salta.",
       "scan.noDecoder": "Su questo browser la lettura automatica del QR non è disponibile: inquadra pure, poi salta per proseguire.",
-      "scan.embedded": "In questa anteprima incorporata la fotocamera è bloccata dall'ambiente. Nel sito pubblicato funziona: qui puoi saltare il passaggio.",
       "scan.reading": "Lettura in corso…",
       "scan.noCode": "Nessun codice riconosciuto. Riprova oppure salta.",
       "scan.helpText": "Inquadra l'etichetta bianca cucita all'interno del prodotto, con il QR e le dodici cifre a fuoco e ben visibili.",
@@ -1783,7 +1793,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "scan.starting": "Starting the camera…",
       "scan.denied": "Camera unavailable: permission denied or no camera. Upload an image or skip.",
       "scan.noDecoder": "Automatic QR reading is not available on this browser: frame the label, then skip to continue.",
-      "scan.embedded": "In this embedded preview the camera is blocked by the environment. It works on the published site: here you can skip this step.",
       "scan.reading": "Reading…",
       "scan.noCode": "No code recognised. Try again or skip.",
       "scan.helpText": "Frame the white label sewn inside the product, with the QR and the twelve digits sharp and fully visible.",
@@ -2377,21 +2386,20 @@ html[data-motionbtn] main{padding-bottom:72px}
     /* No decoder is no reason to keep the preview dark: iPhone Safari has a
        camera but no BarcodeDetector, and the screen must still look and work
        like the reference. Reading then happens via skip or manual entry. */
-    var embedded = false;
-    try { embedded = (window.self !== window.top); } catch (_) { embedded = true; }
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      scanSay(embedded ? "scan.embedded" : "scan.denied"); return;
+      scanSay("scan.denied"); return;
     }
     navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
       .then(function (stream) {
         if (ctx.step !== "scan") { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }
         scanStream = stream;
+        $("#step-scan").classList.add("is-live");
         var v = $("#scan-video"); v.srcObject = stream;
         var pr = v.play(); if (pr && pr.catch) pr.catch(function () {});
         if (scanDetector) { scanSay(null); scanRaf = requestAnimationFrame(scanLoop); }
         else scanSay("scan.noDecoder");
       })
-      .catch(function () { scanSay(embedded ? "scan.embedded" : "scan.denied"); });
+      .catch(function () { scanSay("scan.denied"); });
   }
   function scanLoop() {
     if (ctx.step !== "scan" || !scanDetector || !scanStream) return;
@@ -2407,6 +2415,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   function stopScanCamera() {
     if (scanRaf) { cancelAnimationFrame(scanRaf); scanRaf = 0; }
     if (scanStream) { scanStream.getTracks().forEach(function (tr) { tr.stop(); }); scanStream = null; }
+    $("#step-scan").classList.remove("is-live");
     var v = $("#scan-video"); if (v) v.srcObject = null;
   }
   /* The reference discourages skipping the photos: the pill opens an
