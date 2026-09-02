@@ -441,6 +441,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .splash__blob svg{position:absolute;inset:0;transition:transform .5s var(--ease)}
 #step-splash h1{opacity:0;transition:opacity .3s var(--ease)}
 #step-splash.titled h1{opacity:1}
+/* The film covers the viewport (cover crops the landscape master to the phone's
+   portrait; its action is centred, so nothing that matters is lost) and sits
+   over the drawn elements, which are hidden meanwhile. */
+.splash__video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;z-index:2}
+#step-splash.video .splash__blob,#step-splash.video h1,
+#step-splash.video .splash__brand,#step-splash.video .splash__service{visibility:hidden}
 #step-splash.settled .splash__blob i{opacity:0;transform:translate(-50%,-50%) scale(.3)}
 #step-splash.settled .splash__blob svg{transform:scale(.55) translateY(-10px)}
 @media (prefers-reduced-motion:reduce){
@@ -1002,6 +1008,10 @@ html[data-motionbtn] main{padding-bottom:72px}
         <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="4"><path d="M10 30V10h20M66 10h20v20M86 66v20H66M30 86H10V66"/></svg>
         <i></i>
       </div>
+      <!-- The brand's own verification film, shown for a genuine outcome in
+           place of the drawn choreography. Muted + playsinline so phones let
+           it autoplay; the src is set only when it is actually needed. -->
+      <video class="splash__video" id="splash-video" muted playsinline preload="auto" aria-hidden="true" hidden></video>
     </section>
 
     <!-- RESULT ------------------------------------------------------------ -->
@@ -1113,6 +1123,8 @@ html[data-motionbtn] main{padding-bottom:72px}
        heroVideo    optional landing video; takes precedence over hero
        background   full-bleed image behind every step after the landing
        backgroundVideo optional; takes precedence over background
+       verifyVideo  the brand's verification film, played on a genuine outcome
+                    in place of the drawn "Verifica completata" choreography
      ====================================================================== */
   var ASSETS = {
     logo: "data:image/png;base64,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",
@@ -1124,7 +1136,8 @@ html[data-motionbtn] main{padding-bottom:72px}
     heroVideo: "",
     background: "",
     backgroundPosition: "72% 50%",
-    backgroundVideo: ""
+    backgroundVideo: "",
+    verifyVideo: "assets/verifica-autentico.mp4"
   };
 
   /* ------------------------------------------------------------------------
@@ -1528,6 +1541,8 @@ html[data-motionbtn] main{padding-bottom:72px}
        through. "Where" gains a third option once the item is already owned. */
     if (step === "where") paintWhere();
     if (step === "place") renderPlace();
+    /* Leaving the splash mid-film (Back, restart) must stop the film. */
+    if (ctx.step === "splash" && step !== "splash") stopSplashVideo();
     ORDER.forEach(function (s) { panels[s].hidden = (s !== step); });
     ctx.step = step;
     var onDark = (step !== "landing" && step !== "gate");
@@ -1570,30 +1585,59 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "splash") {
       var run = ctx.runId;
       var splash = panels.splash;
-      splash.classList.remove("titled", "settled");
+      var vid = $("#splash-video");
+      splash.classList.remove("titled", "settled", "video");
       var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (still) {
-        splash.classList.add("titled", "settled");
-      } else {
-        /* Choreography read frame by frame from the reference recording:
-           the mark crunches with two particle bursts, the headline fades in,
-           then the blob dies down and the reticle parks small. */
-        startSplashFx(run);
-        ctx.timers.push(setTimeout(function () {
-          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("titled");
-        }, 750));
-        ctx.timers.push(setTimeout(function () {
-          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("settled");
-        }, 1550));
-      }
       /* The splash replaces itself in history: stepping back from the result
          must not land on a screen that immediately pushes forward again. */
-      ctx.timers.push(setTimeout(function () {
-        if (run !== ctx.runId || ctx.step !== "splash") return;
+      var landed = false;
+      var landResult = function () {
+        if (landed || run !== ctx.runId || ctx.step !== "splash") return;
+        landed = true;
+        stopSplashVideo();
         showStep("result");
         ctx.stack[ctx.stack.length - 1] = "result";
         if (historyOK) { try { history.replaceState({ step: "result", epoch: EPOCH, i: ctx.depth }, ""); } catch (_) {} }
-      }, still ? 1500 : 2350));
+      };
+      var choreography = function () {
+        splash.classList.remove("video");
+        if (still) {
+          splash.classList.add("titled", "settled");
+        } else {
+          /* Choreography read frame by frame from the reference recording:
+             the mark crunches with two particle bursts, the headline fades in,
+             then the blob dies down and the reticle parks small. */
+          startSplashFx(run);
+          ctx.timers.push(setTimeout(function () {
+            if (run === ctx.runId && ctx.step === "splash") splash.classList.add("titled");
+          }, 750));
+          ctx.timers.push(setTimeout(function () {
+            if (run === ctx.runId && ctx.step === "splash") splash.classList.add("settled");
+          }, 1550));
+        }
+        ctx.timers.push(setTimeout(landResult, still ? 1500 : 2350));
+      };
+      /* A genuine outcome plays the brand's own verification film instead of
+         the drawn choreography. Anything that stops the film — no asset,
+         reduced motion, a load error, autoplay refused — falls back to the
+         choreography, so the outcome is never left waiting on a video. */
+      if (ctx.verdict === "genuine" && ASSETS.verifyVideo && !still && vid && vid.play) {
+        var fallback = function () { if (!landed) { stopSplashVideo(); choreography(); } };
+        splash.classList.add("video");
+        vid.hidden = false;
+        vid.onended = landResult;
+        vid.onerror = fallback;
+        vid.onclick = landResult;              /* a tap skips ahead */
+        if (vid.getAttribute("src") !== ASSETS.verifyVideo) vid.src = ASSETS.verifyVideo;
+        try { vid.currentTime = 0; } catch (_) {}
+        var playing = vid.play();
+        if (playing && playing.catch) playing.catch(fallback);
+        /* Ceiling: a film that stalls on a poor connection must not hold the
+           outcome hostage (the film itself lasts 11 s). */
+        ctx.timers.push(setTimeout(landResult, 16000));
+      } else {
+        choreography();
+      }
     }
     shownAt = Date.now();
     /* The drawer is modal: the shell behind it is inert, so a focus() call
@@ -2132,6 +2176,16 @@ html[data-motionbtn] main{padding-bottom:72px}
         pushStep("splash");
       }
     }
+  }
+
+  /* Stops and hides the verification film; safe to call when it never ran. */
+  function stopSplashVideo() {
+    var vid = $("#splash-video");
+    if (!vid) return;
+    try { vid.pause(); } catch (_) {}
+    vid.onended = vid.onerror = vid.onclick = null;
+    vid.hidden = true;
+    panels.splash.classList.remove("video");
   }
 
   /* ------------------------------------------------------- splash particles */

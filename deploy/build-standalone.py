@@ -50,3 +50,17 @@ assert "GATE_DISABLED = true" not in src, "il cancello risulta disattivato!"
 out = ROOT / "deploy/site/index.html"
 out.write_text(src, encoding="utf-8")
 print("scritto", out, out.stat().st_size, "byte")
+
+# Il video della verifica NON viene incorporato: resta un file accanto alla
+# pagina (deploy/site/assets/), che setup.sh installa nel webroot. Cosi' lo
+# scarica solo chi arriva a un esito autentico, e la pagina resta leggera.
+import shutil
+assert 'verifyVideo: "assets/verifica-autentico.mp4"' in src, "slot video mancante"
+assets = ROOT / "deploy/site/assets"
+assets.mkdir(parents=True, exist_ok=True)
+video = ROOT / "code/assets/verifica-autentico.mp4"
+if video.exists():
+    shutil.copyfile(video, assets / video.name)
+    print("copiato", assets / video.name, (assets / video.name).stat().st_size, "byte")
+else:
+    sys.exit("video mancante: " + str(video))

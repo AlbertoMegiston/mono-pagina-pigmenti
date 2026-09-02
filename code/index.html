@@ -441,6 +441,12 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .splash__blob svg{position:absolute;inset:0;transition:transform .5s var(--ease)}
 #step-splash h1{opacity:0;transition:opacity .3s var(--ease)}
 #step-splash.titled h1{opacity:1}
+/* The film covers the viewport (cover crops the landscape master to the phone's
+   portrait; its action is centred, so nothing that matters is lost) and sits
+   over the drawn elements, which are hidden meanwhile. */
+.splash__video{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;background:#fff;z-index:2}
+#step-splash.video .splash__blob,#step-splash.video h1,
+#step-splash.video .splash__brand,#step-splash.video .splash__service{visibility:hidden}
 #step-splash.settled .splash__blob i{opacity:0;transform:translate(-50%,-50%) scale(.3)}
 #step-splash.settled .splash__blob svg{transform:scale(.55) translateY(-10px)}
 @media (prefers-reduced-motion:reduce){
@@ -1002,6 +1008,10 @@ html[data-motionbtn] main{padding-bottom:72px}
         <svg width="96" height="96" viewBox="0 0 96 96" fill="none" stroke="currentColor" stroke-width="4"><path d="M10 30V10h20M66 10h20v20M86 66v20H66M30 86H10V66"/></svg>
         <i></i>
       </div>
+      <!-- The brand's own verification film, shown for a genuine outcome in
+           place of the drawn choreography. Muted + playsinline so phones let
+           it autoplay; the src is set only when it is actually needed. -->
+      <video class="splash__video" id="splash-video" muted playsinline preload="auto" aria-hidden="true" hidden></video>
     </section>
 
     <!-- RESULT ------------------------------------------------------------ -->
@@ -1113,6 +1123,8 @@ html[data-motionbtn] main{padding-bottom:72px}
        heroVideo    optional landing video; takes precedence over hero
        background   full-bleed image behind every step after the landing
        backgroundVideo optional; takes precedence over background
+       verifyVideo  the brand's verification film, played on a genuine outcome
+                    in place of the drawn "Verifica completata" choreography
      ====================================================================== */
   var ASSETS = {
     logo: "assets/logo.png",
@@ -1124,7 +1136,8 @@ html[data-motionbtn] main{padding-bottom:72px}
     heroVideo: "",
     background: "assets/background.jpg",
     backgroundPosition: "72% 50%",
-    backgroundVideo: "assets/background.mp4"
+    backgroundVideo: "assets/background.mp4",
+    verifyVideo: "assets/verifica-autentico.mp4"
   };
 
   /* ------------------------------------------------------------------------
@@ -1528,6 +1541,8 @@ html[data-motionbtn] main{padding-bottom:72px}
        through. "Where" gains a third option once the item is already owned. */
     if (step === "where") paintWhere();
     if (step === "place") renderPlace();
+    /* Leaving the splash mid-film (Back, restart) must stop the film. */
+    if (ctx.step === "splash" && step !== "splash") stopSplashVideo();
     ORDER.forEach(function (s) { panels[s].hidden = (s !== step); });
     ctx.step = step;
     var onDark = (step !== "landing" && step !== "gate");
@@ -1570,30 +1585,59 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "splash") {
       var run = ctx.runId;
       var splash = panels.splash;
-      splash.classList.remove("titled", "settled");
+      var vid = $("#splash-video");
+      splash.classList.remove("titled", "settled", "video");
       var still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (still) {
-        splash.classList.add("titled", "settled");
-      } else {
-        /* Choreography read frame by frame from the reference recording:
-           the mark crunches with two particle bursts, the headline fades in,
-           then the blob dies down and the reticle parks small. */
-        startSplashFx(run);
-        ctx.timers.push(setTimeout(function () {
-          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("titled");
-        }, 750));
-        ctx.timers.push(setTimeout(function () {
-          if (run === ctx.runId && ctx.step === "splash") splash.classList.add("settled");
-        }, 1550));
-      }
       /* The splash replaces itself in history: stepping back from the result
          must not land on a screen that immediately pushes forward again. */
-      ctx.timers.push(setTimeout(function () {
-        if (run !== ctx.runId || ctx.step !== "splash") return;
+      var landed = false;
+      var landResult = function () {
+        if (landed || run !== ctx.runId || ctx.step !== "splash") return;
+        landed = true;
+        stopSplashVideo();
         showStep("result");
         ctx.stack[ctx.stack.length - 1] = "result";
         if (historyOK) { try { history.replaceState({ step: "result", epoch: EPOCH, i: ctx.depth }, ""); } catch (_) {} }
-      }, still ? 1500 : 2350));
+      };
+      var choreography = function () {
+        splash.classList.remove("video");
+        if (still) {
+          splash.classList.add("titled", "settled");
+        } else {
+          /* Choreography read frame by frame from the reference recording:
+             the mark crunches with two particle bursts, the headline fades in,
+             then the blob dies down and the reticle parks small. */
+          startSplashFx(run);
+          ctx.timers.push(setTimeout(function () {
+            if (run === ctx.runId && ctx.step === "splash") splash.classList.add("titled");
+          }, 750));
+          ctx.timers.push(setTimeout(function () {
+            if (run === ctx.runId && ctx.step === "splash") splash.classList.add("settled");
+          }, 1550));
+        }
+        ctx.timers.push(setTimeout(landResult, still ? 1500 : 2350));
+      };
+      /* A genuine outcome plays the brand's own verification film instead of
+         the drawn choreography. Anything that stops the film — no asset,
+         reduced motion, a load error, autoplay refused — falls back to the
+         choreography, so the outcome is never left waiting on a video. */
+      if (ctx.verdict === "genuine" && ASSETS.verifyVideo && !still && vid && vid.play) {
+        var fallback = function () { if (!landed) { stopSplashVideo(); choreography(); } };
+        splash.classList.add("video");
+        vid.hidden = false;
+        vid.onended = landResult;
+        vid.onerror = fallback;
+        vid.onclick = landResult;              /* a tap skips ahead */
+        if (vid.getAttribute("src") !== ASSETS.verifyVideo) vid.src = ASSETS.verifyVideo;
+        try { vid.currentTime = 0; } catch (_) {}
+        var playing = vid.play();
+        if (playing && playing.catch) playing.catch(fallback);
+        /* Ceiling: a film that stalls on a poor connection must not hold the
+           outcome hostage (the film itself lasts 11 s). */
+        ctx.timers.push(setTimeout(landResult, 16000));
+      } else {
+        choreography();
+      }
     }
     shownAt = Date.now();
     /* The drawer is modal: the shell behind it is inert, so a focus() call
@@ -2132,6 +2176,16 @@ html[data-motionbtn] main{padding-bottom:72px}
         pushStep("splash");
       }
     }
+  }
+
+  /* Stops and hides the verification film; safe to call when it never ran. */
+  function stopSplashVideo() {
+    var vid = $("#splash-video");
+    if (!vid) return;
+    try { vid.pause(); } catch (_) {}
+    vid.onended = vid.onerror = vid.onclick = null;
+    vid.hidden = true;
+    panels.splash.classList.remove("video");
   }
 
   /* ------------------------------------------------------- splash particles */

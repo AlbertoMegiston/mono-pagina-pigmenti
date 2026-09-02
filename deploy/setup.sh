@@ -54,6 +54,13 @@ if [[ -f "$QUI/site/index.html" ]]; then
 else
   echo "    ATTENZIONE: $QUI/site/index.html non trovato, la pagina non e' stata aggiornata." >&2
 fi
+# Gli asset pesanti (il video della verifica) restano file separati accanto
+# alla pagina: incorporarli nell'HTML lo appesantirebbe per ogni visitatore.
+if [[ -d "$QUI/site/assets" ]]; then
+  install -d "$WEBROOT/assets"
+  install -m 644 "$QUI"/site/assets/* "$WEBROOT/assets/"
+  echo "    asset installati ($(ls "$QUI/site/assets" | wc -l) file)"
+fi
 
 echo "==> 4/8 servizio di verifica"
 install -m 755 "$QUI/api/verify_server.py" "$APPDIR/verify_server.py"
