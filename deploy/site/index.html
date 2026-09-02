@@ -755,7 +755,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       <form id="form-place" novalidate>
         <div class="search">
           <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg>
-          <input id="place-q" type="search" autocomplete="off" spellcheck="false" aria-describedby="place-hint">
+          <input id="place-q" type="search" autocomplete="off" spellcheck="false">
         </div>
         <div class="searchrow">
           <button class="iconbtn" id="btn-near" type="button">
@@ -768,16 +768,7 @@ html[data-motionbtn] main{padding-bottom:72px}
           </button>
         </div>
       </form>
-      <!-- The caveat sits ABOVE the list: the entries below must be read as
-           sample data before they are read as nearby shops. Split on purpose:
-           the hint is the field's static description; the status region
-           carries only responses to the two buttons, so a response is a real
-           mutation and actually announces. -->
-      <p class="note" id="place-hint" data-i18n="place.note">In questo prototipo l'elenco è di esempio: la posizione non viene rilevata e la ricerca non è collegata a un archivio.</p>
-      <!-- role="list" survives WebKit's list-semantics stripping on ul with
-           list-style:none — same protection the verdict list already has. -->
-      <ul class="stores" id="stores" role="list"></ul>
-      <button class="morelink" id="btn-more" type="button" data-i18n="place.all">Vedi tutti i negozi</button>
+      <!-- The status region carries the response to the location button. -->
       <p class="note" id="place-status" role="status" aria-live="polite"></p>
     </section>
 
@@ -793,7 +784,7 @@ html[data-motionbtn] main{padding-bottom:72px}
           <label for="email" data-i18n="signin.label">La tua email</label>
           <input id="email" name="email" type="email" autocomplete="email" spellcheck="false" enterkeyhint="go" aria-describedby="email-note">
         </div>
-        <p class="fieldnote" id="email-note" role="status" aria-live="polite" data-i18n="signin.demo">Prototipo: nessuna email viene inviata.</p>
+        <p class="fieldnote" id="email-note" role="status" aria-live="polite"></p>
         <button class="cta" type="submit">
           <span data-i18n="signin.cta">Continua</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
@@ -1162,16 +1153,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       "place.onlineTitle": "Ecco i siti più frequenti, scegli quello dove hai acquistato.",
       "place.onlineQ": "Inserisci il nome del sito o l'indirizzo",
       "place.near": "Usa la mia posizione",
-      "place.all": "Vedi tutti i negozi",
-      "place.allOnline": "Vedi tutti i siti",
-      "place.note": "In questo prototipo l'elenco è di esempio: la posizione non viene rilevata e la ricerca non è collegata a un archivio.",
-      "place.noGeo": "La posizione non è disponibile in questo prototipo: l'elenco è di esempio.",
-      "place.allNote": "L'elenco completo non fa parte di questo prototipo: le voci qui sopra sono un esempio.",
-      "place.picked": "Hai scelto {name}.",
-      "place.sampleStore1": "Negozio di esempio 1",
-      "place.sampleStore2": "Negozio di esempio 2",
-      "place.siteOfficial": "Sito ufficiale del brand",
-      "place.siteRetailer": "Rivenditore online autorizzato",
+      "place.noGeo": "La posizione non è disponibile.",
 
       "signin.title": "Accedi",
       "signin.sub": "Per utenti nuovi e di ritorno",
@@ -1179,7 +1161,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "signin.cta": "Continua",
       "signin.skip": "Salta questo passaggio",
       "signin.err": "Inserisci un indirizzo email valido.",
-      "signin.demo": "Prototipo: nessuna email viene inviata.",
       "otp.title": "Verifica che sei tu",
       "otp.body": "Inserisci il codice di verifica che abbiamo appena inviato a {email}",
       "otp.wait": "Attendi {s} secondi per richiedere un nuovo codice",
@@ -1291,16 +1272,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       "place.onlineTitle": "Here are the most common sites, pick where you bought it.",
       "place.onlineQ": "Enter the site name or the address",
       "place.near": "Use my location",
-      "place.all": "See all shops",
-      "place.allOnline": "See all sites",
-      "place.note": "In this prototype the list is sample data: your location is not detected and the search is not connected to a directory.",
-      "place.noGeo": "Location is not available in this prototype: the list is sample data.",
-      "place.allNote": "The full directory is not part of this prototype: the entries above are sample data.",
-      "place.picked": "You picked {name}.",
-      "place.sampleStore1": "Sample shop 1",
-      "place.sampleStore2": "Sample shop 2",
-      "place.siteOfficial": "Official brand site",
-      "place.siteRetailer": "Authorised online retailer",
+      "place.noGeo": "Location is not available.",
 
       "signin.title": "Sign in",
       "signin.sub": "For new and returning users",
@@ -1308,7 +1280,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "signin.cta": "Continue",
       "signin.skip": "Skip this step",
       "signin.err": "Enter a valid email address.",
-      "signin.demo": "Prototype: no email is actually sent.",
       "otp.title": "Verify it is you",
       "otp.body": "Enter the verification code we have just sent to {email}",
       "otp.wait": "Wait {s} seconds to request a new code",
@@ -1708,22 +1679,6 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
 
   /* ----------------------------------------------------------- place step */
-  /* Sample directory, and unmistakably so: generic localised names, no
-     invented distances or street addresses, no real trade names — the page
-     never asks for the user's position, so it must not render one. The real
-     directory replaces this when the endpoint exists; entries may then carry
-     dist and addr again, which the renderer below still supports. */
-  var SAMPLE = {
-    store: [
-      { key: "place.sampleStore1", solid: true },
-      { key: "place.sampleStore2", solid: false }
-    ],
-    online: [
-      { key: "place.siteOfficial", solid: true },
-      { key: "place.siteRetailer", solid: false }
-    ]
-  };
-
   function renderPlace() {
     var online = ctx.where === "online";
     $("#h-place").textContent = t(online ? "place.onlineTitle" : "place.storeTitle");
@@ -1736,33 +1691,10 @@ html[data-motionbtn] main{padding-bottom:72px}
     /* A website has no "near me": the control only renders on the shop
        variant, so the page never implies it can locate a purchase site. */
     $("#btn-near").hidden = online;
-    $("#btn-more").textContent = t(online ? "place.allOnline" : "place.all");
     /* The status region holds only what the user has triggered on this visit
        (ctx-backed so it survives — translated — a language switch). */
     if (ctx.placeNote) setLive("#place-status", ctx.placeNote);
     else setLive("#place-status", null);
-
-    var host = $("#stores"); host.textContent = "";
-    SAMPLE[online ? "online" : "store"].forEach(function (s) {
-      /* Explicit listitem: the li are flex items, and WebKit needs the roles
-         restated once list-style:none has stripped them. */
-      var li = elem("li"); li.setAttribute("role", "listitem");
-      var b = elem("button", "store" + (s.solid ? "" : " store--outline"));
-      b.type = "button";
-      var body = elem("div", "store__body");
-      var name = elem("div", "store__name"); name.textContent = t(s.key); body.appendChild(name);
-      if (s.dist) {
-        var meta = elem("div", "store__meta");
-        meta.appendChild(svgNode("M3 11 21 3l-8 18-2-7-8-3Z", "14", { fill: "currentColor" }));
-        var dd = elem("span"); dd.textContent = s.dist; meta.appendChild(dd);
-        body.appendChild(meta);
-      }
-      if (s.addr) { var ad = elem("div", "store__addr"); ad.textContent = s.addr; body.appendChild(ad); }
-      b.appendChild(body);
-      b.appendChild(chevron());
-      b.addEventListener("click", function () { ctx.place = t(s.key); goto(afterPlace()); });
-      li.appendChild(b); host.appendChild(li);
-    });
   }
 
   /* What is typed lives in ctx, not only in the DOM: a language switch
@@ -1773,10 +1705,9 @@ html[data-motionbtn] main{padding-bottom:72px}
     ctx.place = $("#place-q").value.trim();
     goto(afterPlace());
   });
-  /* Each button gets its own, distinct response, and announce() guarantees a
-     repeat press is spoken again instead of silently rewriting itself. */
+  /* announce() guarantees a repeat press is spoken again instead of silently
+     rewriting itself. */
   $("#btn-near").addEventListener("click", function () { ctx.placeNote = "place.noGeo"; announce("#place-status", ctx.placeNote); });
-  $("#btn-more").addEventListener("click", function () { ctx.placeNote = "place.allNote"; announce("#place-status", ctx.placeNote); });
 
   /* ---------------------------------------------------- manual code entry */
   var clg = $("#clg"), clgField = $("#codefield"), clgNote = $("#clg-note");
@@ -1843,7 +1774,7 @@ html[data-motionbtn] main{padding-bottom:72px}
      instead of silently dropped. */
   function skipSignin() {
     var note = $("#email-note");
-    note.dataset.state = ""; setLive(note, "signin.demo");
+    note.dataset.state = ""; setLive(note, null);
     $("#email").setAttribute("aria-invalid", "false");
     ctx.email = "";
     ctx.otpOk = true;               /* the auth leg counts as satisfied */
@@ -1862,7 +1793,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       $("#email").setAttribute("aria-invalid", "true"); $("#email").focus();
       return;
     }
-    note.dataset.state = ""; setLive(note, "signin.demo");
+    note.dataset.state = ""; setLive(note, null);
     $("#email").setAttribute("aria-invalid", "false");
     ctx.email = v;
     goto("otp");
