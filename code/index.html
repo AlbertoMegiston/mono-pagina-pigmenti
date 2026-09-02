@@ -652,6 +652,30 @@ html[data-motionbtn] main{padding-bottom:72px}
 .drawer__nav svg{flex:none;opacity:.9}
 .drawer__note{margin:24px 34px 0;font-size:var(--fs-small);line-height:1.6;color:#bdbdbd;min-height:1.4em}
 
+/* ==========================================================================
+   DOC — full-screen reading layer for the legal pages (white, above the drawer)
+   ========================================================================== */
+#doc{position:fixed;inset:0;z-index:80;background:#fff;color:var(--ink);display:flex;flex-direction:column}
+#doc[hidden]{display:none}
+.doc__bar{flex:none;position:relative;display:flex;align-items:center;justify-content:center;
+  min-height:64px;padding:max(10px,env(safe-area-inset-top)) 56px 8px;border-bottom:1px solid #e6e6e6}
+.doc__brand{display:flex;align-items:center;justify-content:center;
+  font-size:var(--fs-small);font-weight:700;letter-spacing:.08em;text-transform:uppercase}
+.doc__brand img{display:block;max-height:34px;width:auto}
+.doc__close{position:absolute;right:8px;top:50%;transform:translateY(-50%);width:44px;height:44px;
+  display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink)}
+.doc__body{flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:22px var(--pad,18px) max(40px,env(safe-area-inset-bottom))}
+.doc__text{max-width:var(--col,640px);margin:0 auto;font-size:.95rem;line-height:1.65;text-wrap:pretty}
+.doc__text h1{font-size:1.5rem;font-weight:700;line-height:1.25;margin:6px 0 2px}
+.doc__sub{color:var(--ink-quiet);margin:0 0 20px}
+.doc__text h2{font-size:.95rem;font-weight:700;letter-spacing:.03em;margin:26px 0 8px}
+.doc__text p{margin:0 0 12px}
+.doc__text ol{margin:0 0 12px;padding-left:24px}
+.doc__text li{margin:0 0 8px}
+.doc__text a{color:inherit;text-decoration:underline;text-underline-offset:3px;overflow-wrap:anywhere}
+.doc__text hr{border:0;border-top:1px solid #e6e6e6;margin:22px 0}
+
 .lang{display:flex;gap:8px;margin:6px 0 0 42px}
 .lang button{min-width:44px;height:36px;cursor:pointer;border:1px solid rgba(255,255,255,.4);
   font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:#cfcfcf}
@@ -722,18 +746,14 @@ html[data-motionbtn] main{padding-bottom:72px}
         <h1 id="h-landing" tabindex="-1" data-i18n="landing.title">Benvenuto</h1>
         <p data-i18n="landing.lead">Verifica che il tuo prodotto sia autentico e accedi ai contenuti pensati per te.</p>
         <button class="cta" id="btn-verify" type="button" data-i18n="landing.cta">Verifica l'autenticità</button>
-        <!-- The legal line describes what a real service would do: no Terms
-             or Privacy Policy actually exist here, so the page must not
-             assert that tapping the CTA forms an agreement. The note below
-             is static and always rendered — not a tap-to-reveal, and not a
-             live region (it never mutates except on a language switch). -->
+        <!-- The legal line: the linked documents open in the reading layer
+             (#doc). Terms has no text yet, so that link is inert for now. -->
         <p class="legal">
           <span data-i18n="landing.legalLead">In un servizio reale, iniziando l'autenticazione accetteresti i nostri</span>
           <button type="button" class="legal-link" data-i18n="ui.terms">Termini e Condizioni</button>
           <span data-i18n="landing.legalAnd">e la</span>
-          <button type="button" class="legal-link" data-i18n="ui.privacy">Privacy Policy</button>
+          <button type="button" class="legal-link" data-doc="privacy" data-i18n="ui.privacy">Privacy Policy</button>
         </p>
-        <p class="legal" id="legal-note" data-i18n="landing.legalNote">In questo prototipo non viene stipulato alcun accordo e i documenti legali non sono collegati.</p>
       </div>
     </section>
 
@@ -830,7 +850,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       <div class="step-head"><h1 id="h-consent" tabindex="-1" data-i18n="consent.title">Tieniamoci in contatto</h1></div>
       <p class="consent__intro">
         <span data-i18n="consent.lead">Confermo di aver preso visione della</span>
-        <button type="button" class="legal-link" data-i18n="ui.privacy">Privacy Policy</button>
+        <button type="button" class="legal-link" data-doc="privacy" data-i18n="ui.privacy">Privacy Policy</button>
         <span data-i18n="consent.tail">e liberamente acconsento al trattamento dei miei dati per le seguenti finalità:</span>
       </p>
       <p class="note" id="consent-note" role="status" aria-live="polite"></p>
@@ -1032,7 +1052,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       </div>
     </div>
     <div class="drawer__group">
-      <button type="button" class="doc-link">
+      <button type="button" class="doc-link" data-doc="privacy">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h7"/></svg>
         <span data-i18n="ui.privacy">Privacy Policy</span>
       </button>
@@ -1063,6 +1083,112 @@ html[data-motionbtn] main{padding-bottom:72px}
     </div>
   </div>
   <p class="drawer__note" id="drawer-note" role="status" aria-live="polite"></p>
+</div>
+
+<!-- DOC — the reading layer for the legal pages. A modal dialog that always
+     sits on top of the open drawer (z-index above it), so Back, Escape, the
+     scroll lock and the inert shell are the drawer's own; see openDoc(). -->
+<div id="doc" hidden role="dialog" aria-modal="true">
+  <div class="doc__bar">
+    <div class="doc__brand" id="doc-brand" aria-hidden="true"></div>
+    <button class="doc__close" id="doc-close" type="button">
+      <span class="visually-hidden" data-i18n="ui.close">Chiudi</span>
+      <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l14 14M20 6 6 20"/></svg>
+    </button>
+  </div>
+  <div class="doc__body" id="doc-body">
+    <article class="doc__text" id="doc-privacy" lang="it" hidden>
+      <h1>Informativa Privacy</h1>
+      <p class="doc__sub">Certilogo Authenticator</p>
+      <p>La presente informativa ha lo scopo di fornire tutte le informazioni sul trattamento dei dati effettuato da Certilogo S.p.A. qualora tu deciderai di avvalerti dei servizi dalla stessa forniti ed in particolare farai uso del tool di Certilogo S.p.A. per l’autenticazione di capi d’abbigliamento ed accessori moda di brand del settore del lusso, così come di altri prodotti di altri noti brand, italiani ed internazionali (come di seguito meglio illustrato).</p>
+
+      <h2>1. INTRODUZIONE - CHI SIAMO?</h2>
+      <p>Certilogo S.p.A. con sede legale in Milano, Via Cernaia, 2, 20121 Milano (MI) e P. IVA n. 05258270965 (di seguito, la "Società" o "Certilogo") offre un servizio volto alla tutela del brand e del consumatore finale e ha sviluppato un’applicazione (di seguito, "Authenticator") che permette di attestare l’originalità di prodotti (quali ad esempio, capi d’abbigliamento ed accessori moda di brand del settore del lusso) di aziende terze, che a loro volta possono avvalersi dei servizi e degli strumenti sviluppati della Società. La presente informativa illustra agli interessati, ovvero gli utenti finali che desiderano fruire del servizio di autenticazione della Società (di seguito, gli "Utenti"), come saranno trattati i loro dati in relazione all’utilizzo dell’Authenticator e viene fornita dalla Società, in qualità di titolare del trattamento, ai sensi del D. Lgs. 196/2003, integrato con le modifiche introdotte dal D. Lgs. n. 101/2018 (di seguito, il "Codice Privacy"), nonché ai sensi dell’art. 13 del Regolamento UE 2016/679 del 27 aprile 2016 (di seguito, "Regolamento", il Regolamento e il Codice Privacy sono insieme definiti "Normativa Applicabile").</p>
+
+      <h2>2. COME CONTATTARCI?</h2>
+      <p>Gli Utenti possono contattare la Società in qualsiasi momento, inviando un messaggio di posta elettronica all’indirizzo e-mail del Responsabile della Protezione dei Dati o DPO (Data Protection Officer) della Società (<a href="mailto:privacy@certilogo.com">privacy@certilogo.com</a>) oppure inviando una raccomandata A/R alla sede legale della stessa, come indicata in epigrafe.</p>
+
+      <h2>3. COSA FACCIAMO? – FINALITÀ DEL TRATTAMENTO</h2>
+      <p>Tramite l’Authenticator, anche in virtù di accordi con primari produttori del settore del lusso, italiani ed internazionali, di capi d’abbigliamento ed accessori, così come con noti produttori italiani ed internazionali appartenenti ad altri settori (a titolo esemplificativo, ma non esaustivo, produttori di componentistica di alta gamma per biciclette da corsa, produttori di componenti meccaniche di precisione, produttori di accessori di design, ecc.; di seguito, congiuntamente, "Brand"), la Società offre un servizio che permette di attestare l’originalità di capi d’abbigliamento ed accessori moda di brand del settore del lusso, così come di altri prodotti offerti da soggetti terzi sul mercato (di seguito, "Servizio").</p>
+      <p>Per fornire il Servizio, la Società raccoglie dati personali relativi agli Utenti volontariamente immessi dagli stessi tramite il form di registrazione (nome, cognome, indirizzo e-mail, data di nascita, sesso), nonché ulteriori dati relativi al dispositivo dell’Utente che fruisce del Servizio anche senza registrarsi allo stesso (quale ad esempio, produttore del dispositivo, modello del dispositivo, sistema operativo, il tipo di browser, l’indirizzo IP, la lingua preferita) e alla posizione del dispositivo dell’Utente (solo in caso di specifico consenso, così come di seguito si specificherà). Ulteriori dati personali degli Utenti registrati (indirizzo e numero di telefono), potranno essere raccolti da Certilogo durante la creazione del cd. Report Assistenza Rimborso da parte dell’Utente ed utilizzati solo per le finalità di cui al presente paragrafo 3.</p>
+      <p>Il Servizio di Certilogo è riservato a persone che hanno compiuto il diciottesimo anno di età. Certilogo non raccoglie in maniera consapevole dati personali relativi a soggetti minori di 18 anni. Utilizzando e/o registrandosi al Servizio, l’utente dichiara di essere maggiorenne. Certilogo cancellerà tempestivamente tutti i dati personali involontariamente raccolti e relativi a soggetti minori di 18 anni.</p>
+      <p>In particolare, i dati personali degli Utenti saranno lecitamente trattati ai sensi dell’art. 6 del Regolamento per le seguenti finalità di trattamento:</p>
+      <ol type="a">
+        <li><strong>Obblighi contrattuali e fornitura del Servizio</strong>: per dare esecuzione ai Termini e Condizioni di Certilogo, che sono accettati dall’Utente prima della fruizione del Servizio e/o in fase di registrazione, dare seguito alla richiesta di poter accedere al Servizio ed utilizzare l’Authenticator, nonché al fine di compiere le attività necessarie all’autenticazione del prodotto per fornire il Servizio richiesto di volta in volta dall’Utente (così come per fornire, qualora richiesto dall’Utente, il cd. Report Assistenza Rimborso). I dati personali raccolti tramite il form di registrazione sono utilizzati al fine di permettere all’Utente la creazione di un proprio profilo personale attraverso il quale accedere all’Authenticator e fruire del Servizio. I dati personali raccolti tramite il form per la richiesta del Report Assistenza Rimborso sono utilizzati esclusivamente al fine di fornire il Report Assistenza Rimborso all’Utente, così come da quest’ultimo richiesto.<br>Al fine della fornitura del Servizio, per garantire un sistema di autenticazione efficace e/o qualora il prodotto si riveli non autentico, contraffatto o commercializzato in violazione delle leggi applicabili, la Società potrà: 1) comunicare l’indirizzo IP e/o l’indirizzo e-mail dell’Utente al Brand titolare del prodotto che l’Utente sta autenticando tramite il Servizio, al fine di permettere lo svolgimento di eventuali indagini sull’autenticazione dei prodotti effettuata tramite il Servizio, sulla autenticità dei prodotti stessi e/o per garantire la loro conformità alle leggi applicabili così come, nel caso di Utente registrato, consentirgli di approfondire con il Brand le problematiche relative al prodotto riscontrate; e/o 2) per le medesime finalità di cui al precedente n. 1), comunicare al Brand il Report Assistenza Rimborso emesso dalla Società a richiesta dell’Utente. Salvo che l’Utente dia alla Società uno specifico e facoltativo consenso al trattamento dei suoi dati personali per finalità di marketing ai sensi del successivo paragrafo 4 o per finalità di profilazione ai sensi del successivo paragrafo 5, nessun altro trattamento verrà effettuato in relazione a tali dati personali. Fermo restando quanto previsto altrove in questa informativa privacy, in nessun caso saranno resi accessibili agli altri utenti e/o a terzi i dati personali;</li>
+        <li><strong>Finalità amministrativo-contabili</strong>, ovvero per svolgere attività di natura organizzativa, amministrativa, finanziaria e contabile, quali attività organizzative interne ed attività funzionali all’adempimento di obblighi contrattuali e precontrattuali;</li>
+        <li><strong>Geolocalizzazione dell’Utente ai fini della fornitura di specifiche funzionalità aggiuntive all’Utente</strong>: con il consenso libero e facoltativo dell’Utente, Certilogo potrà raccogliere i dati relativi alla posizione del dispositivo dell’Utente. In caso di prestazione del consenso, l’Utente potrà usufruire di funzionalità aggiuntive del Servizio (a titolo esemplificativo, l’Utente potrà visualizzare l’indicazione dei negozi e punti vendita nei pressi della sua posizione). Per la fruizione di tali predette funzionalità, all’interno di specifiche pagine (come, ad esempio, in quella in cui viene chiesto all’Utente di identificare il negozio fisico in cui ha reperito il prodotto oggetto di autenticazione), l’Utente dovrà esprimere un apposito consenso per il tramite del meccanismo ivi previsto. In caso di consenso dell’Utente, i dati personali raccolti per la finalità in oggetto – vale a dire quelli relativi alla geolocalizzazione del dispositivo dell’Utente – saranno trattati per permettere a Certilogo di fornire all’Utente le specifiche funzionalità aggiuntive del Servizio. L’attivazione della geolocalizzazione è un requisito libero e facoltativo, ma necessario per usufruire delle funzionalità in oggetto. In caso di consenso, l’Utente potrà in qualsiasi momento revocare lo stesso, facendone richiesta a Certilogo con le modalità indicate al successivo paragrafo 9. In caso di mancato consenso, la possibilità di usufruire del Servizio non sarà in alcun modo pregiudicata;</li>
+        <li><strong>Obblighi di legge</strong>, ovvero per adempiere ad obblighi previsti dalla legge, da un regolamento o dalla normativa europea così come adempiere a specifiche richieste pervenute da un’autorità, relativamente all’autenticità dei prodotti per i quali sia stato fornito il Servizio e/o all’uso del Servizio di Certilogo, e per l’accertamento di responsabilità in caso di eventuali violazioni (come, a titolo esemplificativo, reati informatici ai danni dell’Authenticator).</li>
+      </ol>
+      <p>Il conferimento dei dati personali per le finalità di trattamento sopra indicate è facoltativo ma necessario, poiché il mancato conferimento degli stessi comporterà l’impossibilità per l’Utente di accedere al Servizio (eventuali dati obbligatori per procedere, saranno indicati con un asterico all’interno dei moduli di raccolta dati).</p>
+
+      <h2>4. ULTERIORI FINALITA’ DI TRATTAMENTO: MARKETING</h2>
+      <p>Con il consenso libero e facoltativo dell’Utente, alcuni dati personali dello stesso (ovvero il nome, il cognome, l’indirizzo e-mail) potranno essere trattati dalla Società per finalità di marketing (invio di materiale pubblicitario, vendita diretta e comunicazione commerciale), ovvero affinché la Società possa contattare l’Utente tramite posta elettronica per proporre all’Utente l’acquisto di prodotti e/o servizi offerti dalla stessa Società e/o da imprese terze, presentare offerte, promozioni ed opportunità commerciali ed inviare newsletter periodiche.</p>
+      <p>In caso di mancato consenso, la possibilità di usufruire del Servizio non sarà in alcun modo pregiudicata.</p>
+      <p>In caso di consenso, l’Utente potrà in qualsiasi momento revocare lo stesso, facendone richiesta alla Società con le modalità indicate al successivo paragrafo 9.</p>
+      <p>L’Utente potrà inoltre opporsi facilmente ad ulteriori invii di comunicazioni promozionali via e-mail anche cliccando sull’apposito link per la revoca del consenso, che è presente in ciascuna e-mail promozionale. Effettuata la revoca del consenso, la Società invierà all’Utente un messaggio di posta elettronica per confermare l’avvenuta revoca del consenso.</p>
+      <p>La Società informa che, a seguito dell’esercizio del diritto di opposizione all’invio di comunicazioni promozionali via e-mail, è possibile che, per ragioni tecniche ed operative (es. formazione delle liste di contatto già completata poco prima della ricezione da parte della Società della richiesta di opposizione) l’Utente continui a ricevere alcuni ulteriori messaggi promozionali. Qualora l’Utente dovesse continuare a ricevere messaggi promozionali dopo che siano trascorse 24 ore dall’esercizio del diritto di opposizione, si prega di segnalare il problema alla Società, utilizzando i contatti indicati al successivo paragrafo 9.</p>
+
+      <h2>5. ULTERIORI FINALITA’ DI TRATTAMENTO: PROFILAZIONE</h2>
+      <p>Con il consenso <strong>libero e facoltativo</strong> dell’Utente i dati personali dello stesso (ovvero i dati anagrafici dell’Utente, quali nome, cognome, indirizzo e-mail, la data di nascita e il sesso (ove dichiarati dall’Utente in fase di registrazione), nonché tutte le informazioni relative ai prodotti che l’Utente ha autenticato tramite il Servizio, verso i quali lo stesso abbia manifestato il proprio interesse) potranno essere trattati dalla Società anche per finalità di profilazione, ovvero per ricostruire i gusti e le abitudini di consumo dell’Utente, individuandone il profilo di consumatore, al fine di poter inviare all’Utente offerte commerciali coerenti con il profilo individuato.</p>
+      <p>In caso di mancato consenso, la possibilità di usufruire del Servizio non sarà in alcun modo pregiudicata.</p>
+      <p>In caso di consenso, l’Utente potrà in qualsiasi momento revocare lo stesso, facendone richiesta alla Società con le modalità indicate al successivo paragrafo 9.</p>
+
+      <h2>6. BASE GIURIDICA</h2>
+      <p><strong>Servizio e finalità amministrativo-contabili</strong> (così come descritto dal precedente paragrafo 3, lettere a) e b)): la base giuridica consiste nell’art. 6 comma 1 lett. b) del Regolamento, ovvero il trattamento è necessario all’esecuzione di un contratto di cui l’interessato è parte o all’esecuzione di misure precontrattuali adottate su richiesta dello stesso.</p>
+      <p><strong>Geolocalizzazione dell’Utente</strong> (così come descritto dal precedente paragrafo 3, lettera c)): la base giuridica consiste nell’art. 6, comma 1, lett. a) del Regolamento, ovvero la prestazione da parte dell’interessato del consenso al trattamento dei propri dati personali per una o più specifiche finalità. Per questo motivo la Società chiede all’Utente la prestazione di uno specifico consenso, libero e facoltativo per raccogliere i dati relativi alla geolocalizzazione del dispositivo dell’Utente.</p>
+      <p><strong>Obblighi di legge</strong> (così come descritto dal precedente paragrafo 3, lettera d)): la base giuridica consiste nell’articolo 6, comma 1, lett. c) del Regolamento, ovvero il trattamento è necessario per l’adempimento di un obbligo legale al quale la Società è soggetta.</p>
+      <p><strong>Ulteriori finalità di trattamento</strong>: per il trattamento di marketing (così come descritto dal precedente paragrafo 4) e/o il trattamento di profilazione (così come descritto dal precedente paragrafo 5), la base giuridica consiste nell’art. 6, comma 1, lett. a) del Regolamento, ovvero la prestazione da parte dell’interessato del consenso al trattamento dei propri dati personali per una o più specifiche finalità. Per questo motivo la Società chiede all’Utente la prestazione di specifici consensi, liberi e facoltativi per perseguire tali finalità di trattamento.</p>
+
+      <h2>7. MODALITÀ DI TRATTAMENTO E TEMPI DI CONSERVAZIONE DEI DATI</h2>
+      <p>La Società tratterà i dati personali degli Utenti mediante strumenti manuali ed informatici, con logiche strettamente correlate alle finalità stesse e, comunque, in modo da garantire la sicurezza e la riservatezza dei dati stessi.</p>
+      <p>I dati personali degli Utenti saranno conservati per i tempi strettamente necessari ad espletare le finalità primarie di cui al Servizio (come descritto al precedente paragrafo 3, lettere a) e b)) e le finalità legate alle specifiche funzionalità del Servizio stesso di cui l’Utente intende usufruire (come descritto al precedente paragrafo 3, lettera c)), o comunque secondo quanto necessario per la tutela in sede civilistica degli interessi della Società e degli Utenti e l’adempimento di obblighi di legge (come descritto al precedente paragrafo 3, lettera d).</p>
+      <p>Nei casi di cui ai precedenti paragrafi 4 e 5, i dati personali degli Utenti saranno conservati per i tempi strettamente necessari ad espletare le finalità illustrate negli stessi e, in ogni caso, per non più di, rispettivamente, ventiquattro (24) e dodici (12) mesi.</p>
+
+      <h2>8. AMBITO DI COMUNICAZIONE E DIFFUSIONE DEI DATI</h2>
+      <p>I dati personali dell’Utente potranno essere trasferiti al di fuori dell’Unione Europea e, in tal caso, Certilogo si assicurerà che il trasferimento avverrà in conformità alla Normativa Applicabile e, in particolare, in conformità agli artt. 45 (Trasferimento sulla base di una decisione di adeguatezza) e 46 (Trasferimento soggetto a garanzie adeguate) del Regolamento.</p>
+      <p>Potranno venire a conoscenza dei dati personali degli Utenti i collaboratori della Società incaricati di gestire il Servizio, l’Authenticator e/o altre richieste pervenute da parte degli Utenti alla Società. Tali soggetti, che sono stati istruiti ai sensi dell’art. 29 del Regolamento quali incaricati del trattamento, tratteranno i dati esclusivamente per le finalità indicate nella presente informativa e nel rispetto delle previsioni della Normativa Applicabile.</p>
+      <p>Potranno inoltre venire a conoscenza dati personali degli Utenti i soggetti terzi che potranno trattare dati personali per conto della Società in qualità di responsabili del trattamento ai sensi dell’art. 28 del Regolamento, quali, a titolo esemplificativo, fornitori di servizi informatici e logistici funzionali all’operatività del Servizio e dell’Authenticator, fornitori di servizi in outsourcing o cloud computing, professionisti e consulenti.</p>
+      <p>L’Utente ha il diritto di ottenere una lista degli eventuali responsabili del trattamento nominati, facendone richiesta alla Società con le modalità indicate al successivo paragrafo 9.</p>
+      <p>Inoltre, potranno venire a conoscenza dei dati personali degli Utenti (l’indirizzo e-mail, l’indirizzo IP e/o i dati contenuti nel Report Assistenza Rimborso, qualora emesso dalla Società su richiesta dell’Utente) i Brand con riferimento ai prodotti per i quali l’Utente abbia richiesto il Sevizio, per finalità di indagine sull’autenticazione dei prodotti effettuata tramite il Servizio, sull’autenticità dei prodotti stessi e/o per garantire la loro conformità alle leggi applicabili, così come per finalità di approfondimento del caso specifico con l’Utente registrato al Servizio. Potranno, infine, venire a conoscenza dei dati personali degli Utenti le autorità competenti con riferimento alle indagini riguardo l’autenticità dei prodotti per i quali sia stato fornito il Servizio, nonché per la tutela a fronte dell’uso illegittimo, improprio o non autorizzato del Servizio di Certilogo e per la conformità alle leggi applicabili e ai Termini e Condizioni di Certilogo, che sono accettati dall’Utente prima della fruizione del Servizio e/o della registrazione allo stesso.</p>
+
+      <h2>9. DIRITTI DEGLI INTERESSATI</h2>
+      <p>L’Utente potrà esercitare i diritti garantiti dalla Normativa Applicabile in qualsiasi momento, inviando un messaggio di posta elettronica all’indirizzo e-mail del Responsabile della Protezione dei Dati o DPO (Data Protection Officer) della Società (<a href="mailto:privacy@certilogo.com">privacy@certilogo.com</a>) oppure inviando una raccomandata A/R alla sede legale della stessa, come indicata in epigrafe.</p>
+      <p>Ai sensi della Normativa Applicabile, l’Utente ha il diritto di ottenere l’indicazione (i) dell’origine dei dati personali; (ii) delle finalità e modalità del trattamento; (iii) della logica applicata in caso di trattamento effettuato con l’ausilio di strumenti elettronici; (iv) degli estremi identificativi del titolare e dei responsabili; (v) dei soggetti o delle categorie di soggetti ai quali i dati personali possono essere comunicati o che possono venirne a conoscenza in qualità di responsabili o incaricati.</p>
+      <p>Inoltre, l’Utente ha il diritto di ottenere:</p>
+      <ol type="a">
+        <li>l’accesso, l’aggiornamento, la rettificazione ovvero, quando vi hai interesse, l’integrazione dei dati;</li>
+        <li>la cancellazione, la trasformazione in forma anonima o il blocco dei dati trattati in violazione di legge, compresi quelli di cui non è necessaria la conservazione in relazione agli scopi per i quali i dati sono stati raccolti o successivamente trattati;</li>
+        <li>l’attestazione che le operazioni di cui alle lettere a) e b) sono state portate a conoscenza, anche per quanto riguarda il loro contenuto, di coloro ai quali i dati sono stati comunicati o diffusi, eccettuato il caso in cui tale adempimento si rivela impossibile o comporta un impiego di mezzi manifestamente sproporzionato rispetto al diritto tutelato.</li>
+      </ol>
+      <p>Nonché:</p>
+      <ol type="a">
+        <li>il diritto di revocare il consenso in qualsiasi momento, qualora il trattamento si basi sul tuo consenso;</li>
+        <li>(qualora applicabile) il diritto alla portabilità dei dati (diritto di ricevere tutti i dati personali che ti riguardano in un formato strutturato, di uso comune e leggibile da dispositivo automatico), il diritto alla limitazione del trattamento <strong>dei dati personali</strong> e il diritto alla cancellazione ("diritto all’oblio");</li>
+        <li>il diritto di opporti:
+          <ol type="i">
+            <li>in tutto o in parte, per motivi legittimi al trattamento dei dati personali che ti riguarda, ancorché pertinenti allo scopo della raccolta;</li>
+            <li>in tutto o in parte, al trattamento di dati personali che ti riguardano a fini di invio di materiale pubblicitario o di vendita diretta o per il compimento di ricerche di mercato o di comunicazione commerciale;</li>
+            <li>qualora i dati personali siano trattati per finalità di marketing diretto, in qualsiasi momento, al trattamento dei dati effettuato per tale finalità, compresa la profilazione nella misura in cui sia connessa a tale marketing diretto.</li>
+          </ol>
+        </li>
+        <li>qualora ritenessi che il trattamento che ti riguarda violi il Regolamento, il diritto di proporre reclamo a un’Autorità di controllo (nello Stato membro in cui risiedi abitualmente, in quello in cui lavori oppure in quello in cui si è verificata la presunta violazione). L’Autorità di controllo italiana è il Garante per la protezione dei dati personali, con sede in Piazza Venezia, n. 11, 00187 - Roma (RM) (<a href="http://www.garanteprivacy.it/" target="_blank" rel="noopener">http://www.garanteprivacy.it/</a>).</li>
+      </ol>
+
+      <h2>10. REGISTRAZIONE TRAMITE "CONNECT WITH FACEBOOK" O TRAMITE "CONNECT WITH GOOGLE"</h2>
+      <p>Certilogo informa che gli Utenti iscritti a Facebook e gli Utenti iscritti a Google possono registrarsi, rispettivamente, tramite il servizio "Connect with Facebook" o tramite il servizio "Connect with Google" (o equivalenti), nei casi in cui tale opzione sia disponibile.</p>
+      <p>In tal caso, i dati che potranno essere comunicati a Certilogo da Facebook (tramite il predetto servizio "Connect with Facebook") o da Google (tramite il suddetto servizio "Connect with Google") – in base al metodo volontariamente scelto dall’Utente – sono i seguenti: l’ID Utente e/o lo username associato al servizio di social media prescelto dall’Utente (tra quelli disponibili, vale a dire Facebook e Google) e il link al profilo dell’Utente.</p>
+      <p>Certilogo tratterà tali dati esclusivamente per le finalità indicate nella presente informativa, nel rispetto dei consensi di volta in volta prestati dall’Utente. Aderendo al servizio "Connect with Facebook" e cliccando sul tasto "Log-in" oppure aderendo al servizio "Connect with Google" e cliccando sul tasto "Avanti", l’Utente acconsente che dalla piattaforma Facebook oppure dalla piattaforma Google (in base al metodo volontariamente scelto dall’Utente), vengano trasferiti a Certilogo i dati suindicati. Certilogo utilizzerà tali dati per facilitare la procedura di registrazione, precompilando i campi della scheda di registrazione dell’Utente con i dati comunicati da Facebook o da Google a Certilogo.</p>
+      <p>Gli Utenti che utilizzano il servizio "Connect with Facebook" potranno accedere al Servizio utilizzando le credenziali normalmente utilizzate per accedere a Facebook e gli Utenti che utilizzano il servizio "Connect with Google" potranno accedere al Servizio utilizzando le credenziali normalmente utilizzate per accedere a Google.</p>
+      <p>Per ulteriori informazioni sul servizio "Connect with Facebook" e per modificare le proprie impostazioni privacy relative a detto servizio, si prega di consultare i seguenti link: <a href="http://www.facebook.com/help/405977429438260/" target="_blank" rel="noopener">http://www.facebook.com/help/405977429438260/</a> e <a href="https://www.facebook.com/about/privacy/your-info-on-other" target="_blank" rel="noopener">https://www.facebook.com/about/privacy/your-info-on-other</a>.</p>
+      <p>Per ulteriori informazioni sul servizio "Connect with Google" e per modificare le proprie impostazioni privacy relative a detto servizio, si prega di consultare i seguenti link: <a href="https://www.google.com/intl/it_ALL/policies/privacy/" target="_blank" rel="noopener">www.google.com/intl/it_ALL/policies/privacy/</a> e <a href="https://support.google.com/plus/answer/1301225?hl=it" target="_blank" rel="noopener">https://support.google.com/plus/answer/1301225?hl=it</a>.</p>
+
+      <h2>11. MODIFICHE E/O AGGIORNAMENTI ALL’INFORMATIVA SULLA PRIVACY</h2>
+      <p>Certilogo potrà modificare o aggiornare la presente informativa privacy, anche in ragione di nuove normative, interpretazioni, decisioni, pareri e provvedimenti.</p>
+      <p>Eventuali modifiche alla presente informativa privacy saranno in ogni caso rese disponibili sul sito o sull’Authenticator.</p>
+      <hr>
+      <p>La Società non è responsabile per l’aggiornamento di tutti i link visualizzabili nella presente informativa, pertanto ogni qualvolta un link non sia funzionante e/o aggiornato, l’Utente riconosce ed accetta che dovrà sempre far riferimento al documento e/o sezione dei siti internet richiamati da tale link.</p>
+    </article>
+  </div>
 </div>
 
 <script>
@@ -1128,7 +1254,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "landing.cta": "Verifica l'autenticità",
       "landing.legalLead": "In un servizio reale, iniziando l'autenticazione accetteresti i nostri",
       "landing.legalAnd": "e la",
-      "landing.legalNote": "In questo prototipo non viene stipulato alcun accordo e i documenti legali non sono collegati.",
 
       "menu.lang": "Cambia lingua",
       "menu.cookie": "Cookie policy",
@@ -1247,7 +1372,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       "landing.cta": "Check authenticity",
       "landing.legalLead": "In a real service, starting the authentication would mean accepting our",
       "landing.legalAnd": "and the",
-      "landing.legalNote": "In this prototype no agreement is formed and the legal documents are not linked.",
 
       "menu.lang": "Change language",
       "menu.cookie": "Cookie policy",
@@ -2207,6 +2331,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
   function closeDrawer(fromPop) {
     if (!ctx.drawerOpen) return;
+    if (ctx.docOpen) closeDoc(true);   /* a document never outlives its drawer */
     ctx.drawerOpen = false;
     if (ctx.drawerRaf) { cancelAnimationFrame(ctx.drawerRaf); ctx.drawerRaf = 0; }
     var sh = $("#shell");
@@ -2252,6 +2377,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   });
   Array.prototype.forEach.call(document.querySelectorAll(".doc-link"), function (b) {
     b.addEventListener("click", function () {
+      if (b.hasAttribute("data-doc")) return;   /* opens its document instead */
       var about = b.querySelector("[data-i18n='menu.about']");
       /* The response names the entry that was activated, so consecutive
          different links read differently, and announce() makes a repeat of
@@ -2265,6 +2391,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   /* Escape must work wherever focus sits while the drawer is open - a click
      on the drawer's padding moves focus to <body>, outside its subtree. */
   document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && ctx.docOpen) { e.preventDefault(); closeDoc(); return; }
     if (e.key === "Escape" && ctx.drawerOpen) { e.preventDefault(); closeDrawer(); }
   });
   $("#drawer").addEventListener("keydown", function (e) {
@@ -2276,15 +2403,54 @@ html[data-motionbtn] main{padding-bottom:72px}
     else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 
-  /* --------------------------------------------------------------- legal */
-  Array.prototype.forEach.call(document.querySelectorAll(".legal-link"), function (b) {
-    b.addEventListener("click", function () {
-      /* On the landing the explanation is permanently on screen right under
-         the links (#legal-note is static markup now), so a tap needs no
-         dynamic response there. The consent screen still answers on the
-         screen the button is on. */
-      if (panels.consent.contains(b)) announce("#consent-note", "landing.legalNote");
-    });
+  /* ----------------------------------------------------------- documents */
+  /* The reading layer for the legal pages. It always sits on top of the open
+     drawer, so Back, Escape, the scroll lock and the inert shell come from
+     the drawer's own modal machinery: a link outside the drawer opens the
+     drawer underneath first (invisibly: the layer covers it) and closing the
+     document then closes that drawer with it. A link with data-doc names the
+     document it opens; one without (Terms, until its text exists) is inert. */
+  function openDoc(id) {
+    var art = $("#doc-" + id);
+    if (!art) return;
+    ctx.docAutoDrawer = !ctx.drawerOpen;
+    if (ctx.docAutoDrawer) openDrawer();
+    ctx.docLastFocus = document.activeElement;
+    Array.prototype.forEach.call(document.querySelectorAll("#doc .doc__text"), function (a) { a.hidden = (a !== art); });
+    var h = art.querySelector("h1");
+    $("#doc").setAttribute("aria-label", h ? h.textContent : "");
+    $("#doc").hidden = false;
+    ctx.docOpen = true;
+    var d = $("#drawer");
+    d.setAttribute("aria-hidden", "true");
+    if ("inert" in HTMLElement.prototype) d.inert = true;
+    $("#doc-body").scrollTop = 0;
+    $("#doc-close").focus({ preventScroll: true });
+  }
+  function closeDoc(fromDrawer) {
+    if (!ctx.docOpen) return;
+    ctx.docOpen = false;
+    $("#doc").hidden = true;
+    var d = $("#drawer");
+    d.removeAttribute("aria-hidden");
+    if ("inert" in HTMLElement.prototype) d.inert = false;
+    var auto = ctx.docAutoDrawer; ctx.docAutoDrawer = false;
+    if (fromDrawer === true) return;          /* the drawer is closing anyway */
+    if (auto) { closeDrawer(); return; }      /* restores focus to the link */
+    if (ctx.docLastFocus && ctx.docLastFocus.focus) ctx.docLastFocus.focus({ preventScroll: true });
+  }
+  $("#doc-close").addEventListener("click", function () { closeDoc(); });
+  Array.prototype.forEach.call(document.querySelectorAll("[data-doc]"), function (b) {
+    b.addEventListener("click", function () { openDoc(b.getAttribute("data-doc")); });
+  });
+  /* Tab stays inside the layer while it is open. */
+  $("#doc").addEventListener("keydown", function (e) {
+    if (e.key !== "Tab") return;
+    var f = Array.prototype.filter.call(this.querySelectorAll("button, a[href]"), function (n) { return n.offsetParent !== null; });
+    if (!f.length) return;
+    var first = f[0], last = f[f.length - 1];
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
   });
 
   /* -------------------------------------------------------------- assets */
@@ -2453,6 +2619,7 @@ html[data-motionbtn] main{padding-bottom:72px}
     setLive("#scan-brand", "ui.brand");
     setLive("#splash-brand", "ui.brand");
     setLive("#result-brand", "ui.brand");
+    setLive("#doc-brand", "ui.brand");
     if (!ASSETS.logo && !ASSETS.logoLight) return;
     /* Establish which artwork files really exist BEFORE anything enters the
        header: appending destroys the typographic fallback, and the live
@@ -2490,6 +2657,13 @@ html[data-motionbtn] main{padding-bottom:72px}
           bi.src = lightOK ? ASSETS.logoLight : ASSETS.logo;
           host.removeAttribute("data-i18n"); host.textContent = ""; host.appendChild(bi);
         });
+        /* The reading layer is white: the proven dark artwork as is, or the
+           light one inverted. */
+        var dh = $("#doc-brand");
+        var di = new Image(); di.alt = "";
+        if (!darkOK) di.style.filter = "invert(1)";
+        di.src = darkOK ? ASSETS.logo : ASSETS.logoLight;
+        dh.removeAttribute("data-i18n"); dh.textContent = ""; dh.appendChild(di);
       });
     });
   }
