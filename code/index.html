@@ -204,6 +204,17 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 }
 .cta:hover{background:#2f2f2f}
 
+/* "Salta" secondario dentro la card chiara dell'accesso: stessa forma della
+   CTA ma leggero (solo testo su bordo), cosi' e' chiaramente l'alternativa. */
+.skip-cta{
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  width:100%;min-height:var(--tap);padding:14px 20px;margin-top:12px;
+  cursor:pointer;border:1px solid var(--line,#d9d9d9);background:none;color:var(--ink-quiet);
+  font-size:var(--fs-action);font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  transition:color .16s var(--ease),border-color .16s var(--ease);
+}
+.skip-cta:hover{color:var(--ink);border-color:var(--ink)}
+
 .legal{margin-top:18px;text-align:center;font-size:var(--fs-small);line-height:1.7;color:var(--ink-quiet)}
 .legal button{text-decoration:underline;cursor:pointer;color:inherit}
 .legal button:hover{color:var(--ink)}
@@ -815,6 +826,12 @@ html[data-motionbtn] main{padding-bottom:72px}
           <span data-i18n="signin.cta">Continua</span>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
         </button>
+        <!-- L'email non è obbligatoria: si può proseguire senza, come sul
+             passo del negozio. -->
+        <button class="skip-cta" type="button" id="btn-signin-skip">
+          <span data-i18n="signin.skip">Salta questo passaggio</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 5 7 7-7 7"/></svg>
+        </button>
       </form>
     </section>
 
@@ -1179,8 +1196,9 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "signin.title": "Accedi",
       "signin.sub": "Per utenti nuovi e di ritorno",
-      "signin.label": "La tua email",
+      "signin.label": "La tua email (facoltativa)",
       "signin.cta": "Continua",
+      "signin.skip": "Salta questo passaggio",
       "signin.err": "Inserisci un indirizzo email valido.",
       "signin.demo": "Prototipo: nessuna email viene inviata.",
       "otp.title": "Verifica che sei tu",
@@ -1318,8 +1336,9 @@ html[data-motionbtn] main{padding-bottom:72px}
 
       "signin.title": "Sign in",
       "signin.sub": "For new and returning users",
-      "signin.label": "Your email",
+      "signin.label": "Your email (optional)",
       "signin.cta": "Continue",
+      "signin.skip": "Skip this step",
       "signin.err": "Enter a valid email address.",
       "signin.demo": "Prototype: no email is actually sent.",
       "otp.title": "Verify it is you",
@@ -1839,10 +1858,24 @@ html[data-motionbtn] main{padding-bottom:72px}
   });
 
   /* ----------------------------------------------------- sign-in and OTP */
+  /* The sign-in leg is optional: an empty email — or the Salta button — skips
+     straight past the OTP to consent, exactly like the store step's skip. A
+     non-empty but malformed address is still rejected, so a typo is caught
+     instead of silently dropped. */
+  function skipSignin() {
+    var note = $("#email-note");
+    note.dataset.state = ""; setLive(note, "signin.demo");
+    $("#email").setAttribute("aria-invalid", "false");
+    ctx.email = "";
+    ctx.otpOk = true;               /* the auth leg counts as satisfied */
+    goto(ctx.consentDone ? "phototag" : "consent");
+  }
+  $("#btn-signin-skip").addEventListener("click", skipSignin);
   $("#form-signin").addEventListener("submit", function (e) {
     e.preventDefault();
     var v = $("#email").value.trim();
     var note = $("#email-note");
+    if (!v) { skipSignin(); return; }   /* email non obbligatoria */
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)) {
       /* announce(): a second submit of the same bad address must be spoken
          again, and the key keeps the error translated across a switch. */
