@@ -570,6 +570,16 @@ html[data-motion="paused"] .scan__line{animation:none}
 @media (prefers-reduced-motion:reduce){.ring{animation:none;border-bottom-color:rgba(255,255,255,.9)}}
 #processing-status{position:relative;z-index:1;margin-top:20px;text-align:center;
   color:rgba(255,255,255,.82);font-size:var(--fs-lead);min-height:1.5em}
+/* The service did not answer: the ring and the progress line give way to a
+   plain notice and a retry, on the same ground. */
+#step-processing.is-down .ring,#step-processing.is-down #processing-status{display:none}
+.down{position:relative;z-index:1;margin-top:16svh;width:100%;max-width:var(--col,640px);text-align:center}
+.down__title{font-size:var(--fs-title);font-weight:700;line-height:1.3;margin:0 0 10px;color:#fff}
+.down__text{color:rgba(255,255,255,.82);font-size:var(--fs-lead);line-height:1.6;margin:0}
+.down .cta{background:#fff;color:#111;margin-top:26px}
+.down .cta:hover{background:#e6e6e6}
+.down__back{display:inline-block;margin-top:18px;min-height:var(--tap);padding:0 12px;border:0;background:none;
+  color:#fff;font:inherit;font-size:var(--fs-small);text-decoration:underline;text-underline-offset:3px;cursor:pointer}
 
 
 .verdict[data-v="genuine"] .verdict__mark{color:#6ee7a8}
@@ -980,6 +990,16 @@ html[data-motionbtn] main{padding-bottom:72px}
            the result. Entry is announced once by the focused heading; the
            strings stay visible progress. -->
       <p id="processing-status"></p>
+      <!-- The authenticator did not answer. No outcome exists, so none is
+           shown: the notice replaces the ring and offers a retry. -->
+      <div class="down" id="processing-down" hidden>
+        <h2 class="down__title" id="processing-down-title" tabindex="-1" data-i18n="processing.downTitle">Verifica non disponibile</h2>
+        <p class="down__text" data-i18n="processing.downText">Il servizio di verifica non risponde in questo momento. Nessun esito è stato prodotto: riprova tra qualche minuto.</p>
+        <button class="cta" id="btn-retry" type="button" data-i18n="processing.retry">Riprova</button>
+        <!-- The header (and its Back) is hidden on this full-bleed screen,
+             so the notice carries its own way back. -->
+        <button class="down__back" id="btn-down-back" type="button" data-i18n="processing.back">Torna indietro</button>
+      </div>
     </section>
 
     <!-- SPLASH ------------------------------------------------------------- -->
@@ -1552,11 +1572,11 @@ html[data-motionbtn] main{padding-bottom:72px}
   };
 
   /* ------------------------------------------------------------------------
-     LIVE BACKEND (optional). Set url to the deployed verify endpoint — e.g.
-     https://<project>.supabase.co/functions/v1/verify-clg — and the outcome
-     comes from the brand's uploaded code list instead of the simulation.
-     On any network failure the page falls back to the simulation, which the
-     demo notice already declares.
+     LIVE BACKEND (optional). Set url to the deployed verify endpoint (the
+     production build sets /api/verify) and the outcome comes from the
+     brand's uploaded code list alone. If the service does not answer, the
+     page says so and offers a retry: it never falls back to the simulation.
+     With url empty (the demo build) the simulation decides.
      ------------------------------------------------------------------------ */
   var VERIFY = { url: "/api/verify" };
 
@@ -1653,16 +1673,20 @@ html[data-motionbtn] main{padding-bottom:72px}
       "processing.p1": "Controllo del codice…",
       "processing.p2": "Confronto con il contesto di acquisto…",
       "processing.p3": "Preparazione dell'esito…",
+      "processing.downTitle": "Verifica non disponibile",
+      "processing.downText": "Il servizio di verifica non risponde in questo momento. Nessun esito è stato prodotto: riprova tra qualche minuto.",
+      "processing.retry": "Riprova",
+      "processing.back": "Torna indietro",
 
       "result.again": "Ricomincia",
       "result.genuine.title": "Il prodotto risulta autentico",
       "result.genuine.lede": "Questo articolo corrisponde a un prodotto registrato e il contesto d'acquisto che hai indicato non presenta anomalie.",
       "result.suspicious.title": "Servono altre informazioni",
-      "result.suspicious.lede": "Nella simulazione questo articolo risulta registrato, ma il contesto d'acquisto contiene elementi che meritano un approfondimento.",
+      "result.suspicious.lede": "Questo articolo risulta registrato, ma ci sono elementi che meritano un approfondimento.",
       "result.fake.title": "Il prodotto non risulta autentico",
-      "result.fake.lede": "Nella simulazione questo articolo non corrisponde ad alcun prodotto registrato. È l'esito che il servizio restituirebbe per un articolo non riconosciuto.",
+      "result.fake.lede": "Questo articolo non corrisponde a un prodotto registrato dal brand.",
       "result.notFound.title": "Articolo non registrato",
-      "result.notFound.lede": "Nella simulazione questo articolo non esiste in archivio. Di solito significa che il codice è stato letto male.",
+      "result.notFound.lede": "Questo codice non corrisponde a nessun prodotto registrato. Controlla le cifre: se il codice è corretto, il prodotto potrebbe non essere autentico.",
       "result.s1": "Conserva lo scontrino e la confezione.",
       "result.s2": "Fotografa l'etichetta con il codice ben leggibile.",
       "result.s3": "Contatta il servizio clienti del brand e riferisci l'esito.",
@@ -1766,16 +1790,20 @@ html[data-motionbtn] main{padding-bottom:72px}
       "processing.p1": "Checking the code…",
       "processing.p2": "Comparing with the purchase context…",
       "processing.p3": "Preparing the outcome…",
+      "processing.downTitle": "Verification unavailable",
+      "processing.downText": "The verification service is not responding right now. No outcome was produced: please try again in a few minutes.",
+      "processing.retry": "Try again",
+      "processing.back": "Go back",
 
       "result.again": "Start over",
       "result.genuine.title": "The product appears authentic",
       "result.genuine.lede": "The item matches a registered product and the purchase context you described shows no anomalies.",
       "result.suspicious.title": "More information is needed",
-      "result.suspicious.lede": "In this simulation the item is registered, but the purchase context contains details worth looking into.",
+      "result.suspicious.lede": "The item is registered, but there are details worth looking into.",
       "result.fake.title": "The product does not appear authentic",
-      "result.fake.lede": "In this simulation the item matches no registered product. This is the outcome the service would return for an unrecognised article.",
+      "result.fake.lede": "The item does not match any product registered by the brand.",
       "result.notFound.title": "Item not registered",
-      "result.notFound.lede": "In this simulation the item is not in the archive. Usually that means the code was misread.",
+      "result.notFound.lede": "This code matches no registered product. Check the digits: if the code is correct, the product may not be authentic.",
       "result.s1": "Keep the receipt and the packaging.",
       "result.s2": "Photograph the label with the code clearly readable.",
       "result.s3": "Contact the brand's customer service and report the outcome.",
@@ -1834,7 +1862,7 @@ html[data-motionbtn] main{padding-bottom:72px}
                 consent: "#h-consent", phototag: "#h-phototag",
                 scan: "#h-scan", code: "#h-code",
                 processing: "#h-processing", splash: "#h-splash", result: "#h-result" };
-  var T = { P2: 850, P3: 1650, DONE: 2400 };
+  var T = { P2: 850, P3: 1650, DONE: 2400, WAIT: 10000 };
 
   /* ------------------------------------------------------- the simulation */
   function isComplete(c) { return /^\d{12}$/.test(c); }
@@ -1842,9 +1870,9 @@ html[data-motionbtn] main{padding-bottom:72px}
   function digitSum(c) { var s = 0, i; for (i = 0; i < c.length; i++) s += +c[i]; return s; }
 
   /* ------------------------------------------------------------------------
-     SIMULATION ONLY, and the single place an outcome is produced. Replace the
-     body with the real authentication call, keeping the null return for
-     anything that is not a complete, registered item.
+     SIMULATION: consulted only while no authenticator is configured
+     (VERIFY.url empty, the demo build). With a backend the outcome comes
+     from it alone; see startProcessing. Null for anything incomplete.
      ------------------------------------------------------------------------ */
   function computeVerdict(c) {
     if (!isComplete(c)) return null;
@@ -2427,26 +2455,50 @@ html[data-motionbtn] main{padding-bottom:72px}
   });
 
   /* ------------------------------------------------------------ processing */
+  /* The "service unavailable" state of the processing screen: no outcome
+     exists, so the flow parks here with a retry instead of moving on. */
+  function setDown(on) {
+    var s = $("#step-processing");
+    s.classList.toggle("is-down", on);
+    s.setAttribute("aria-busy", on ? "false" : "true");
+    $("#processing-down").hidden = !on;
+    if (on) {
+      setLive("#processing-status", null);
+      $("#processing-down-title").focus({ preventScroll: true });
+    }
+  }
+  $("#btn-retry").addEventListener("click", function () {
+    if (ctx.step === "processing") startProcessing();
+  });
+  $("#btn-down-back").addEventListener("click", function () { goBack(); });
   function startProcessing() {
     /* The one choke point: nothing reaches an outcome without a complete code. */
     if (!isComplete(ctx.code)) { ctx.verdict = null; showStep("landing"); return; }
     var run = ++ctx.runId;
+    setDown(false);
     var status = $("#processing-status");
     setLive(status, "processing.p1");
-    /* Kick the live check in parallel with the staged progress copy. */
+    /* Kick the live check in parallel with the staged progress copy. Once
+       an authenticator is configured it is the only source of an outcome:
+       anything short of a clean, known answer - network down, an error
+       status, a timeout, an outcome name this page does not know - is
+       "unavailable", which parks the flow on the notice. Never a guess. */
     var live = null;
     if (VERIFY.url && !ctx.unreadable) {
+      var ac = window.AbortController ? new AbortController() : null;
+      if (ac) setTimeout(function () { ac.abort(); }, T.WAIT);
       live = fetch(VERIFY.url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ code: ctx.code,
-          context: { when: ctx.when, where: ctx.where, place: ctx.place } })
-      }).then(function (r) { return r.json(); })
+          context: { when: ctx.when, where: ctx.where, place: ctx.place } }),
+        signal: ac ? ac.signal : undefined
+      }).then(function (r) { if (!r.ok) throw new Error(String(r.status)); return r.json(); })
         .then(function (j) {
           return { genuine: "genuine", suspicious: "suspicious", fake: "fake",
-                   not_found: "notFound", invalid: "notFound" }[j.outcome] || null;
+                   not_found: "notFound", invalid: "notFound" }[j && j.outcome] || "unavailable";
         })
-        .catch(function () { return null; });
+        .catch(function () { return "unavailable"; });
     }
     ctx.timers = [
       setTimeout(function () { if (run === ctx.runId) setLive(status, "processing.p2"); }, T.P2),
@@ -2456,16 +2508,15 @@ html[data-motionbtn] main{padding-bottom:72px}
         ctx.timers = [];
         var finish = function (v) {
           if (run !== ctx.runId) return;
+          if (v === "unavailable") { setDown(true); return; }
           if (!v) { showStep("landing"); return; }
           land(v);
         };
-        /* A carried code that could not be read is never sent to the
-           authenticator: it resolves to the outcome written for that case. */
-        var sim = ctx.unreadable ? "notFound" : computeVerdict(ctx.code);
-        if (live) { live.then(function (lv) { finish(lv || sim); }); return; }
-        var v = sim;
-        if (!v) { showStep("landing"); return; }
-        land(v);
+        if (live) { live.then(finish); return; }
+        /* No authenticator configured (the demo build): the simulation
+           decides. A carried code that could not be read is never sent
+           anywhere and resolves to the outcome written for that case. */
+        finish(ctx.unreadable ? "notFound" : computeVerdict(ctx.code));
       }, T.DONE)
     ];
 

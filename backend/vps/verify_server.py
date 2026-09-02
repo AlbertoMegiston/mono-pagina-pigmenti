@@ -13,8 +13,8 @@ Contratto verso la pagina (code/index.html):
     { "code": "558420726815", "context": { "when": …, "where": …, "place": … } }
     →  { "outcome": "genuine" | "suspicious" | "fake" | "not_found" | "invalid" }
 
-Se il servizio non risponde, la pagina ricade da sola sulla simulazione: un
-guasto qui non rompe l'esperienza, la riporta solo allo stato dimostrativo.
+Se il servizio non risponde (o risponde con un errore), la pagina mostra
+"Verifica non disponibile" con un tasto Riprova: non inventa mai un esito.
 
 Ascolta su 127.0.0.1: l'unico modo per raggiungerlo dall'esterno è il reverse
 proxy di nginx, che applica anche il limite di richieste.
@@ -239,8 +239,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             outcome = verdict(code, ip_hash)
         except sqlite3.Error as e:
-            # Non inventiamo un esito: senza database la pagina ricade da sola
-            # sulla simulazione, che si dichiara.
+            # Non inventiamo un esito: con un 503 la pagina mostra "Verifica
+            # non disponibile" e offre Riprova.
             print("verifica fallita:", e, file=sys.stderr, flush=True)
             self.send_json({"error": "unavailable"}, 503)
             return

@@ -8,8 +8,8 @@ servire da un web server. Font, logo e foto vengono incorporati come data
 URI, così il file è unico e non dipende dalla cartella assets/. Il cancello
 d'ingresso resta ATTIVO: su un dominio reale il parametro ?clg= viene
 passato alla pagina e apre l'esperienza; una visita diretta mostra la
-schermata di verifica. Gli avvisi "prototipo / esito simulato" restano
-invariati finché non c'è un backend che verifica i codici reali.
+schermata di verifica. Con VERIFY.url impostato l'esito viene solo dal
+backend; se non risponde la pagina lo dice e offre Riprova.
 
 Uso:  python3 deploy/build-standalone.py
 Esce: deploy/site/index.html
@@ -36,7 +36,7 @@ repl = {
     'backgroundVideo: "assets/background.mp4"': 'backgroundVideo: ""',
     # Il backend gira sulla stessa macchina, dietro lo stesso nginx: stessa
     # origine, quindi nessun CORS. Se il servizio non risponde la pagina
-    # ricade da sola sulla simulazione, e l'avviso lo dichiara.
+    # mostra "Verifica non disponibile" con Riprova: nessun esito inventato.
     'var VERIFY = { url: "" };': 'var VERIFY = { url: "/api/verify" };',
 }
 for old, new in repl.items():
