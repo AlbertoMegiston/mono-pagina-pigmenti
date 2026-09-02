@@ -393,7 +393,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   text-underline-offset:4px;font-size:.875rem;font-weight:600;padding:6px}
 
 /* The little toast that welcomes the last step. */
-.toast{position:fixed;left:50%;bottom:calc(24px + var(--bar-h,42px));transform:translateX(-50%);
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);
   z-index:30;display:flex;align-items:center;gap:12px;max-width:min(340px,86vw);
   background:#0c0c0e;color:#fff;padding:14px 18px;font-size:.9375rem;line-height:1.4}
 .toast[hidden]{display:none}
@@ -412,9 +412,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 /* ==========================================================================
    SPLASH — the completed-check screen, gradient full bleed
    ========================================================================== */
-/* Full-viewport screens subtract the banner's real height (--bar-h, kept
-   current from the script) so the banner never pushes them past the fold. */
-#step-splash{position:relative;min-height:calc(100svh - var(--bar-h,42px));display:flex;flex-direction:column;
+#step-splash{position:relative;min-height:100svh;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;
   background:linear-gradient(160deg,#1f9ec4 0%,#4472c8 55%,#6d43ba 100%);color:#fff}
 #step-splash h1{font-size:clamp(2.1rem,7.6vw,3.3rem);font-weight:700;line-height:1.12;
@@ -464,7 +462,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 @media (prefers-reduced-motion:reduce){.splash__blob i{animation:none}}
 
 /* The outcome screen: the gradient continues and a white sheet rises. */
-#step-result{position:relative;min-height:calc(100svh - var(--bar-h,42px));
+#step-result{position:relative;min-height:100svh;
   display:flex;flex-direction:column;padding:0;
   background:linear-gradient(160deg,#1f9ec4 0%,#4472c8 55%,#6d43ba 100%);color:#fff}
 .result__head{padding:70px 20px 26px;text-align:center}
@@ -494,7 +492,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
    ========================================================================== */
 #step-scan{
   position:relative;
-  min-height:calc(100svh - var(--bar-h,42px));background:var(--bg-scan);color:var(--on-dark);
+  min-height:100svh;background:var(--bg-scan);color:var(--on-dark);
   display:flex;flex-direction:column;
   padding:max(12px,env(safe-area-inset-top)) 16px max(16px,env(safe-area-inset-bottom));
 }
@@ -509,10 +507,7 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
   justify-content:center;gap:13px;text-align:center;padding:10px 0}
 /* The reference frame is a tall portrait rectangle with the brand mark near
    the top, a dashed guide, a sweeping teal line and a small corner reticle. */
-/* The svh cap subtracts the demo banner's height (x1.8 aspect makes a .55
-   width cut give back ~1 banner of height), so the banner never pushes the
-   camera column further past the fold than the pre-banner layout sat. */
-.scan__frame{position:relative;width:min(300px,78vw,calc((48svh - var(--bar-h,42px)) * .55));aspect-ratio:10/18;
+.scan__frame{position:relative;width:min(300px,78vw,calc(48svh * .55));aspect-ratio:10/18;
   border:2px solid var(--on-dark);background:rgba(0,0,0,.35)}
 .scan__frame video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
 .scan__brand{position:absolute;top:9%;left:0;right:0;display:flex;justify-content:center;
@@ -551,7 +546,7 @@ html[data-motion="paused"] .scan__line{animation:none}
 
 /* The processing interstitial from the reference: near-black ground with
    horizontally smeared light trails in the lower half and a thin ring. */
-#step-processing{position:relative;min-height:calc(100svh - var(--bar-h,42px));
+#step-processing{position:relative;min-height:100svh;
   display:flex;flex-direction:column;align-items:center;
   background:#0d0b12;color:#fff;overflow:hidden;padding:0 20px}
 #step-processing .streaks{position:absolute;left:-14%;right:-14%;top:26%;bottom:-8%;
@@ -663,37 +658,12 @@ html[data-motionbtn] main{padding-bottom:72px}
 .lang button[aria-pressed="true"]{background:var(--on-dark);color:#000;border-color:var(--on-dark)}
 .lang[hidden]{display:none}
 
-/* ==========================================================================
-   DEMO NOTICE — must stay legible on both the light and the dark screens
-   ========================================================================== */
-.demo{
-  width:min(var(--col),100%);margin:32px auto 0;
-  border:1px solid #b8891f;border-left-width:4px;background:#fff8e6;color:#4a3708;
-  padding:14px 16px;font-size:var(--fs-small);line-height:1.6;
-}
-.demo strong{color:#3a2b05;font-weight:600}
-.demo p + p{margin-top:9px}
-.demo a{color:#6a4c0a;text-decoration:underline}
-.demo code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.95em;
-  background:#f2e3bf;padding:1px 5px;border-radius:3px;white-space:nowrap}
-.demo--dark{background:rgba(0,0,0,.72);border-color:#e0b64d;color:#f6e3b6}
-.demo--dark strong{color:#ffeec0}
-.demo--dark code{background:rgba(255,255,255,.14);color:#ffeec0}
-.demo--dark a{color:#ffd98a}
-/* The one-line banner in the shell chrome. The full block above sits at the
-   end of the flow and lands below the fold exactly where the hedge matters
-   most (the landing and the negative outcomes on small phones), so this line
-   stays pinned above every screen, camera and splash included. */
-.demo--bar{position:sticky;top:0;z-index:6;flex:none;width:100%;max-width:none;
-  margin:0;padding:7px 14px;text-align:center;border-width:0 0 1px 0}
-
 @media (min-width:700px){
   :root{--pad:24px}
   .hero{aspect-ratio:16/9}
 }
 @media (max-height:700px){
-  /* Short screens: a shallower hero buys back the banner's height, so the
-     landing CTA stays above the fold. */
+  /* Short screens: a shallower hero keeps the landing CTA above the fold. */
   .hero{aspect-ratio:16/9}
 }
 </style>
@@ -729,10 +699,6 @@ html[data-motionbtn] main{padding-bottom:72px}
     </button>
   </header>
 
-  <!-- The one-line demo banner: filled from renderDemo(), styled per step
-       from showStep(). Always on screen, so the simulation is disclosed
-       above the fold on every screen and at every phone size. -->
-  <p class="demo demo--bar" id="demo-bar"></p>
 
   <main>
 
@@ -1030,7 +996,6 @@ html[data-motionbtn] main{padding-bottom:72px}
       </div>
     </section>
 
-    <aside class="demo" id="demo"></aside>
   </main>
 
   <!-- MOTION TOGGLE — the looping background video must be stoppable in-page
@@ -1177,6 +1142,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       "menu.lang": "Cambia lingua",
       "menu.cookie": "Cookie policy",
       "menu.about": "Info sul servizio",
+      "menu.aboutNote": "Verifica dell'autenticità dei prodotti tramite il codice CLG riportato sul cartellino.",
       "menu.help": "Aiuto",
       "menu.signin": "Accedi",
       "menu.note": "In questo prototipo le voci di menu non conducono ad alcuna pagina.",
@@ -1273,23 +1239,11 @@ html[data-motionbtn] main{padding-bottom:72px}
       "result.s4": "Se hai acquistato online, segnala l'inserzione alla piattaforma.",
       "result.nf3": "Riprova la scansione; se l'esito non cambia, contatta il servizio clienti del brand.",
 
-      "demo.title": "Prototipo dimostrativo.",
-      "demo.body": "Questa pagina non esegue alcuna verifica reale: l'esito è simulato dal browser e non proviene da un servizio di autenticazione. Non usarla per stabilire se un prodotto è autentico.",
-      "demo.assets": "Le immagini e il video sono segnaposto: verranno sostituiti dai file forniti dal brand.",
-      "demo.g": "autentico",
-      "demo.s": "da approfondire",
-      "demo.f": "non autentico",
-      "demo.n": "non registrato",
-      "demo.try": "Esiti di prova:",
       "gate.title": "Verifica autenticità",
       "gate.cta": "Verifica codice",
       "scan.mustTitle": "Questo è un passaggio obbligatorio, scatta le foto richieste per ottenere la risposta.",
       "scan.mustOk": "Ok, ho capito",
       "photo.toast": "Un ultimo passaggio e ci siamo!",
-      "demo.titleLive": "Ambiente di prova.",
-      "demo.bodyLive": "L'esito viene confrontato con la lista di codici caricata dal brand. Se il servizio di verifica non risponde, la pagina ripiega su un esito simulato. Non usare questa pagina come prova legale di autenticità.",
-      "demo.shortLive": "Ambiente di prova: la verifica usa la lista caricata dal brand.",
-      "demo.short": "L'esito è simulato: nessuna verifica reale viene effettuata."
     },
     en: {
       "meta.title": "Authenticity check",
@@ -1317,6 +1271,7 @@ html[data-motionbtn] main{padding-bottom:72px}
       "menu.lang": "Change language",
       "menu.cookie": "Cookie policy",
       "menu.about": "About the service",
+      "menu.aboutNote": "Product authenticity verification through the CLG code printed on the tag.",
       "menu.help": "Help",
       "menu.signin": "Sign in",
       "menu.note": "In this prototype the menu entries do not lead anywhere.",
@@ -1413,23 +1368,11 @@ html[data-motionbtn] main{padding-bottom:72px}
       "result.s4": "If you bought online, report the listing to the platform.",
       "result.nf3": "Try the scan again; if the outcome does not change, contact the brand's customer service.",
 
-      "demo.title": "Demonstration prototype.",
-      "demo.body": "This page performs no real verification: the outcome is simulated in the browser and does not come from an authentication service. Do not use it to decide whether a product is genuine.",
-      "demo.assets": "The images and the video are placeholders: they will be replaced by the files supplied by the brand.",
-      "demo.g": "authentic",
-      "demo.s": "needs review",
-      "demo.f": "not authentic",
-      "demo.n": "not registered",
-      "demo.try": "Sample outcomes:",
       "gate.title": "Authenticity check",
       "gate.cta": "Scan code",
       "scan.mustTitle": "This step is required: take the requested photos to get the answer.",
       "scan.mustOk": "OK, got it",
       "photo.toast": "One last step and we are there!",
-      "demo.titleLive": "Test environment.",
-      "demo.bodyLive": "The outcome is checked against the code list uploaded by the brand. If the verification service does not answer, the page falls back to a simulated outcome. Do not use this page as legal proof of authenticity.",
-      "demo.shortLive": "Test environment: verification uses the list uploaded by the brand.",
-      "demo.short": "The outcome is simulated: no real verification is performed."
     }
   };
 
@@ -1561,16 +1504,8 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (ctx.logoEl && ctx.logoLight) {
       ctx.logoEl.src = onDark ? ctx.logoLight : ctx.logoDark;
     }
-    /* The sticky banner carries the disclosure on every screen; the full
-       block (with the sample-outcome links) belongs to the light landing,
-       where there is room to read it — the drawer's "Info sul servizio"
-       entry repeats the full text everywhere else. */
-    $("#demo-bar").className = onDark ? "demo demo--bar demo--dark" : "demo demo--bar";
     /* The bar stays where an outcome can be believed; the welcome and the
        gate make no claims, and the landing still carries the full notice. */
-    $("#demo-bar").hidden = (step === "landing" || step === "gate");
-    syncBarH();
-    $("#demo").hidden = onDark;
     if (step === "scan") startScanCamera(); else stopScanCamera();
     if (step !== "scan") { var ask = $("#scanask"); if (ask) ask.hidden = true; }
     var toast = $("#photo-toast");
@@ -2392,7 +2327,7 @@ html[data-motionbtn] main{padding-bottom:72px}
          the same link speak again. menu.noteDoc opens with an em-dash so the
          space-joined key pair reads as one sentence. */
       var span = b.querySelector("[data-i18n]");
-      announce("#drawer-note", about ? "demo.title demo.body"
+      announce("#drawer-note", about ? "menu.aboutNote"
         : (span ? span.getAttribute("data-i18n") + " menu.noteDoc" : "menu.note"));
     });
   });
@@ -2428,7 +2363,6 @@ html[data-motionbtn] main{padding-bottom:72px}
   function refreshPlaceholderState() {
     var was = ctx.placeholders;
     ctx.placeholders = !$("#hero-placeholder").hidden || !$("#stage-placeholder").hidden;
-    if (was !== ctx.placeholders) renderDemo();
   }
 
   /* Each media slot's pass is numbered so a re-run can retire the previous
@@ -2676,49 +2610,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
 
   /* ----------------------------------------------------------- demo note */
-  /* The banner is in normal flow, so the full-viewport screens (camera,
-     splash) subtract exactly its rendered height via --bar-h; its height
-     depends on language and wrapping, so it is measured, not assumed. */
-  function syncBarH() {
-    var h = $("#demo-bar").offsetHeight || 0;
-    document.documentElement.style.setProperty("--bar-h", h + "px");
-  }
-  window.addEventListener("resize", syncBarH);
 
-  function renderDemo() {
-    var host = $("#demo"); host.textContent = "";
-    /* With a live authenticator configured the outcome is no longer simulated,
-       so the notice must say what is actually true — including the fallback
-       that takes over when the service cannot be reached. */
-    var live = !!VERIFY.url;
-    var p1 = elem("p");
-    var st = elem("strong");
-    st.textContent = t(live ? "demo.titleLive" : "demo.title"); p1.appendChild(st);
-    p1.appendChild(document.createTextNode(" " + t(live ? "demo.bodyLive" : "demo.body")));
-    host.appendChild(p1);
-    if (ctx.placeholders) {
-      var p2 = elem("p"); p2.textContent = t("demo.assets"); host.appendChild(p2);
-    }
-    var p3 = elem("p");
-    p3.appendChild(document.createTextNode(t("demo.try") + " "));
-    [["demo.g", "123456789012"], ["demo.s", "123456789013"],
-     ["demo.f", "123456789014"], ["demo.n", "000000000000"]].forEach(function (pair, n) {
-      if (n) p3.appendChild(document.createTextNode(" · "));
-      var a = elem("a");
-      /* The links reload the page, so they must carry the chosen language:
-         without it an English reader lands back in an Italian disclaimer. */
-      a.href = "?clg=" + pair[1] + (ctx.lang !== "it" ? "&lang=" + ctx.lang : "");
-      var c = elem("code"); c.textContent = t(pair[0]);
-      a.appendChild(c); p3.appendChild(a);
-    });
-    host.appendChild(p3);
-    /* The one-line banner in the chrome (see .demo--bar). */
-    var bar = $("#demo-bar"); bar.textContent = "";
-    var bs = elem("strong");
-    bs.textContent = t(live ? "demo.titleLive" : "demo.title"); bar.appendChild(bs);
-    bar.appendChild(document.createTextNode(" " + t(live ? "demo.shortLive" : "demo.short")));
-    syncBarH();
-  }
 
   /* ------------------------------------------------------------ language */
   /* Strings written by code, not markup, must still follow a language
@@ -2763,7 +2655,6 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (ctx.step === "otp") renderOtpBody();
     if (ctx.verdict) renderResult();
     applyAssets();
-    renderDemo();
   }
   Array.prototype.forEach.call(document.querySelectorAll("[data-lang]"), function (b) {
     b.addEventListener("click", function () {
@@ -2813,8 +2704,6 @@ html[data-motionbtn] main{padding-bottom:72px}
     ctx.step = first;
     $("#btn-back").hidden = true;
     $("#top").hidden = (first === "gate");
-    $("#demo-bar").hidden = (first === "landing" || first === "gate");
-    syncBarH();
     $("#stage").hidden = true;
     $("#poweredby").hidden = true;
     syncMotionBtn();
