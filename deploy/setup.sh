@@ -40,6 +40,33 @@ export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
 apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw curl openssl >/dev/null
 
+echo "==> 1b/8 lettura dei DataMatrix dagli Excel (facoltativa)"
+# Pillow e zxing-cpp servono solo a leggere le immagini DataMatrix negli
+# Excel del brand. Se non si installano tutto il resto funziona lo stesso
+# (txt/csv, ed Excel con il codice preso dalla colonna E): per questo qui
+# niente e' fatale, e a un rilancio non si reinstalla cio' che c'e' gia'.
+if python3 -c 'import PIL' 2>/dev/null; then
+  echo "    Pillow gia' presente"
+elif apt-get install -y -qq python3-pil >/dev/null 2>&1; then
+  echo "    Pillow installato"
+else
+  echo "    ATTENZIONE: Pillow non installato (apt-get install python3-pil)" >&2
+fi
+if python3 -c 'import zxingcpp' 2>/dev/null; then
+  echo "    zxing-cpp gia' presente"
+else
+  # Non e' pacchettizzato in Debian: arriva da PyPI. Su Debian 12/13 pip
+  # vuole --break-system-packages per installare fuori da un virtualenv.
+  apt-get install -y -qq python3-pip >/dev/null 2>&1 || true
+  if pip3 install --quiet --break-system-packages zxing-cpp >/dev/null 2>&1 \
+     && python3 -c 'import zxingcpp' 2>/dev/null; then
+    echo "    zxing-cpp installato"
+  else
+    echo "    ATTENZIONE: zxing-cpp non installato: i DataMatrix degli Excel non" >&2
+    echo "    verranno letti (riprova con: pip3 install --break-system-packages zxing-cpp)" >&2
+  fi
+fi
+
 echo "==> 2/8 utente e cartelle"
 id -u autenticatore >/dev/null 2>&1 || \
   useradd --system --home "$DATADIR" --shell /usr/sbin/nologin autenticatore
@@ -65,6 +92,8 @@ fi
 echo "==> 4/8 servizio di verifica"
 install -m 755 "$QUI/api/verify_server.py" "$APPDIR/verify_server.py"
 install -m 755 "$QUI/api/clg_import.py" "$APPDIR/clg_import.py"
+# Lettura degli Excel, condivisa da clgadmin e dal pannello.
+install -m 644 "$QUI/api/clg_excel.py" "$APPDIR/clg_excel.py"
 # clgadmin gira come root: cosi' puo' leggere un file di codici ovunque si trovi
 # (anche in /root, che e' 0700), e alla fine restituisce la proprieta' del
 # database all'utente del servizio, che deve poterci scrivere.
@@ -81,7 +110,9 @@ install -m 644 "$QUI/api/autenticatore-api.service" \
 systemctl daemon-reload
 systemctl enable autenticatore-api >/dev/null
 # restart, non "enable --now": a un rilancio applica anche codice e unit
-# aggiornati (enable --now non riavvia un servizio gia' attivo).
+# aggiornati (enable --now non riavvia un servizio gia' attivo). Al primo
+# avvio dopo un aggiornamento il servizio aggiunge da solo al database le
+# colonne nuove (payload del DataMatrix, campi dell'Excel).
 systemctl restart autenticatore-api
 sleep 1
 if systemctl is-active --quiet autenticatore-api; then
@@ -234,11 +265,12 @@ Fatto.
   Test QR    $PROTO://$DOMINIO/?clg=123456789012
   Pannello   $PROTO://$DOMINIO/pannello/   (utente e password in /root/pannello-password.txt)
 
-Dal pannello carichi la lista dei codici e vedi le statistiche, senza riga di
-comando. In alternativa, da qui:
+Dal pannello carichi la lista dei codici (txt, csv o l'Excel del brand con i
+DataMatrix) e vedi le statistiche, senza riga di comando. In alternativa:
 
   clgadmin svuota --conferma
   clgadmin importa /root/codici.csv --lotto "primo-lotto"
+  clgadmin importa /root/Barcode_DataMatrix.xlsm --lotto "primo-lotto"
   clgadmin stato-lista
 
 FINE

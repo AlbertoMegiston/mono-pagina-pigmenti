@@ -10,8 +10,17 @@ server appena installato parte senza dipendenze da scaricare.
 Contratto verso la pagina (code/index.html):
 
     POST /api/verify
-    { "code": "558420726815", "context": { "when": …, "where": …, "place": … } }
-    →  { "outcome": "genuine" | "suspicious" | "fake" | "not_found" | "invalid" }
+    { "code": "558420726815",
+      "scan": { "payload": "<testo letto dal barcode>", "format": "data_matrix" | "qr_code" } | null,
+      "context": { "when": …, "where": …, "place": … } }
+    →  { "outcome": "genuine" | "suspicious" | "fake" | "not_found" | "invalid",
+         "via": "scan" | "code" }
+
+Con uno scan vale la regola "solo il barcode emesso e' valido": il payload
+letto deve coincidere con quello registrato per la riga; un DataMatrix diverso
+che porta dentro un codice per cui un barcode e' registrato e' un falso. Per i
+codici senza barcode registrato (liste da txt/csv) e per il QR ?clg= del
+pezzo lo scan vale come il codice digitato (vedi verdict).
 
 Se il servizio non risponde (o risponde con un errore), la pagina mostra
 "Verifica non disponibile" con un tasto Riprova: non inventa mai un esito.
@@ -52,28 +61,83 @@ DUP_DAYS = int(os.environ.get("CLG_DUP_DAYS", "30"))
 # manciata di mesi basta e impedisce al registro di crescere all'infinito.
 RETENTION_DAYS = int(os.environ.get("CLG_RETENTION_DAYS", "180"))
 
-CODE_RE = re.compile(r"^\d{12}$")
+# re.ASCII ovunque si cercano cifre: in Python \d prende anche le cifre
+# arabe o a larghezza piena, in JavaScript (la pagina) solo 0-9. Senza, la
+# regola non sarebbe davvero identica nelle due implementazioni.
+CODE_RE = re.compile(r"^\d{12}$", re.ASCII)
 MAX_BODY = 4096  # il corpo legittimo sta in poche centinaia di byte
+MAX_PAYLOAD = 512  # un DataMatrix di cartellino sta in poche decine di caratteri
 
+# payload:      testo del DataMatrix stampato sul cartellino (fonte affidabile)
+# payload_norm: lo stesso con i bianchi normalizzati, e' quello confrontato
+# article, variant, size, internal_id, sheet: i campi dell'Excel del brand
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS codes (
-  code       TEXT PRIMARY KEY,
-  status     TEXT NOT NULL DEFAULT 'valid'
-             CHECK (status IN ('valid', 'suspicious', 'revoked')),
-  batch      TEXT,
-  note       TEXT,
-  created_at INTEGER NOT NULL
+  code         TEXT PRIMARY KEY,
+  status       TEXT NOT NULL DEFAULT 'valid'
+               CHECK (status IN ('valid', 'suspicious', 'revoked')),
+  batch        TEXT,
+  note         TEXT,
+  created_at   INTEGER NOT NULL,
+  payload      TEXT,
+  payload_norm TEXT,
+  article      TEXT,
+  variant      TEXT,
+  size         TEXT,
+  internal_id  TEXT,
+  sheet        TEXT
 );
 CREATE TABLE IF NOT EXISTS checks (
-  id      INTEGER PRIMARY KEY AUTOINCREMENT,
-  code    TEXT NOT NULL,
-  outcome TEXT NOT NULL,
-  ts      INTEGER NOT NULL,
-  ip_hash TEXT,
-  ctx     TEXT
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  code       TEXT NOT NULL,
+  outcome    TEXT NOT NULL,
+  ts         INTEGER NOT NULL,
+  ip_hash    TEXT,
+  ctx        TEXT,
+  scanned    INTEGER NOT NULL DEFAULT 0,
+  payload_ok INTEGER
 );
 CREATE INDEX IF NOT EXISTS checks_code_ts ON checks (code, ts);
 """
+
+# Colonne arrivate dopo la prima versione: su un database gia' in uso le
+# aggiungiamo all'avvio con ALTER TABLE, cosi' l'aggiornamento non richiede
+# passi manuali. Gli indici su queste colonne vanno creati dopo, quando la
+# colonna c'e' di sicuro (per questo non stanno in SCHEMA).
+MIGRAZIONI = {
+    "codes": (("payload", "TEXT"), ("payload_norm", "TEXT"), ("article", "TEXT"),
+              ("variant", "TEXT"), ("size", "TEXT"), ("internal_id", "TEXT"),
+              ("sheet", "TEXT")),
+    "checks": (("scanned", "INTEGER NOT NULL DEFAULT 0"), ("payload_ok", "INTEGER")),
+}
+INDICI = "CREATE INDEX IF NOT EXISTS idx_codes_payload ON codes (payload_norm);"
+
+# Regola del codice dentro un payload. Deve restare identica a
+# clg_excel.estrai_codice e alla versione JavaScript nella pagina: prima
+# "clg" + al piu' 4 caratteri non numerici + 12 cifre (stile URL ?clg=...),
+# altrimenti l'ULTIMO gruppo "ddd ddd ddd ddd" (separatori: niente, spazio o
+# punto) non attaccato ad altre cifre.
+CLG_PARAM_RE = re.compile(r"clg\D{0,4}(\d{12})", re.IGNORECASE | re.ASCII)
+GROUPS_RE = re.compile(r"(?:^|\D)(\d{3})[ .]?(\d{3})[ .]?(\d{3})[ .]?(\d{3})(?!\d)", re.ASCII)
+
+
+def extract_code(text):
+    """Il codice CLG a 12 cifre contenuto in un payload, o "" se non c'e'."""
+    if not text:
+        return ""
+    m = CLG_PARAM_RE.search(text)
+    if m:
+        return m.group(1)
+    last = None
+    for last in GROUPS_RE.finditer(text):
+        pass
+    return "".join(last.groups()) if last else ""
+
+
+def normalize_payload(text):
+    """Stessa normalizzazione fatta all'importazione: i bianchi ripetuti
+    diventano uno spazio, cosi' il confronto non dipende dal lettore."""
+    return " ".join((text or "").split())
 
 
 def connect():
@@ -85,10 +149,22 @@ def connect():
     return cx
 
 
+def migrate(cx):
+    """Aggiunge le colonne che mancano (PRAGMA table_info + ALTER TABLE).
+    Rilanciarla e' innocuo: su uno schema gia' aggiornato non fa nulla."""
+    for tabella, colonne in MIGRAZIONI.items():
+        presenti = {r[1] for r in cx.execute("PRAGMA table_info(%s)" % tabella)}
+        for nome, tipo in colonne:
+            if nome not in presenti:
+                cx.execute("ALTER TABLE %s ADD COLUMN %s %s" % (tabella, nome, tipo))
+    cx.executescript(INDICI)
+
+
 def init_db():
     os.makedirs(os.path.dirname(DB_PATH), exist_ok=True)
     with connect() as cx:
         cx.executescript(SCHEMA)
+        migrate(cx)
 
 
 def load_salt():
@@ -120,25 +196,70 @@ def hash_ip(ip):
     return hmac.new(SALT, ip.encode("utf-8", "replace"), hashlib.sha256).hexdigest()[:32]
 
 
-def verdict(code, ip_hash):
+def verdict(code, ip_hash, payload=None):
     """L'unico punto in cui si decide un esito.
 
+    Con uno scan (payload: il testo grezzo del barcode letto dal telefono)
+    vale prima la regola "solo il barcode emesso e' valido":
+    - payload uguale (a bianchi normalizzati) a quello registrato per una
+      riga → si prosegue con il codice di quella riga (quello inviato dalla
+      pagina non conta)
+    - payload sconosciuto ma con dentro un codice per cui e' registrato un
+      barcode → fake: il barcode sull'articolo non e' quello emesso per quel
+      codice. Eccezione: il QR ?clg= del pezzo (l'indirizzo della pagina)
+      non e' un barcode contraffatto, e vale come il codice digitato
+    - payload sconosciuto con dentro un codice senza barcode registrato
+      (lista caricata da txt/csv) → si prosegue con quel codice: non c'e'
+      nessun barcode emesso con cui confrontarlo
+    - payload sconosciuto e codice sconosciuto → not_found
+
+    Il codice candidato si estrae dal testo grezzo, lo stesso su cui la
+    pagina ha calcolato il suo: la normalizzazione serve solo al confronto
+    con payload_norm (i bianchi ripetuti cambierebbero i gruppi trovati).
+
+    Poi, per codice (con o senza scan):
     - codice assente dalla lista        → not_found
     - marcato revocato                  → fake
     - marcato sospetto                  → suspicious
     - valido ma verificato troppe volte → suspicious (segnale di clonazione:
       un codice autentico circola su un pezzo solo, non su decine)
     - altrimenti                        → genuine
+
+    Ritorna (esito, via, codice su cui si e' deciso, payload_ok): via e'
+    "scan" o "code"; payload_ok e' None senza scan, 1 se il payload
+    coincideva, 0 se no.
     """
+    via, payload_ok = "code", None
     with connect() as cx:
+        if payload:
+            via = "scan"
+            row = cx.execute("SELECT code FROM codes WHERE payload_norm = ?",
+                             (normalize_payload(payload),)).fetchone()
+            if row is not None:
+                code, payload_ok = row[0], 1
+            else:
+                payload_ok = 0
+                candidate = extract_code(payload)
+                cand = cx.execute("SELECT payload_norm FROM codes WHERE code = ?",
+                                  (candidate,)).fetchone() if candidate else None
+                if cand is None:
+                    return "not_found", via, candidate or code, payload_ok
+                # Fake solo se per quel codice un barcode e' stato emesso e
+                # quello letto e' un altro DataMatrix. Senza barcode registrato
+                # (lista da txt/csv, codici demo) o con il QR ?clg= della
+                # pagina lo scan non dice piu' del codice digitato: si
+                # prosegue per codice, su quello letto.
+                if cand[0] is not None and not CLG_PARAM_RE.search(payload):
+                    return "fake", via, candidate, payload_ok
+                code = candidate
         row = cx.execute("SELECT status FROM codes WHERE code = ?", (code,)).fetchone()
         if row is None:
-            return "not_found"
+            return "not_found", via, code, payload_ok
         status = row[0]
         if status == "revoked":
-            return "fake"
+            return "fake", via, code, payload_ok
         if status == "suspicious":
-            return "suspicious"
+            return "suspicious", via, code, payload_ok
         since = int(time.time()) - DUP_DAYS * 86400
         seen = cx.execute(
             "SELECT COUNT(DISTINCT ip_hash) FROM checks "
@@ -154,15 +275,16 @@ def verdict(code, ip_hash):
             ).fetchone()
             if already is None:
                 seen += 1
-        return "suspicious" if seen > DUP_LIMIT else "genuine"
+        return ("suspicious" if seen > DUP_LIMIT else "genuine"), via, code, payload_ok
 
 
-def log_check(code, outcome, ip_hash, ctx):
+def log_check(code, outcome, ip_hash, ctx, scanned=0, payload_ok=None):
     try:
         with connect() as cx:
             cx.execute(
-                "INSERT INTO checks (code, outcome, ts, ip_hash, ctx) VALUES (?,?,?,?,?)",
-                (code, outcome, int(time.time()), ip_hash, ctx),
+                "INSERT INTO checks (code, outcome, ts, ip_hash, ctx, scanned, payload_ok) "
+                "VALUES (?,?,?,?,?,?,?)",
+                (code, outcome, int(time.time()), ip_hash, ctx, scanned, payload_ok),
             )
     except sqlite3.Error as e:
         # Il registro non deve mai impedire una risposta all'utente.
@@ -221,23 +343,34 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"outcome": "invalid"}, 400)
             return
         try:
-            payload = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
+            req = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
         except (ValueError, UnicodeError):
             self.send_json({"outcome": "invalid"}, 400)
             return
-        if not isinstance(payload, dict):
+        if not isinstance(req, dict):
             self.send_json({"outcome": "invalid"}, 400)
             return
 
-        raw = payload.get("code")
-        code = re.sub(r"\D+", "", raw) if isinstance(raw, str) else ""
+        raw = req.get("code")
+        code = re.sub(r"\D+", "", raw, flags=re.ASCII) if isinstance(raw, str) else ""
         if not CODE_RE.match(code):
             self.send_json({"outcome": "invalid"})
             return
 
+        # Il payload dello scan, se c'e'. Uno troppo lungo lo ignoriamo e si
+        # verifica per codice: chi volesse aggirare il confronto puo' gia'
+        # omettere lo scan, quindi essere severi qui non aggiungerebbe nulla.
+        # A verdict va il testo grezzo: e' quello su cui la pagina ha estratto
+        # il codice, e la normalizzazione la fa verdict solo per il confronto.
+        scan = req.get("scan")
+        payload = None
+        if isinstance(scan, dict) and isinstance(scan.get("payload"), str):
+            if 0 < len(normalize_payload(scan["payload"])) <= MAX_PAYLOAD:
+                payload = scan["payload"]
+
         ip_hash = hash_ip(self.client_ip())
         try:
-            outcome = verdict(code, ip_hash)
+            outcome, via, decided, payload_ok = verdict(code, ip_hash, payload)
         except sqlite3.Error as e:
             # Non inventiamo un esito: con un 503 la pagina mostra "Verifica
             # non disponibile" e offre Riprova.
@@ -245,10 +378,17 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"error": "unavailable"}, 503)
             return
 
-        ctx = payload.get("context")
-        log_check(code, outcome, ip_hash,
-                  json.dumps(ctx)[:500] if isinstance(ctx, dict) else None)
-        self.send_json({"outcome": outcome})
+        # Nello storico va il codice su cui si e' deciso (e' quello che conta
+        # per il conteggio anti-clonazione); se la pagina ne aveva mandato un
+        # altro lo conserviamo nel contesto.
+        ctx = req.get("context")
+        ctx = dict(ctx) if isinstance(ctx, dict) else None
+        if decided != code:
+            ctx = dict(ctx or {}, code_sent=code)
+        log_check(decided, outcome, ip_hash,
+                  json.dumps(ctx)[:500] if ctx is not None else None,
+                  1 if via == "scan" else 0, payload_ok)
+        self.send_json({"outcome": outcome, "via": via})
 
 
 def main():

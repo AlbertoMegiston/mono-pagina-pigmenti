@@ -12,26 +12,44 @@ che espone il pannello sotto /pannello/ dietro login. Scrive sullo stesso
 database del servizio di verifica (stesso utente di sistema), quindi le liste
 caricate qui valgono subito per le verifiche.
 
+Oltre a txt/csv accetta l'Excel del brand (.xlsx/.xlsm) con i DataMatrix:
+il browser lo manda in base64 a /pannello/api/importa-file, prima in
+anteprima (solo analisi) e poi per davvero. La lettura e' in clg_excel.py,
+l'upsert e' lo stesso di clgadmin (clg_import.py): entrambi accanto a questo
+file.
+
 Configurazione via variabili d'ambiente (vedi autenticatore-pannello.service):
     CLG_DB              percorso del database SQLite
     CLG_PANEL_HOST      default 127.0.0.1
     CLG_PANEL_PORT      default 8788
 """
 
+import base64
 import json
 import os
 import re
 import sqlite3
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import parse_qs, urlparse
+
+try:
+    import clg_excel
+    import clg_import
+except ImportError:  # installazione incompleta: il resto del pannello funziona
+    clg_excel = clg_import = None
 
 DB_PATH = os.environ.get("CLG_DB", "/var/lib/autenticatore/clg.db")
 HOST = os.environ.get("CLG_PANEL_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CLG_PANEL_PORT", "8788"))
 
-CODE_RE = re.compile(r"^\d{12}$")
+CODE_RE = re.compile(r"^\d{12}$", re.ASCII)  # solo cifre 0-9, come la pagina
 STATI = ("valid", "suspicious", "revoked")
-MAX_BODY = 8 * 1024 * 1024  # una lista molto grande sta comunque in pochi MB
+# L'Excel del brand arriva in base64 dentro al JSON (+33%): 25 MB bastano
+# per qualche migliaio di DataMatrix. Lo stesso limite sta nella location
+# nginx del pannello (client_max_body_size).
+MAX_BODY = 25 * 1024 * 1024
+ANTEPRIMA_RIGHE = 10
 
 
 def connect():
@@ -50,6 +68,8 @@ def stato_lista():
         verifiche = cx.execute("SELECT COUNT(*) FROM checks").fetchone()[0]
         per_esito = dict(cx.execute(
             "SELECT outcome, COUNT(*) FROM checks GROUP BY outcome").fetchall())
+        con_barcode = cx.execute(
+            "SELECT COUNT(*) FROM codes WHERE payload_norm IS NOT NULL").fetchone()[0]
         since = int(time.time()) - 30 * 86400
         piu_visti = cx.execute(
             "SELECT code, COUNT(DISTINCT ip_hash) c FROM checks "
@@ -60,9 +80,34 @@ def stato_lista():
         "validi": per_stato.get("valid", 0),
         "sospetti": per_stato.get("suspicious", 0),
         "revocati": per_stato.get("revoked", 0),
+        "con_barcode": con_barcode,
         "verifiche": verifiche,
         "esiti": per_esito,
         "piu_visti": [{"code": c, "dispositivi": n} for c, n in piu_visti],
+    }
+
+
+def elenco_codici(q="", da=0, quanti=100):
+    """Una pagina dell'elenco, cercando su codice, articolo e identificativo."""
+    q = (q or "").strip()[:60]
+    like = "%" + q + "%"
+    da = max(0, int(da or 0))
+    with connect() as cx:
+        filtro = ("WHERE code LIKE ? OR article LIKE ? OR internal_id LIKE ? "
+                  "OR size LIKE ? OR batch LIKE ?") if q else ""
+        par = (like, like, like, like, like) if q else ()
+        tot = cx.execute("SELECT COUNT(*) FROM codes " + filtro, par).fetchone()[0]
+        righe = cx.execute(
+            "SELECT code, status, size, article, internal_id, payload_norm IS NOT NULL, "
+            "batch, sheet FROM codes " + filtro +
+            " ORDER BY created_at DESC, sheet, code LIMIT ? OFFSET ?",
+            par + (quanti, da)).fetchall()
+    return {
+        "totale": tot, "da": da, "quanti": quanti,
+        "righe": [{"code": c, "status": s, "taglia": t or "", "articolo": a or "",
+                   "identificativo": i or "", "barcode": bool(b), "lotto": l or "",
+                   "foglio": f or ""}
+                  for c, s, t, a, i, b, l, f in righe],
     }
 
 
@@ -101,7 +146,7 @@ def importa(testo, stato_default, sostituisci):
                 if s in STATI:
                     stato = s
                 nota = campi.get("note") or None
-            codice = re.sub(r"\D+", "", grezzo)
+            codice = re.sub(r"\D+", "", grezzo, flags=re.ASCII)
             if not CODE_RE.match(codice):
                 saltati += 1
                 if len(scarti) < 8:
@@ -120,8 +165,68 @@ def importa(testo, stato_default, sostituisci):
     return {"nuovi": nuovi, "aggiornati": agg, "saltati": saltati, "scarti": scarti}
 
 
+def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima):
+    """Excel del brand caricato dal pannello. Con anteprima=True analizza
+    soltanto e risponde con il riepilogo e le prime righe; altrimenti scrive
+    con lo stesso upsert di clgadmin. In entrambi i casi la risposta porta i
+    conteggi (totale, discordanti, senza immagine, non decodificabili) e
+    residui_senza_barcode: i codici degli stessi fogli gia' in lista senza
+    barcode che questa importazione non tocca (di norma i codici casuali della
+    colonna E di un'importazione fatta senza Pillow/zxing-cpp)."""
+    if clg_excel is None or clg_import is None:
+        return {"errore": "Lettura degli Excel non disponibile su questo server "
+                          "(mancano clg_excel.py o clg_import.py)."}
+    if not clg_excel.e_excel(nome, dati):
+        return {"errore": "Il file non e' un Excel (.xlsx/.xlsm). "
+                          "Per txt e csv usa il riquadro dei codici."}
+    if origine not in clg_excel.ORIGINI:
+        origine = "barcode"
+    if stato not in STATI:
+        stato = "valid"
+    try:
+        righe, riep = clg_excel.analizza_file(dati, origine_codice=origine)
+    except clg_excel.ExcelNonValido as e:
+        return {"errore": "File non leggibile: %s" % e}
+    risp = dict(riep, ok=True, anteprima=bool(anteprima), origine=origine)
+    risp["righe"] = [{
+        "foglio": r["foglio"], "riga": r["riga"],
+        "codice_colonna": r["codice_colonna"], "codice_barcode": r["codice_barcode"],
+        "taglia": r["size"], "articolo": r["article"],
+        "discordante": r["discordante"], "valido": r["valido"], "motivo": r["motivo"],
+    } for r in righe[:ANTEPRIMA_RIGHE]]
+
+    cx = connect()
+    clg_import.assicura_colonne(cx)
+    try:
+        if anteprima:
+            # Con "Sostituisci" la lista viene svuotata: nessun residuo.
+            risp["residui_senza_barcode"] = \
+                0 if sostituisci else clg_import.residui_senza_barcode(cx, righe)
+            return risp
+        ora = int(time.time())
+        nuovi = agg = 0
+        with cx:
+            if sostituisci:
+                cx.execute("DELETE FROM codes")
+            for r in righe:
+                if not r["valido"]:
+                    continue
+                esiste = cx.execute("SELECT 1 FROM codes WHERE code = ?", (r["code"],)).fetchone()
+                cx.execute(clg_import.SQL_UPSERT,
+                           clg_import.parametri(r["code"], stato, lotto or "pannello", None, ora, r))
+                if esiste:
+                    agg += 1
+                else:
+                    nuovi += 1
+            risp["residui_senza_barcode"] = clg_import.residui_senza_barcode(cx, righe)
+    finally:
+        cx.close()
+    risp.update(nuovi=nuovi, aggiornati=agg)
+    return risp
+
+
 def cambia_stato(codice, stato):
-    codice = re.sub(r"\D+", "", codice or "")
+    codice = re.sub(r"\D+", "", codice or "", flags=re.ASCII)
     if not CODE_RE.match(codice):
         return {"ok": False, "errore": "Il codice deve essere di 12 cifre."}
     if stato not in STATI:
@@ -190,6 +295,13 @@ PAGE = """<!doctype html>
   .pill{font-size:.72rem;padding:2px 8px;border-radius:999px}
   .pill.v{background:#dcfce7;color:var(--ok)} .pill.s{background:#fef3c7;color:var(--warn)}
   .pill.r{background:#fee2e2;color:var(--bad)}
+  .scroll{overflow-x:auto}
+  .quiet{color:var(--quiet)}
+  .anteprima{margin-top:12px;display:none}
+  .anteprima.on{display:block}
+  .anteprima p{margin:0 0 8px;font-size:.9rem}
+  .anteprima td.diff{color:var(--warn);font-weight:600}
+  .paginazione{display:flex;gap:10px;align-items:center;margin-top:10px;font-size:.85rem}
 </style>
 </head>
 <body>
@@ -202,10 +314,13 @@ PAGE = """<!doctype html>
 
   <section>
     <h2>Carica codici</h2>
-    <p class="hint">Incolla i codici (uno per riga) oppure scegli un file .txt/.csv.
-       Un CSV puo' avere le colonne <code>code,status,note</code>.</p>
+    <p class="hint">Incolla i codici (uno per riga) oppure scegli un file .txt/.csv
+       (un CSV puo' avere le colonne <code>code,status,note</code>) o l'<b>Excel del
+       brand</b> (.xlsx/.xlsm): dall'Excel il codice viene letto dal DataMatrix di ogni
+       riga, e insieme si salvano articolo, variante, taglia e identificativo.</p>
     <label for="file">Da file (facoltativo)</label>
-    <input type="file" id="file" accept=".txt,.csv">
+    <input type="file" id="file" accept=".txt,.csv,.xlsx,.xlsm">
+    <p class="hint" id="file-info" style="margin-top:6px"></p>
     <label for="codici">Codici</label>
     <textarea id="codici" placeholder="558420726815&#10;558420726816&#10;..."></textarea>
     <div class="row">
@@ -217,13 +332,38 @@ PAGE = """<!doctype html>
           <option value="revoked">revocato (falso)</option>
         </select>
       </div>
+      <div>
+        <label for="origine">Codice (solo Excel)</label>
+        <select id="origine">
+          <option value="barcode">dal DataMatrix (colonna E solo se manca)</option>
+          <option value="colonna">sempre dalla colonna E</option>
+        </select>
+      </div>
+      <div>
+        <label for="lotto">Lotto (facoltativo)</label>
+        <input type="text" id="lotto" placeholder="es. lotto-2026-01">
+      </div>
     </div>
     <div class="chk">
       <input type="checkbox" id="sostituisci">
       <label for="sostituisci" style="margin:0;font-weight:400">Sostituisci l'intera lista attuale (svuota prima di caricare)</label>
     </div>
-    <button id="btn-importa">Carica</button>
+    <div class="inline">
+      <button id="btn-importa">Carica</button>
+      <button id="btn-conferma" style="display:none">Importa</button>
+    </div>
     <div class="msg" id="msg-importa"></div>
+    <div class="anteprima" id="anteprima"></div>
+  </section>
+
+  <section>
+    <h2>Codici in lista</h2>
+    <div class="row">
+      <div><input type="text" id="cerca" placeholder="cerca per codice, articolo, identificativo, taglia, lotto"></div>
+      <div style="flex:0 0 auto"><button class="ghost" id="btn-cerca">Cerca</button></div>
+    </div>
+    <div class="scroll" style="margin-top:12px"><table id="tab-codici"><tbody></tbody></table></div>
+    <div class="paginazione" id="pag-codici"></div>
   </section>
 
   <section>
@@ -269,30 +409,102 @@ PAGE = """<!doctype html>
   }
   function pill(s){return s==="valid"?'<span class="pill v">valido</span>':
     s==="suspicious"?'<span class="pill s">sospetto</span>':'<span class="pill r">revocato</span>';}
+  function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,function(c){
+    return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c];});}
+  function $(id){return document.getElementById(id);}
   function carica(){
     fetch(B+"/stato").then(function(r){return r.json();}).then(function(s){
-      document.getElementById("cards").innerHTML =
+      $("cards").innerHTML =
         '<div class="stat"><b>'+s.totale+'</b><span>codici in lista</span></div>'+
         '<div class="stat"><b>'+s.validi+'</b><span>validi</span></div>'+
         '<div class="stat"><b>'+s.sospetti+'</b><span>sospetti</span></div>'+
         '<div class="stat"><b>'+s.revocati+'</b><span>revocati</span></div>'+
+        '<div class="stat"><b>'+s.con_barcode+'</b><span>con barcode registrato</span></div>'+
         '<div class="stat"><b>'+s.verifiche+'</b><span>verifiche totali</span></div>';
       var tb = document.querySelector("#tab-visti tbody");
       if(!s.piu_visti.length){tb.innerHTML='<tr><td style="color:#6b7280">Ancora nessuna verifica.</td></tr>';return;}
       tb.innerHTML='<tr><th>Codice</th><th>Dispositivi</th></tr>'+s.piu_visti.map(function(v){
         return '<tr><td><code>'+v.code+'</code></td><td>'+v.dispositivi+'</td></tr>';}).join("");
     }).catch(function(){});
+    elenco(0);
   }
-  document.getElementById("file").addEventListener("change", function(e){
-    var f=e.target.files[0]; if(!f) return;
-    var r=new FileReader(); r.onload=function(){document.getElementById("codici").value=r.result;}; r.readAsText(f);
+  var pagina = {q:"", da:0};
+  function elenco(da){
+    pagina.da = da||0;
+    fetch(B+"/codici?q="+encodeURIComponent(pagina.q)+"&da="+pagina.da).then(function(r){return r.json();}).then(function(s){
+      var tb = document.querySelector("#tab-codici tbody");
+      if(!s.righe.length){tb.innerHTML='<tr><td class="quiet">Nessun codice.</td></tr>';$("pag-codici").innerHTML="";return;}
+      tb.innerHTML='<tr><th>Codice</th><th>Stato</th><th>Taglia</th><th>Articolo</th><th>Identificativo</th><th>Barcode</th><th>Lotto</th></tr>'+
+        s.righe.map(function(r){
+          return '<tr><td><code>'+esc(r.code)+'</code></td><td>'+pill(r.status)+'</td><td>'+esc(r.taglia)+'</td>'+
+            '<td>'+esc(r.articolo)+'</td><td>'+esc(r.identificativo)+'</td>'+
+            '<td>'+(r.barcode?'presente':'<span class="quiet">no</span>')+'</td><td>'+esc(r.lotto)+'</td></tr>';}).join("");
+      var fine = Math.min(s.da+s.righe.length, s.totale);
+      $("pag-codici").innerHTML = '<span>'+(s.da+1)+'–'+fine+' di '+s.totale+'</span>'+
+        (s.da>0?'<button class="ghost" id="pag-prec">&larr; precedenti</button>':'')+
+        (fine<s.totale?'<button class="ghost" id="pag-succ">successivi &rarr;</button>':'');
+      if($("pag-prec")) $("pag-prec").onclick=function(){elenco(Math.max(0,s.da-s.quanti));};
+      if($("pag-succ")) $("pag-succ").onclick=function(){elenco(s.da+s.quanti);};
+    }).catch(function(){});
+  }
+  $("btn-cerca").addEventListener("click", function(){pagina.q=$("cerca").value; elenco(0);});
+  $("cerca").addEventListener("keydown", function(e){if(e.key==="Enter"){pagina.q=$("cerca").value; elenco(0);}});
+
+  // Un Excel non passa dal riquadro di testo: viaggia in base64 verso
+  // /importa-file, prima in anteprima e poi, su conferma, per davvero.
+  var excel = null;
+  function azzeraExcel(){excel=null; $("file-info").textContent=""; $("btn-importa").textContent="Carica";
+    $("btn-conferma").style.display="none"; $("anteprima").className="anteprima";}
+  $("file").addEventListener("change", function(e){
+    var f=e.target.files[0]; azzeraExcel(); if(!f) return;
+    var r=new FileReader();
+    if(/\\.xls[xm]$/i.test(f.name)){
+      r.onload=function(){excel={nome:f.name, b64:String(r.result).split(",")[1]||""};
+        $("codici").value=""; $("btn-importa").textContent="Analizza l'Excel";
+        $("file-info").textContent="Excel pronto: "+f.name+" ("+Math.round(f.size/1024)+" KB). Premi Analizza per vedere l'anteprima prima di importare.";};
+      r.readAsDataURL(f);
+    } else {
+      r.onload=function(){$("codici").value=r.result;}; r.readAsText(f);
+    }
   });
-  document.getElementById("btn-importa").addEventListener("click", function(){
-    var txt=document.getElementById("codici").value;
+  function inviaExcel(anteprima, bottone){
+    bottone.disabled=true;
+    api("/importa-file",{nome:excel.nome, file_b64:excel.b64, origine_codice:$("origine").value,
+      stato:$("stato").value, sostituisci:$("sostituisci").checked, lotto:$("lotto").value.trim(),
+      anteprima:anteprima}).then(function(res){
+      bottone.disabled=false;
+      if(res.errore){show("msg-importa",false,res.errore);return;}
+      var box=$("anteprima"), h="";
+      h+='<p><b>'+res.totale+'</b> righe in '+res.fogli.length+' fogli ('+esc(res.fogli.join(", "))+'): '+
+         '<b>'+res.validi+'</b> con codice, '+res.scartati+' scartate, <b>'+res.discordanti+'</b> con colonna E diversa dal barcode, '+
+         res.senza_immagine+' senza immagine, '+res.non_decodificabili+' non decodificabili.</p>';
+      if(!res.decodifica_disponibile) h+='<p style="color:var(--warn)">Su questo server la lettura dei DataMatrix non e\\' disponibile (mancano Pillow/zxing-cpp): i codici vengono presi dalla colonna E, che sono casuali. Quando le librerie saranno installate, reimporta con "Sostituisci": i codici presi da E non coincidono con quelli dei barcode e resterebbero in lista.</p>';
+      if(res.residui_senza_barcode) h+='<p style="color:var(--warn)">In lista ci sono gia\\' <b>'+res.residui_senza_barcode+'</b> codici di questi fogli senza barcode (importazione precedente senza lettura dei DataMatrix?) che questa importazione non aggiorna: per toglierli spunta "Sostituisci" e reimporta.</p>';
+      h+='<div class="scroll"><table><tr><th>Foglio</th><th>Riga</th><th>Codice colonna E</th><th>Codice DataMatrix</th><th>Taglia</th><th>Articolo</th></tr>'+
+        res.righe.map(function(r){
+          return '<tr><td>'+esc(r.foglio)+'</td><td>'+r.riga+'</td><td><code>'+esc(r.codice_colonna||"—")+'</code></td>'+
+            '<td class="'+(r.discordante?'diff':'')+'"><code>'+esc(r.codice_barcode||(r.motivo||"—"))+'</code></td>'+
+            '<td>'+esc(r.taglia)+'</td><td>'+esc(r.articolo)+'</td></tr>';}).join("")+
+        '</table></div>'+(res.totale>res.righe.length?'<p class="quiet">…e altre '+(res.totale-res.righe.length)+' righe.</p>':'');
+      box.innerHTML=h; box.className="anteprima on";
+      if(anteprima){
+        $("btn-conferma").style.display=res.validi?"":"none";
+        show("msg-importa",true,"Anteprima pronta: niente e\\' stato scritto. Controlla e premi Importa.");
+      } else {
+        show("msg-importa",true,"Importati: "+res.nuovi+" nuovi, "+res.aggiornati+" aggiornati, "+res.scartati+" scartati.");
+        $("btn-conferma").style.display="none"; excel=null; $("file").value=""; $("file-info").textContent=""; $("btn-importa").textContent="Carica";
+        carica();
+      }
+    }).catch(function(){bottone.disabled=false;show("msg-importa",false,"Errore di comunicazione.");});
+  }
+  $("btn-conferma").addEventListener("click", function(){ if(excel) inviaExcel(false, this); });
+  $("btn-importa").addEventListener("click", function(){
+    if(excel){ inviaExcel(true, this); return; }
+    var txt=$("codici").value;
     if(!txt.trim()){show("msg-importa",false,"Non c'e' niente da caricare.");return;}
     this.disabled=true; var self=this;
-    api("/importa",{testo:txt, stato:document.getElementById("stato").value,
-      sostituisci:document.getElementById("sostituisci").checked}).then(function(res){
+    api("/importa",{testo:txt, stato:$("stato").value,
+      sostituisci:$("sostituisci").checked}).then(function(res){
       self.disabled=false;
       if(res.errore){show("msg-importa",false,res.errore);return;}
       var m="Caricati: "+res.nuovi+" nuovi, "+res.aggiornati+" aggiornati, "+res.saltati+" saltati.";
@@ -344,11 +556,21 @@ class Handler(BaseHTTPRequestHandler):
         if self.path in ("/pannello", "/pannello/", "/pannello/index.html"):
             self._send(PAGE, 200, "text/html; charset=utf-8")
             return
-        if self.path == "/pannello/api/stato":
-            try:
+        u = urlparse(self.path)
+        try:
+            if u.path == "/pannello/api/stato":
                 self._json(stato_lista())
-            except sqlite3.Error as e:
-                self._json({"errore": "database non disponibile: %s" % e}, 503)
+                return
+            if u.path == "/pannello/api/codici":
+                qs = parse_qs(u.query)
+                try:
+                    da = int((qs.get("da") or ["0"])[0])
+                except ValueError:
+                    da = 0
+                self._json(elenco_codici((qs.get("q") or [""])[0], da))
+                return
+        except sqlite3.Error as e:
+            self._json({"errore": "database non disponibile: %s" % e}, 503)
             return
         self._json({"errore": "non trovato"}, 404)
 
@@ -377,6 +599,18 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(importa(str(dati.get("testo", "")),
                                    str(dati.get("stato", "valid")),
                                    bool(dati.get("sostituisci"))))
+            elif self.path == "/pannello/api/importa-file":
+                try:
+                    contenuto = base64.b64decode(str(dati.get("file_b64", "")), validate=True)
+                except (ValueError, TypeError):
+                    self._json({"errore": "file non leggibile (base64 non valido)"}, 400)
+                    return
+                self._json(importa_file(str(dati.get("nome", "")), contenuto,
+                                        str(dati.get("origine_codice", "barcode")),
+                                        str(dati.get("stato", "valid")),
+                                        bool(dati.get("sostituisci")),
+                                        str(dati.get("lotto") or "").strip()[:80],
+                                        bool(dati.get("anteprima"))))
             elif self.path == "/pannello/api/codice":
                 self._json(cambia_stato(str(dati.get("code", "")),
                                         str(dati.get("stato", ""))))
@@ -389,6 +623,16 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
+    # Le colonne nuove le aggiunge il servizio di verifica al suo avvio; se
+    # il pannello riparte prima di lui (o su un database gia' esistente) ci
+    # pensiamo noi, cosi' l'elenco e l'importazione non falliscono.
+    if clg_import is not None and os.path.exists(DB_PATH):
+        try:
+            cx = connect()
+            clg_import.assicura_colonne(cx)
+            cx.close()
+        except sqlite3.Error as e:
+            print("schema non aggiornato:", e, flush=True)
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     srv.daemon_threads = True
     print("pannello in ascolto su %s:%s" % (HOST, PORT), flush=True)
