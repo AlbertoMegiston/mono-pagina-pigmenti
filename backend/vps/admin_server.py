@@ -165,7 +165,7 @@ def importa(testo, stato_default, sostituisci):
     return {"nuovi": nuovi, "aggiornati": agg, "saltati": saltati, "scarti": scarti}
 
 
-def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima):
+def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima, forza=False):
     """Excel del brand caricato dal pannello. Con anteprima=True analizza
     soltanto e risponde con il riepilogo e le prime righe; altrimenti scrive
     con lo stesso upsert di clgadmin. In entrambi i casi la risposta porta i
@@ -187,6 +187,16 @@ def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima):
         righe, riep = clg_excel.analizza_file(dati, origine_codice=origine)
     except clg_excel.ExcelNonValido as e:
         return {"errore": "File non leggibile: %s" % e}
+    # Immagini presenti ma non lette (librerie mancanti, errore): importare
+    # dalla colonna E in silenzio metterebbe in lista numeri casuali. Fuori
+    # dall'anteprima serve la conferma esplicita dell'operatore (forza).
+    non_letti = riep.get("non_decodificabili", 0)
+    if not anteprima and not forza and origine == "barcode" and non_letti:
+        return {"errore": ("%d immagini DataMatrix non sono state lette: i loro codici "
+                           "verrebbero presi dalla colonna E, che e' casuale. Guarda il "
+                           "motivo nell'anteprima e, per importare comunque, spunta "
+                           "\"Importa comunque\".") % non_letti,
+                "serve_conferma": True}
     risp = dict(riep, ok=True, anteprima=bool(anteprima), origine=origine)
     risp["righe"] = [{
         "foglio": r["foglio"], "riga": r["riga"],
@@ -471,7 +481,7 @@ PAGE = """<!doctype html>
     bottone.disabled=true;
     api("/importa-file",{nome:excel.nome, file_b64:excel.b64, origine_codice:$("origine").value,
       stato:$("stato").value, sostituisci:$("sostituisci").checked, lotto:$("lotto").value.trim(),
-      anteprima:anteprima}).then(function(res){
+      anteprima:anteprima, forza:!!($("forza")&&$("forza").checked)}).then(function(res){
       bottone.disabled=false;
       if(res.errore){show("msg-importa",false,res.errore);return;}
       var box=$("anteprima"), h="";
@@ -480,6 +490,7 @@ PAGE = """<!doctype html>
          res.senza_immagine+' senza immagine, '+res.non_decodificabili+' non decodificabili.</p>';
       if(!res.decodifica_disponibile) h+='<p style="color:var(--warn)">Su questo server la lettura dei DataMatrix non e\\' disponibile (mancano Pillow/zxing-cpp): i codici vengono presi dalla colonna E, che sono casuali. Quando le librerie saranno installate, reimporta con "Sostituisci": i codici presi da E non coincidono con quelli dei barcode e resterebbero in lista.</p>';
       if(res.residui_senza_barcode) h+='<p style="color:var(--warn)">In lista ci sono gia\\' <b>'+res.residui_senza_barcode+'</b> codici di questi fogli senza barcode (importazione precedente senza lettura dei DataMatrix?) che questa importazione non aggiorna: per toglierli spunta "Sostituisci" e reimporta.</p>';
+      if(anteprima && res.non_decodificabili) h+='<p style="color:var(--warn)"><b>'+res.non_decodificabili+'</b> immagini DataMatrix non lette (il motivo e nella colonna Codice DataMatrix). Senza conferma non si importa nulla. <label><input type="checkbox" id="forza"> Importa comunque, usando per quelle righe il codice della colonna E (casuale)</label></p>';
       h+='<div class="scroll"><table><tr><th>Foglio</th><th>Riga</th><th>Codice colonna E</th><th>Codice DataMatrix</th><th>Taglia</th><th>Articolo</th></tr>'+
         res.righe.map(function(r){
           return '<tr><td>'+esc(r.foglio)+'</td><td>'+r.riga+'</td><td><code>'+esc(r.codice_colonna||"—")+'</code></td>'+
@@ -610,7 +621,8 @@ class Handler(BaseHTTPRequestHandler):
                                         str(dati.get("stato", "valid")),
                                         bool(dati.get("sostituisci")),
                                         str(dati.get("lotto") or "").strip()[:80],
-                                        bool(dati.get("anteprima"))))
+                                        bool(dati.get("anteprima")),
+                                        bool(dati.get("forza"))))
             elif self.path == "/pannello/api/codice":
                 self._json(cambia_stato(str(dati.get("code", "")),
                                         str(dati.get("stato", ""))))

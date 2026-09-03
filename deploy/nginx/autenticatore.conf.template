@@ -12,6 +12,9 @@ map $remote_addr $clg_limit_key {
     "~^(?<blocco64>[0-9a-f]+:[0-9a-f]+:[0-9a-f]+:[0-9a-f]+):"  $blocco64;
 }
 limit_req_zone $clg_limit_key zone=clgapi:10m rate=20r/m;
+# Invio del codice via email: ogni richiesta costa un'email, quindi il limite
+# e' piu' stretto (il servizio applica poi i suoi, per indirizzo e per IP).
+limit_req_zone $clg_limit_key zone=clgotp:1m rate=6r/m;
 
 server {
     listen 80;
@@ -45,6 +48,28 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_read_timeout 10s;
     }
+
+    # otp-inizio: setup.sh usa questi due marcatori per aggiungere il blocco
+    # a una configurazione gia' passata da certbot (che non rigenera).
+    location = /api/otp/invia {
+        limit_req zone=clgotp burst=3 nodelay;
+        proxy_pass http://127.0.0.1:8787/api/otp/invia;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        # Il servizio aspetta Mailgun fino a 8 secondi.
+        proxy_read_timeout 15s;
+    }
+
+    location = /api/otp/verifica {
+        limit_req zone=clgapi burst=10 nodelay;
+        proxy_pass http://127.0.0.1:8787/api/otp/verifica;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 10s;
+    }
+    # otp-fine
 
     # Sonda di stato, utile solo da dentro la macchina.
     location = /api/health {

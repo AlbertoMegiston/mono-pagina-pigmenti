@@ -22,6 +22,9 @@ Esempi:
     # quanti codici ci sono e quante verifiche sono state fatte
     sudo clgadmin stato-lista
 
+    # prova l'invio email dei codici di verifica (chiave in /etc/autenticatore/mail.env)
+    sudo clgadmin mail-test tua@email.it
+
 Il CSV può avere le colonne: code (obbligatoria), status, note.
 Righe con codici non validi vengono saltate e riepilogate alla fine.
 Un codice già in lista mantiene il suo stato, a meno che non venga indicato
@@ -41,6 +44,10 @@ try:
     import clg_excel  # accanto a questo script; serve solo per gli Excel
 except ImportError:
     clg_excel = None
+try:
+    import clg_mail  # idem; serve solo a mail-test
+except ImportError:
+    clg_mail = None
 
 DB_PATH = os.environ.get("CLG_DB", "/var/lib/autenticatore/clg.db")
 # re.ASCII come nel servizio: le cifre non ASCII (arabe, a larghezza piena)
@@ -292,6 +299,30 @@ def cmd_riepilogo(args):
         print("  (nessuna)")
 
 
+def cmd_mail_test(args):
+    """Una email di prova con la stessa funzione del servizio: se arriva,
+    arrivano anche i codici di verifica. La chiave non viene mai stampata."""
+    if clg_mail is None:
+        sys.exit("per l'invio email serve clg_mail.py accanto a questo script")
+    # clgadmin non gira sotto systemd: il file di ambiente lo leggiamo noi,
+    # senza sovrascrivere variabili gia' presenti.
+    clg_mail.carica_env()
+    cfg = clg_mail.config()
+    if not cfg["api_key"]:
+        sys.exit(f"MAILGUN_API_KEY non impostata: mettila in {clg_mail.ENV_FILE} "
+                 f"(vedi deploy/README.md, sezione \"Email di verifica\")")
+    print(f"invio a {args.destinatario} da {cfg['mail_from']} "
+          f"tramite {cfg['api_base']}/{cfg['domain']} ...")
+    try:
+        clg_mail.invia(args.destinatario, "Prova di invio dall'autenticatore",
+                       "Se leggi questa email, l'invio dei codici di verifica funziona.")
+    except clg_mail.MailError as e:
+        sys.exit(f"invio NON riuscito: {e}\n"
+                 f"Controlla chiave e dominio in {clg_mail.ENV_FILE} e, su Mailgun, "
+                 f"che il dominio sia verificato e la regione sia quella dell'endpoint.")
+    print("inviata: controlla la casella (anche la posta indesiderata)")
+
+
 def main():
     p = argparse.ArgumentParser(description="Lista codici CLG")
     p.add_argument("--db", default=DB_PATH, help=f"database (default {DB_PATH})")
@@ -320,6 +351,10 @@ def main():
 
     ri = sub.add_parser("stato-lista", help="riepilogo di lista e verifiche")
     ri.set_defaults(func=cmd_riepilogo)
+
+    mt = sub.add_parser("mail-test", help="invia una email di prova con Mailgun")
+    mt.add_argument("destinatario")
+    mt.set_defaults(func=cmd_mail_test)
 
     args = p.parse_args()
     args.func(args)

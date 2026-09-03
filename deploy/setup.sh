@@ -5,10 +5,11 @@
 #
 #   ./setup.sh crtilogo.com tua@email.it
 #
-# Fa tutto: pacchetti, sito statico, servizio di verifica, nginx, firewall e
-# certificato HTTPS. Si puo' rilanciare senza danni: ogni passo controlla se e'
-# gia' a posto. Va eseguito come root (su Debian minimale sudo non c'e', ma il
-# login e' gia' root, quindi non serve).
+# Fa tutto: pacchetti, sito statico, servizio di verifica, file per la chiave
+# Mailgun (codici via email), nginx, firewall e certificato HTTPS. Si puo'
+# rilanciare senza danni: ogni passo controlla se e' gia' a posto. Va eseguito
+# come root (su Debian minimale sudo non c'e', ma il login e' gia' root, quindi
+# non serve).
 #
 set -euo pipefail
 
@@ -94,6 +95,8 @@ install -m 755 "$QUI/api/verify_server.py" "$APPDIR/verify_server.py"
 install -m 755 "$QUI/api/clg_import.py" "$APPDIR/clg_import.py"
 # Lettura degli Excel, condivisa da clgadmin e dal pannello.
 install -m 644 "$QUI/api/clg_excel.py" "$APPDIR/clg_excel.py"
+# Invio email con Mailgun, condiviso dal servizio e da "clgadmin mail-test".
+install -m 644 "$QUI/api/clg_mail.py" "$APPDIR/clg_mail.py"
 # clgadmin gira come root: cosi' puo' leggere un file di codici ovunque si trovi
 # (anche in /root, che e' 0700), e alla fine restituisce la proprieta' del
 # database all'utente del servizio, che deve poterci scrivere.
@@ -105,6 +108,61 @@ chown -R autenticatore:autenticatore $DATADIR 2>/dev/null || true
 exit \$rc
 EOF
 chmod 755 /usr/local/bin/clgadmin
+
+echo "==> 4a/8 email di verifica (Mailgun)"
+# La chiave Mailgun sta in un file fuori dal pacchetto, letto da systemd
+# (EnvironmentFile dell'unita') e da clgadmin mail-test. Lo creiamo vuoto
+# solo la prima volta e non lo sovrascriviamo MAI: contiene la chiave.
+# Leggibile solo da root e dall'utente del servizio.
+MAILENV=/etc/autenticatore/mail.env
+install -d -m 755 /etc/autenticatore
+if [[ -e "$MAILENV" ]]; then
+  echo "    $MAILENV gia' presente, lasciato com'e'"
+else
+  cat > "$MAILENV" <<'EOF'
+# Invio dei codici di verifica via email con Mailgun (regione US).
+# Letto da autenticatore-api.service e da "clgadmin mail-test".
+# Dopo ogni modifica: systemctl restart autenticatore-api
+# Formato: NOME=valore, un valore per riga, niente commenti a fine riga.
+
+# Chiave API di invio del dominio (Mailgun: Sending > Domain settings >
+# Sending API keys). Per impostarla senza mostrarla a video vedi il README.
+MAILGUN_API_KEY=
+
+# Dominio verificato su Mailgun (non per forza quello del sito).
+MAILGUN_DOMAIN=crtilogo.com
+
+# Mittente che il destinatario vede.
+MAIL_FROM="Stone Island Autenticazione <verifica@crtilogo.com>"
+
+# Facoltativi (valori predefiniti). Regione EU: https://api.eu.mailgun.net/v3
+#MAILGUN_API_BASE=https://api.mailgun.net/v3
+#OTP_TTL=600
+#OTP_MAX_ATTEMPTS=5
+#OTP_RESEND_AFTER=30
+#OTP_MAX_PER_EMAIL_HOUR=5
+#OTP_MAX_PER_IP_HOUR=20
+EOF
+  echo "    creato $MAILENV"
+fi
+chown root:autenticatore "$MAILENV"
+chmod 640 "$MAILENV"
+MAIL_STATO="NON configurata: i codici via email non partono (vedi sopra)"
+if grep -qE '^MAILGUN_API_KEY=[^[:space:]]' "$MAILENV"; then
+  MAIL_STATO="chiave presente (prova: clgadmin mail-test tua@email.it)"
+  echo "    chiave Mailgun presente"
+else
+  cat <<EOF
+    chiave Mailgun NON impostata: la pagina permette comunque di saltare il
+    passaggio. Per impostarla senza mostrarla a video (ne' lasciarla nella
+    cronologia dei comandi):
+
+      read -rs -p "Chiave Mailgun: " K; echo; sed -i "s|^MAILGUN_API_KEY=.*|MAILGUN_API_KEY=\$K|" $MAILENV; unset K
+      systemctl restart autenticatore-api
+      clgadmin mail-test tua@email.it
+EOF
+fi
+
 install -m 644 "$QUI/api/autenticatore-api.service" \
   /etc/systemd/system/autenticatore-api.service
 systemctl daemon-reload
@@ -156,6 +214,34 @@ else
   if ! ip -6 addr show scope global 2>/dev/null | grep -q inet6; then
     sed -i '/listen \[::\]:80;/d' "$CONF"
     echo "    nessun IPv6 sulla macchina: rimosso il listen IPv6"
+  fi
+fi
+# Le rotte dei codici via email sono arrivate dopo: in una configurazione
+# gia' passata da certbot (che non rigeneriamo) le aggiungiamo una volta
+# sola, prendendo dal template la zona clgotp e il blocco fra i marcatori
+# "# otp-inizio" e "# otp-fine", messo subito dopo la location /api/verify.
+if ! grep -q "location = /api/otp/invia" "$CONF"; then
+  TEMPLATE="$QUI/nginx/autenticatore.conf.template"
+  BLOCCO="$(mktemp)"
+  sed -n '/# otp-inizio/,/# otp-fine/p' "$TEMPLATE" > "$BLOCCO"
+  ZONA="$(grep -m1 'zone=clgotp' "$TEMPLATE")"
+  grep -q 'zone=clgotp' "$CONF" && ZONA=""
+  awk -v zona="$ZONA" -v blocco="$BLOCCO" '
+    /location = \/api\/verify/ { dentro = 1 }
+    { print }
+    zona != "" && /zone=clgapi:/ { print zona; zona = "" }
+    dentro && /^[[:space:]]*}/ {
+      print ""
+      while ((getline riga < blocco) > 0) print riga
+      dentro = 0
+    }
+  ' "$CONF" > "$CONF.nuovo" && mv "$CONF.nuovo" "$CONF"
+  rm -f "$BLOCCO"
+  if grep -q "location = /api/otp/invia" "$CONF"; then
+    echo "    aggiunte le rotte /api/otp/* alla configurazione esistente"
+  else
+    echo "    ATTENZIONE: rotte /api/otp/* non aggiunte a $CONF: copia a mano dal" >&2
+    echo "    template la riga 'zone=clgotp' e il blocco fra '# otp-inizio' e '# otp-fine'" >&2
   fi
 fi
 ln -sf "$CONF" /etc/nginx/sites-enabled/autenticatore
@@ -264,6 +350,7 @@ Fatto.
   Sito       $PROTO://$DOMINIO
   Test QR    $PROTO://$DOMINIO/?clg=123456789012
   Pannello   $PROTO://$DOMINIO/pannello/   (utente e password in /root/pannello-password.txt)
+  Email      $MAIL_STATO
 
 Dal pannello carichi la lista dei codici (txt, csv o l'Excel del brand con i
 DataMatrix) e vedi le statistiche, senza riga di comando. In alternativa:

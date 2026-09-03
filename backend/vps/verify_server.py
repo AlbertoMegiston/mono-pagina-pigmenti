@@ -25,6 +25,22 @@ pezzo lo scan vale come il codice digitato (vedi verdict).
 Se il servizio non risponde (o risponde con un errore), la pagina mostra
 "Verifica non disponibile" con un tasto Riprova: non inventa mai un esito.
 
+Codice di verifica via email (il passaggio "Accedi" della pagina; le email
+partono con Mailgun, vedi clg_mail.py):
+
+    POST /api/otp/invia     { "email": "...", "lang": "it" | "en" }
+    →  200 { "ok": true, "ttl": 600, "retry_in": 30 }
+       400 { "error": "invalid_email" }
+       429 { "error": "too_soon", "retry_in": n } | { "error": "too_many" }
+       503 { "error": "not_configured" | "send_failed" }
+    POST /api/otp/verifica  { "email": "...", "code": "123456" }
+    →  { "ok": true }
+     | { "ok": false, "reason": "expired" | "locked" | "wrong", "left": n }
+
+Il server non rilascia token: la pagina si limita a segnare il passaggio
+come fatto. Ne' l'indirizzo ne' il codice finiscono nel database o nei log,
+solo le loro impronte.
+
 Ascolta su 127.0.0.1: l'unico modo per raggiungerlo dall'esterno è il reverse
 proxy di nginx, che applica anche il limite di richieste.
 
@@ -37,6 +53,14 @@ Configurazione via variabili d'ambiente (vedi autenticatore-api.service):
                     sospetto (default 10)
     CLG_DUP_DAYS    finestra in giorni per quel conteggio (default 30)
     CLG_RETENTION_DAYS  eta' oltre la quale il registro viene potato (default 180)
+    OTP_TTL                validita' del codice in secondi (default 600)
+    OTP_MAX_ATTEMPTS       tentativi di verifica per codice (default 5)
+    OTP_RESEND_AFTER       secondi fra un invio e il successivo (default 30)
+    OTP_MAX_PER_EMAIL_HOUR invii all'ora per indirizzo (default 5)
+    OTP_MAX_PER_IP_HOUR    invii all'ora per IP (default 20)
+    MAILGUN_API_KEY, MAILGUN_DOMAIN, MAILGUN_API_BASE, MAIL_FROM: vedi
+    clg_mail.py; arrivano da /etc/autenticatore/mail.env. Senza chiave il
+    servizio parte lo stesso e /api/otp/invia risponde not_configured.
 """
 
 import hashlib
@@ -45,10 +69,19 @@ import json
 import os
 import random
 import re
+import secrets
 import sqlite3
 import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+
+# Invio email: modulo accanto a questo file, installato da setup.sh. Senza,
+# il servizio parte lo stesso e /api/otp/invia risponde not_configured (la
+# pagina offre "salta questo passaggio").
+try:
+    import clg_mail
+except ImportError:
+    clg_mail = None
 
 DB_PATH = os.environ.get("CLG_DB", "/var/lib/autenticatore/clg.db")
 SALT_FILE = os.environ.get("CLG_SALT_FILE", "/var/lib/autenticatore/ip-salt")
@@ -60,6 +93,13 @@ DUP_DAYS = int(os.environ.get("CLG_DUP_DAYS", "30"))
 # anti-clonazione guarda solo gli ultimi CLG_DUP_DAYS, quindi tenerne una
 # manciata di mesi basta e impedisce al registro di crescere all'infinito.
 RETENTION_DAYS = int(os.environ.get("CLG_RETENTION_DAYS", "180"))
+# Codice di verifica via email: validita', tentativi e limiti di invio (ogni
+# invio costa un'email, e un indirizzo altrui non va tempestato).
+OTP_TTL = int(os.environ.get("OTP_TTL", "600"))
+OTP_MAX_ATTEMPTS = int(os.environ.get("OTP_MAX_ATTEMPTS", "5"))
+OTP_RESEND_AFTER = int(os.environ.get("OTP_RESEND_AFTER", "30"))
+OTP_MAX_PER_EMAIL_HOUR = int(os.environ.get("OTP_MAX_PER_EMAIL_HOUR", "5"))
+OTP_MAX_PER_IP_HOUR = int(os.environ.get("OTP_MAX_PER_IP_HOUR", "20"))
 
 # re.ASCII ovunque si cercano cifre: in Python \d prende anche le cifre
 # arabe o a larghezza piena, in JavaScript (la pagina) solo 0-9. Senza, la
@@ -67,10 +107,17 @@ RETENTION_DAYS = int(os.environ.get("CLG_RETENTION_DAYS", "180"))
 CODE_RE = re.compile(r"^\d{12}$", re.ASCII)
 MAX_BODY = 4096  # il corpo legittimo sta in poche centinaia di byte
 MAX_PAYLOAD = 512  # un DataMatrix di cartellino sta in poche decine di caratteri
+OTP_MAX_BODY = 2048  # email e codice: ancora meno
+# Stessa regola "semplice" della pagina: qualcosa@qualcosa.qualcosa. Il vero
+# controllo e' l'email che arriva.
+EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+OTP_CODE_RE = re.compile(r"^\d{6}$", re.ASCII)
 
 # payload:      testo del DataMatrix stampato sul cartellino (fonte affidabile)
 # payload_norm: lo stesso con i bianchi normalizzati, e' quello confrontato
 # article, variant, size, internal_id, sheet: i campi dell'Excel del brand
+# otp: un codice di verifica per indirizzo (impronte, mai email o codice in
+# chiaro); sends/first_send_at contano gli invii nell'ora corrente
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS codes (
   code         TEXT PRIMARY KEY,
@@ -98,6 +145,17 @@ CREATE TABLE IF NOT EXISTS checks (
   payload_ok INTEGER
 );
 CREATE INDEX IF NOT EXISTS checks_code_ts ON checks (code, ts);
+CREATE TABLE IF NOT EXISTS otp (
+  email_hash    TEXT PRIMARY KEY,
+  code_hash     TEXT NOT NULL,
+  created_at    INTEGER NOT NULL,
+  expires_at    INTEGER NOT NULL,
+  attempts      INTEGER NOT NULL DEFAULT 0,
+  sends         INTEGER NOT NULL DEFAULT 1,
+  first_send_at INTEGER NOT NULL,
+  ip_hash       TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_otp_ip ON otp (ip_hash);
 """
 
 # Colonne arrivate dopo la prima versione: su un database gia' in uso le
@@ -194,6 +252,139 @@ def hash_ip(ip):
     if not ip:
         return None
     return hmac.new(SALT, ip.encode("utf-8", "replace"), hashlib.sha256).hexdigest()[:32]
+
+
+def log(msg):
+    print(msg, file=sys.stderr, flush=True)
+
+
+# --- Codice di verifica via email ------------------------------------------
+
+MESSAGGI_OTP = {
+    "it": ("Il tuo codice di verifica: {code}",
+           "Il tuo codice per la verifica dell'autenticità è {code}. Vale {min} minuti. "
+           "Se non l'hai richiesto tu, ignora questa email."),
+    "en": ("Your verification code: {code}",
+           "Your code for the authenticity check is {code}. It is valid for {min} minutes. "
+           "If you did not request it, please ignore this email."),
+}
+
+
+def valid_email(email):
+    return (isinstance(email, str) and len(email.strip()) <= 254
+            and EMAIL_RE.match(email.strip()) is not None)
+
+
+def hash_email(email):
+    """Nel database l'indirizzo non compare mai: solo questa impronta (con lo
+    stesso sale degli IP), che basta a ritrovare la riga alla verifica.
+    Minuscolo, cosi' Mario@ e mario@ sono la stessa casella."""
+    return hashlib.sha256(SALT + email.strip().lower().encode("utf-8")).hexdigest()
+
+
+def hash_code(email_hash, code):
+    """Anche il codice si conserva come impronta, legata all'indirizzo: chi
+    leggesse il database non potrebbe usarlo."""
+    return hashlib.sha256(SALT + email_hash.encode() + code.encode()).hexdigest()
+
+
+def new_code():
+    # secrets, non random: il codice e' un segreto e dev'essere imprevedibile.
+    return "%06d" % secrets.randbelow(1000000)
+
+
+def otp_message(lang, code):
+    subject, text = MESSAGGI_OTP["en" if lang == "en" else "it"]
+    minuti = max(1, round(OTP_TTL / 60))
+    return subject.format(code=code), text.format(code=code, min=minuti)
+
+
+class OtpRefused(Exception):
+    """Invio rifiutato da un limite: error e' la parola per la pagina."""
+
+    def __init__(self, error, retry_in=None):
+        super().__init__(error)
+        self.error, self.retry_in = error, retry_in
+
+
+def otp_issue(email_hash, ip_hash):
+    """Applica i limiti e registra un nuovo codice per l'indirizzo.
+
+    Ritorna (codice, riga precedente o None): la riga serve a otp_rollback
+    se poi l'email non parte. Solleva OtpRefused (too_soon con i secondi
+    che mancano, too_many) se un limite e' raggiunto. La riga si scrive
+    PRIMA di inviare, cosi' due richieste contemporanee per lo stesso
+    indirizzo non producono due email.
+    """
+    now = int(time.time())
+    code = new_code()
+    with connect() as cx:
+        # Pulizia delle righe scadute da piu' di un'ora, committata a parte:
+        # vale anche se subito dopo la richiesta viene rifiutata da un limite
+        # (che annulla la transazione).
+        cx.execute("DELETE FROM otp WHERE expires_at < ?", (now - 3600,))
+        cx.commit()
+        # Lettura e scrittura devono essere un'unica transazione: con BEGIN
+        # IMMEDIATE due richieste contemporanee si mettono in fila invece di
+        # leggere entrambe "nessuna riga".
+        cx.execute("BEGIN IMMEDIATE")
+        prev = cx.execute(
+            "SELECT code_hash, created_at, expires_at, attempts, sends, first_send_at, ip_hash "
+            "FROM otp WHERE email_hash = ?", (email_hash,)).fetchone()
+        sends, first = 0, now
+        if prev is not None:
+            if prev[1] > now - OTP_RESEND_AFTER:
+                raise OtpRefused("too_soon", prev[1] + OTP_RESEND_AFTER - now)
+            # Il contatore vale per l'ora che parte da first_send_at: passata
+            # quella, riparte da zero.
+            if prev[5] > now - 3600:
+                sends, first = prev[4], prev[5]
+                if sends >= OTP_MAX_PER_EMAIL_HOUR:
+                    raise OtpRefused("too_many")
+        if ip_hash is not None:
+            per_ip = cx.execute(
+                "SELECT COALESCE(SUM(sends), 0) FROM otp WHERE ip_hash = ? AND first_send_at > ?",
+                (ip_hash, now - 3600)).fetchone()[0]
+            if per_ip >= OTP_MAX_PER_IP_HOUR:
+                raise OtpRefused("too_many")
+        cx.execute(
+            "INSERT OR REPLACE INTO otp (email_hash, code_hash, created_at, expires_at, "
+            "attempts, sends, first_send_at, ip_hash) VALUES (?,?,?,?,0,?,?,?)",
+            (email_hash, hash_code(email_hash, code), now, now + OTP_TTL, sends + 1, first, ip_hash))
+    return code, prev
+
+
+def otp_rollback(email_hash, prev):
+    """L'email non e' partita: il tentativo non deve contare, ne' come invio
+    ne' per il too_soon. Torna la riga di prima (il vecchio codice vale
+    ancora) o nessuna riga."""
+    with connect() as cx:
+        if prev is None:
+            cx.execute("DELETE FROM otp WHERE email_hash = ?", (email_hash,))
+        else:
+            cx.execute(
+                "UPDATE otp SET code_hash=?, created_at=?, expires_at=?, attempts=?, sends=?, "
+                "first_send_at=?, ip_hash=? WHERE email_hash = ?", tuple(prev) + (email_hash,))
+
+
+def otp_check(email_hash, code):
+    """L'esito della verifica, gia' nella forma della risposta."""
+    now = int(time.time())
+    with connect() as cx:
+        cx.execute("BEGIN IMMEDIATE")
+        row = cx.execute("SELECT code_hash, expires_at, attempts FROM otp WHERE email_hash = ?",
+                         (email_hash,)).fetchone()
+        if row is None or row[1] <= now:
+            if row is not None:
+                cx.execute("DELETE FROM otp WHERE email_hash = ?", (email_hash,))
+            return {"ok": False, "reason": "expired"}
+        if row[2] >= OTP_MAX_ATTEMPTS:
+            return {"ok": False, "reason": "locked"}
+        if hmac.compare_digest(row[0], hash_code(email_hash, code)):
+            cx.execute("DELETE FROM otp WHERE email_hash = ?", (email_hash,))
+            return {"ok": True}
+        cx.execute("UPDATE otp SET attempts = attempts + 1 WHERE email_hash = ?", (email_hash,))
+        return {"ok": False, "reason": "wrong", "left": OTP_MAX_ATTEMPTS - row[2] - 1}
 
 
 def verdict(code, ip_hash, payload=None):
@@ -332,22 +523,106 @@ class Handler(BaseHTTPRequestHandler):
         self.send_json({"error": "not found"}, 404)
 
     def do_POST(self):
-        if self.path != "/api/verify":
+        if self.path == "/api/verify":
+            self.post_verify()
+        elif self.path == "/api/otp/invia":
+            self.post_otp_send()
+        elif self.path == "/api/otp/verifica":
+            self.post_otp_check()
+        else:
             self.send_json({"error": "not found"}, 404)
-            return
+
+    def read_body(self, max_body):
+        """Il corpo JSON come dict. Ritorna (dict, None) oppure (None,
+        "too_large" | "bad_request"): la risposta la decide il chiamante,
+        perche' /api/verify e le rotte OTP hanno contratti diversi."""
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             length = 0
-        if length <= 0 or length > MAX_BODY:
-            self.send_json({"outcome": "invalid"}, 400)
-            return
+        if length > max_body:
+            # Se e' piccolo lo leggiamo e buttiamo: cosi' il client riceve il
+            # 413 invece di un reset della connessione (nginx ferma comunque
+            # tutto cio' che supera client_max_body_size).
+            if length <= 65536:
+                self.rfile.read(length)
+            return None, "too_large"
+        if length <= 0:
+            return None, "bad_request"
         try:
             req = json.loads(self.rfile.read(length).decode("utf-8", "replace"))
         except (ValueError, UnicodeError):
-            self.send_json({"outcome": "invalid"}, 400)
-            return
+            return None, "bad_request"
         if not isinstance(req, dict):
+            return None, "bad_request"
+        return req, None
+
+    def post_otp_send(self):
+        req, err = self.read_body(OTP_MAX_BODY)
+        if err:
+            self.send_json({"error": err}, 413 if err == "too_large" else 400)
+            return
+        email = req.get("email")
+        if not valid_email(email):
+            self.send_json({"error": "invalid_email"}, 400)
+            return
+        if clg_mail is None or not clg_mail.configurato():
+            self.send_json({"error": "not_configured"}, 503)
+            return
+        email_hash = hash_email(email)
+        try:
+            code, prev = otp_issue(email_hash, hash_ip(self.client_ip()))
+        except OtpRefused as e:
+            body = {"error": e.error}
+            if e.retry_in is not None:
+                body["retry_in"] = e.retry_in
+            self.send_json(body, 429)
+            return
+        except sqlite3.Error as e:
+            log("otp: database non disponibile: %s" % e)
+            self.send_json({"error": "unavailable"}, 503)
+            return
+        subject, text = otp_message(req.get("lang"), code)
+        try:
+            clg_mail.invia(email.strip(), subject, text)
+        except clg_mail.MailError as e:
+            log("otp: invio fallito (%s)" % e)
+            try:
+                otp_rollback(email_hash, prev)
+            except sqlite3.Error as e2:
+                log("otp: ripristino fallito: %s" % e2)
+            self.send_json({"error": "send_failed"}, 503)
+            return
+        log("otp: codice inviato")
+        self.send_json({"ok": True, "ttl": OTP_TTL, "retry_in": OTP_RESEND_AFTER})
+
+    def post_otp_check(self):
+        req, err = self.read_body(OTP_MAX_BODY)
+        if err:
+            self.send_json({"error": err}, 413 if err == "too_large" else 400)
+            return
+        email, code = req.get("email"), req.get("code")
+        if not valid_email(email):
+            self.send_json({"error": "invalid_email"}, 400)
+            return
+        code = code.strip() if isinstance(code, str) else ""
+        if not OTP_CODE_RE.match(code):
+            self.send_json({"error": "invalid_code"}, 400)
+            return
+        try:
+            esito = otp_check(hash_email(email), code)
+        except sqlite3.Error as e:
+            log("otp: database non disponibile: %s" % e)
+            self.send_json({"error": "unavailable"}, 503)
+            return
+        parola = "giusto" if esito["ok"] else {"wrong": "sbagliato", "expired": "scaduto",
+                                              "locked": "bloccato"}[esito["reason"]]
+        log("otp: codice %s" % parola)
+        self.send_json(esito)
+
+    def post_verify(self):
+        req, err = self.read_body(MAX_BODY)
+        if err:
             self.send_json({"outcome": "invalid"}, 400)
             return
 
@@ -396,6 +671,11 @@ def main():
     srv = ThreadingHTTPServer((HOST, PORT), Handler)
     srv.daemon_threads = True
     print(f"autenticatore api in ascolto su {HOST}:{PORT}", flush=True)
+    if clg_mail is None:
+        log("ATTENZIONE: clg_mail.py non trovato: i codici via email non partiranno")
+    elif not clg_mail.configurato():
+        log("MAILGUN_API_KEY non impostata: i codici via email non partiranno "
+            "(vedi /etc/autenticatore/mail.env)")
     try:
         srv.serve_forever()
     except KeyboardInterrupt:

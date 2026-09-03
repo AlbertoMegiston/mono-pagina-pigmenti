@@ -13,11 +13,13 @@ Il login sul server è come **root**, quindi i comandi si danno senza `sudo`
        │  https
        ▼
     nginx ──── /            →  /var/www/autenticatore/index.html   (la pagina)
-       └────── /api/verify  →  127.0.0.1:8787                      (il servizio)
+       ├────── /api/verify  →  127.0.0.1:8787                      (il servizio)
+       └────── /api/otp/*   →  127.0.0.1:8787 ──→ api.mailgun.net  (codice via email)
                                     │
                                     ▼
                               /var/lib/autenticatore/clg.db
-                              (lista codici + registro verifiche)
+                              (lista codici + registro verifiche
+                               + codici email, solo come impronte)
 ```
 
 La pagina è **un unico file**: font, logo e fotografie sono dentro. Non ci sono
@@ -217,6 +219,109 @@ dice se è arrivata da uno scan (`scanned`) e se il barcode coincideva
 **Se il servizio non risponde**, la pagina non si blocca e non inventa un esito
 "vero": ripiega sull'esito simulato, e l'avviso in testa alla pagina lo dichiara.
 
+## Email di verifica (Mailgun)
+
+Nel passaggio **Accedi** la pagina chiede un indirizzo email (facoltativo: si
+può saltare) e vi spedisce un **codice a 6 cifre** da ricopiare. Il codice
+vale 10 minuti, si può sbagliare 5 volte, e dopo 30 secondi se ne può chiedere
+un altro. Le email partono da `verifica@crtilogo.com` tramite **Mailgun**
+(regione US), senza tracciamento di aperture o clic.
+
+Non ha valore legale: è un passaggio di contatto, come nel servizio di
+riferimento. Il server non rilascia token. Finché la chiave Mailgun non è
+impostata la pagina dice "non siamo riusciti a inviare il codice" e lascia
+saltare il passaggio: il resto del sito funziona lo stesso.
+
+### Cosa c'è già (fatto dal cliente su Mailgun)
+
+Il dominio `crtilogo.com` è **verificato** su Mailgun, regione US, con i
+record DNS che Mailgun richiede già inseriti nel pannello del dominio:
+
+| Tipo | Nome | Serve a |
+|---|---|---|
+| TXT | `crtilogo.com` — SPF (`v=spf1 include:mailgun.org ~all`) | autorizzare Mailgun a spedire per il dominio |
+| TXT | `<selettore>._domainkey.crtilogo.com` — DKIM | firmare le email (senza, finiscono nello spam) |
+| MX | `mxa.mailgun.org`, `mxb.mailgun.org` | ricevere risposte e rimbalzi (facoltativo) |
+| CNAME | `email.crtilogo.com` → `mailgun.org` | tracciamento: qui è spento, il record può anche mancare |
+
+Il server **non** ha bisogno di record DNS propri per spedire: parla con l'API
+di Mailgun in HTTPS. Se il dominio di invio cambia, i record vanno rifatti dal
+pannello Mailgun (Sending → Domains → DNS records) e va aggiornato
+`MAILGUN_DOMAIN` nel file qui sotto.
+
+### Il file di configurazione
+
+`setup.sh` crea, **solo la prima volta**, `/etc/autenticatore/mail.env`
+(proprietario root, gruppo `autenticatore`, permessi 640: lo leggono solo root
+e il servizio) e non lo sovrascrive mai. Lo legge systemd all'avvio del
+servizio (`EnvironmentFile` dell'unità) e `clgadmin mail-test`. Contiene:
+
+```
+MAILGUN_API_KEY=                                        ← la chiave di invio del dominio
+MAILGUN_DOMAIN=crtilogo.com
+MAIL_FROM=Stone Island Autenticazione <verifica@crtilogo.com>
+```
+
+più, commentati, i valori facoltativi (`MAILGUN_API_BASE` per la regione, e i
+limiti `OTP_*` descritti sotto). Formato `NOME=valore`, un valore per riga,
+niente commenti a fine riga.
+
+**Impostare la chiave** (Mailgun: Sending → Domain settings → Sending API
+keys) senza mostrarla a video né lasciarla nella cronologia dei comandi:
+
+```bash
+read -rs -p "Chiave Mailgun: " K; echo; sed -i "s|^MAILGUN_API_KEY=.*|MAILGUN_API_KEY=$K|" /etc/autenticatore/mail.env; unset K
+systemctl restart autenticatore-api
+clgadmin mail-test tua@email.it
+```
+
+`clgadmin mail-test` spedisce un'email di prova con la stessa funzione che usa
+il servizio e dice se Mailgun ha accettato l'invio; la chiave non viene mai
+stampata. Se l'email non arriva, guarda nella posta indesiderata e nei log di
+Mailgun (Sending → Logs). Dopo ogni modifica al file:
+`systemctl restart autenticatore-api`.
+
+### Limiti
+
+| Limite | Valore | Dove si cambia |
+|---|---|---|
+| validità del codice | 10 minuti | `OTP_TTL` (secondi) |
+| tentativi per codice | 5, poi serve un codice nuovo | `OTP_MAX_ATTEMPTS` |
+| attesa fra un invio e il successivo | 30 secondi | `OTP_RESEND_AFTER` |
+| invii all'ora per indirizzo email | 5 | `OTP_MAX_PER_EMAIL_HOUR` |
+| invii all'ora per indirizzo IP | 20 | `OTP_MAX_PER_IP_HOUR` |
+| richieste di invio accettate da nginx | 6 al minuto per IP, con una tolleranza di 3 | zona `clgotp` nel file nginx |
+
+I valori `OTP_*` si mettono in `/etc/autenticatore/mail.env`, poi
+`systemctl restart autenticatore-api`. Un invio che Mailgun rifiuta non conta
+nei limiti: si può riprovare subito.
+
+### Privacy
+
+- Nel database non c'è **nessun indirizzo email**: solo un'impronta con sale
+  (come per gli IP), che serve a ritrovare il codice al momento della
+  verifica. Anche il codice è conservato come impronta.
+- La riga viene cancellata quando il codice è verificato, e comunque un'ora
+  dopo la scadenza.
+- Nei log del servizio finiscono solo gli esiti ("codice inviato", "invio
+  fallito", "codice giusto/sbagliato"): mai indirizzi né codici.
+- Le email non contengono link né immagini di tracciamento. Mailgun conserva
+  i propri log di invio secondo le impostazioni dell'account.
+
+### Il contratto dell'API
+
+```
+POST /api/otp/invia     { "email": "...", "lang": "it" | "en" }
+→ 200 { "ok": true, "ttl": 600, "retry_in": 30 }
+  400 { "error": "invalid_email" }
+  429 { "error": "too_soon", "retry_in": 12 }   |   { "error": "too_many" }
+  503 { "error": "not_configured" }   |   { "error": "send_failed" }
+
+POST /api/otp/verifica  { "email": "...", "code": "123456" }
+→ { "ok": true }
+  { "ok": false, "reason": "wrong", "left": 4 }   |   "expired"   |   "locked"
+```
+
 ## Aggiornare la pagina
 
 Quando cambia qualcosa nel sito, si rigenera il file unico e si ricarica:
@@ -233,7 +338,9 @@ cambiamento si vede subito.
 > Nota: dopo il primo HTTPS lo script non riscrive più la configurazione di
 > nginx (per non cancellare il blocco che aggiunge certbot). Se cambi header o
 > CSP nel template, applicali a mano in `/etc/nginx/sites-available/autenticatore`
-> e poi `nginx -t && systemctl reload nginx`.
+> e poi `nginx -t && systemctl reload nginx`. Fanno eccezione le rotte
+> `/api/otp/*` dei codici via email: se mancano, un rilancio di `setup.sh` le
+> aggiunge da solo anche a una configurazione già passata da certbot.
 
 ## I QR code dei prodotti
 
@@ -261,7 +368,13 @@ come il codice digitato.
   diversi ma non permette di risalire a chi ha verificato. Il registro viene
   potato automaticamente (righe più vecchie di 180 giorni).
 - L'API accetta **20 richieste al minuto per indirizzo** (per IPv6 per blocco
-  /64): frena chi provasse a tentare codici a caso.
+  /64): frena chi provasse a tentare codici a caso. L'invio del codice via
+  email è più stretto ancora (6 al minuto), e il servizio aggiunge i suoi
+  limiti per indirizzo email e per IP.
+- Per il codice via email **nessun indirizzo in chiaro**, né nel database né
+  nei log: solo impronte con sale, cancellate a verifica avvenuta (vedi
+  "Email di verifica"). La chiave Mailgun sta in `/etc/autenticatore/mail.env`,
+  leggibile solo da root e dal servizio, fuori dal repository.
 - La lista codici si amministra **dal server** (riga di comando) o dal
   **pannello** protetto da utente e password su HTTPS, raggiungibile solo
   attraverso nginx e con un limite ai tentativi di accesso. I file caricati
@@ -280,7 +393,14 @@ curl -s localhost:8787/api/health       # risponde?
 nginx -t && systemctl reload nginx      # la configurazione web è valida?
 certbot certificates                    # stato del certificato
 python3 -c "import PIL, zxingcpp"       # lettura dei DataMatrix disponibile?
+clgadmin mail-test tua@email.it         # le email dei codici partono?
+journalctl -u autenticatore-api | grep otp   # esiti di invii e verifiche (mai email o codici)
 ```
+
+Se `mail-test` dice "stato 401" la chiave è sbagliata o non è quella del
+dominio; "stato 404" o "stato 400" quasi sempre vuol dire dominio sbagliato in
+`MAILGUN_DOMAIN` oppure regione diversa (per un dominio creato nella regione
+EU serve `MAILGUN_API_BASE=https://api.eu.mailgun.net/v3`).
 
 Se l'importazione di un Excel dice che i barcode non sono stati letti, manca
 una delle due librerie: `apt-get install python3-pil` e

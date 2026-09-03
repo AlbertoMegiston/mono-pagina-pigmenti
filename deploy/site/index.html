@@ -353,9 +353,10 @@ main{flex:1 0 auto;display:flex;flex-direction:column}
 .card .cta:hover{background:#2f2f2f}
 .card .linklike{text-decoration:underline;cursor:pointer;font-weight:600;color:#111;
   font-size:.9375rem;padding:6px}
-.otp{display:flex;justify-content:center;gap:12px}
-.otp input{width:56px;height:74px;border:2px solid #16202c;border-radius:4px;
-  text-align:center;font-size:1.75rem;font-weight:600;background:#fff;color:#111}
+.otp{display:flex;justify-content:center;gap:8px}
+.otp input{flex:1 1 0;min-width:0;max-width:48px;height:64px;border:2px solid #16202c;border-radius:4px;
+  text-align:center;font-size:1.5rem;font-weight:600;background:#fff;color:#111}
+.otp input:disabled{opacity:.55}
 .otp input:focus{outline:3px solid var(--focus);outline-offset:2px;border-color:var(--focus)}
 #otp-wait{min-height:1.3em;font-size:.875rem;color:#555}
 
@@ -857,19 +858,24 @@ html[data-motionbtn] main{padding-bottom:72px}
         <p class="card__service" id="otp-service"></p>
         <h2 data-i18n="otp.title">Verifica che sei tu</h2>
         <p id="otp-body"></p>
-        <div class="otp" role="group" id="otp-group">
+        <div class="otp" role="group" id="otp-group" aria-describedby="otp-note">
           <input class="otp__box" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="1">
           <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
           <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
           <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
+          <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
+          <input class="otp__box" type="text" inputmode="numeric" maxlength="1">
         </div>
+        <!-- The answer to a code (wrong, expired, locked, could not check)
+             and to a resend that failed: visible, and a live region. -->
+        <p class="fieldnote" id="otp-note" role="status" aria-live="polite"></p>
         <!-- The countdown repaints every second: as a live region it would be
              spoken sixty times a minute. It stays visual; the events that
              matter (code re-sent, resend available) go through #otp-status. -->
         <p id="otp-wait"></p>
         <p class="visually-hidden" id="otp-status" role="status" aria-live="polite"></p>
         <button class="linklike" id="otp-resend" type="button" hidden data-i18n="otp.resend">Invia di nuovo il codice</button>
-        <p class="fieldnote" data-i18n="otp.demo">Prototipo: qualsiasi codice a 4 cifre è valido.</p>
+        <p class="fieldnote" id="otp-demo" data-i18n="otp.demo">Prototipo: qualsiasi codice a 6 cifre è valido.</p>
         <button class="linklike" id="otp-edit" type="button" data-i18n="otp.edit">Modifica l'indirizzo email</button>
       </div>
     </section>
@@ -1590,6 +1596,13 @@ html[data-motionbtn] main{padding-bottom:72px}
      With url empty (the demo build) the simulation decides.
      ------------------------------------------------------------------------ */
   var VERIFY = { url: "/api/verify" };
+  /* The e-mail code endpoints live next to the verify one and follow it:
+     empty in the demo build, where nothing is sent and any 6-digit code
+     passes (see otpMaybeDone). */
+  var OTP = (function () {
+    var base = VERIFY.url ? VERIFY.url.replace(/\/verify$/, "") : "";
+    return { send: base ? base + "/otp/invia" : "", check: base ? base + "/otp/verifica" : "" };
+  })();
 
   /* ---------------------------------------------------------------- i18n */
   var I18N = {
@@ -1641,6 +1654,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "signin.cta": "Continua",
       "signin.skip": "Salta questo passaggio",
       "signin.err": "Inserisci un indirizzo email valido.",
+      "signin.sending": "Invio del codice in corso…",
+      "signin.sendFail": "Non siamo riusciti a inviare il codice. Riprova tra poco, oppure salta questo passaggio.",
       "otp.title": "Verifica che sei tu",
       "otp.body": "Inserisci il codice di verifica che abbiamo appena inviato a {email}",
       "otp.wait": "Attendi {s} secondi per richiedere un nuovo codice",
@@ -1648,9 +1663,14 @@ html[data-motionbtn] main{padding-bottom:72px}
       "otp.resent": "Codice inviato di nuovo.",
       "otp.canResend": "Ora puoi richiedere un nuovo codice.",
       "otp.edit": "Modifica l'indirizzo email",
-      "otp.digit": "Cifra {n} di 4",
+      "otp.digit": "Cifra {n} di 6",
       "otp.group": "Codice di verifica",
-      "otp.demo": "Prototipo: qualsiasi codice a 4 cifre è valido.",
+      "otp.demo": "Prototipo: qualsiasi codice a 6 cifre è valido.",
+      "otp.wrong": "Codice non corretto, riprova.",
+      "otp.expired": "Codice scaduto: richiedine uno nuovo.",
+      "otp.locked": "Troppi tentativi: richiedi un nuovo codice.",
+      "otp.checkFail": "Verifica non riuscita, riprova.",
+      "otp.sendFail": "Invio non riuscito, riprova tra poco.",
       "consent.title": "Tieniamoci in contatto",
       "consent.lead": "Confermo di aver preso visione della",
       "consent.tail": "e liberamente acconsento al trattamento dei miei dati per le seguenti finalità:",
@@ -1758,6 +1778,8 @@ html[data-motionbtn] main{padding-bottom:72px}
       "signin.cta": "Continue",
       "signin.skip": "Skip this step",
       "signin.err": "Enter a valid email address.",
+      "signin.sending": "Sending the code…",
+      "signin.sendFail": "We could not send the code. Try again shortly, or skip this step.",
       "otp.title": "Verify it is you",
       "otp.body": "Enter the verification code we have just sent to {email}",
       "otp.wait": "Wait {s} seconds to request a new code",
@@ -1765,9 +1787,14 @@ html[data-motionbtn] main{padding-bottom:72px}
       "otp.resent": "Code sent again.",
       "otp.canResend": "You can now request a new code.",
       "otp.edit": "Edit the email address",
-      "otp.digit": "Digit {n} of 4",
+      "otp.digit": "Digit {n} of 6",
       "otp.group": "Verification code",
-      "otp.demo": "Prototype: any 4-digit code is valid.",
+      "otp.demo": "Prototype: any 6-digit code is valid.",
+      "otp.wrong": "Incorrect code, try again.",
+      "otp.expired": "Code expired: request a new one.",
+      "otp.locked": "Too many attempts: request a new code.",
+      "otp.checkFail": "Verification failed, try again.",
+      "otp.sendFail": "Sending failed, try again shortly.",
       "consent.title": "Let us keep in touch",
       "consent.lead": "I confirm I have read the",
       "consent.tail": "and freely consent to the processing of my data for the following purposes:",
@@ -1939,6 +1966,10 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "place") renderPlace();
     /* Leaving the splash mid-film (Back, restart) must stop the film. */
     if (ctx.step === "splash" && step !== "splash") stopSplashVideo();
+    /* Leaving the code screen by any route (edit address, Back, restart,
+       success): an answer still in flight is dropped and the boxes, the
+       note and the resend link start clean on the next visit. */
+    if (ctx.step === "otp" && step !== "otp") otpReset();
     ORDER.forEach(function (s) { panels[s].hidden = (s !== step); });
     ctx.step = step;
     var onDark = (step !== "landing" && step !== "gate");
@@ -1969,7 +2000,7 @@ html[data-motionbtn] main{padding-bottom:72px}
         if (trun === ctx.runId) toast.hidden = true;
       }, 3800));
     } else { toast.hidden = true; }
-    if (step === "otp") { renderOtpBody(); startOtpCountdown(); } else stopOtpCountdown();
+    if (step === "otp") { renderOtpBody(); startOtpCountdown(otpWait); } else stopOtpCountdown();
     if (step === "splash") {
       var run = ctx.runId;
       var splash = panels.splash;
@@ -2254,8 +2285,38 @@ html[data-motionbtn] main{padding-bottom:72px}
      straight past the OTP to consent, exactly like the store step's skip. A
      non-empty but malformed address is still rejected, so a typo is caught
      instead of silently dropped. */
+  /* One POST to the authenticator, JSON both ways, under the same 10 s
+     ceiling as the verification call. Resolves to { status, json } (json
+     null when the body is not JSON, e.g. an nginx error page); rejects on
+     a network failure or the timeout. */
+  function otpPost(url, body) {
+    var ac = window.AbortController ? new AbortController() : null;
+    if (ac) setTimeout(function () { ac.abort(); }, T.WAIT);
+    return fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: ac ? ac.signal : undefined
+    }).then(function (r) {
+      return r.json().then(function (j) { return { status: r.status, json: j }; },
+                           function () { return { status: r.status, json: null }; });
+    });
+  }
+  /* Seconds before a new code may be requested, as the server said (the
+     demo build keeps the 30 s of the prototype). */
+  var otpWait = 30;
+  function otpSecs(x) { x = +x; return x > 0 ? Math.ceil(x) : 30; }
+  /* The submit button is held while the code is on its way, so a second
+     tap cannot ask for a second e-mail; Salta stays available. */
+  var sendSeq = 0, sending = false;
+  function signinBusy(on) {
+    sending = !!on;
+    $("#form-signin button[type=submit]").disabled = sending;
+    $("#form-signin").setAttribute("aria-busy", sending ? "true" : "false");
+  }
   function skipSignin() {
     var note = $("#email-note");
+    sendSeq++; signinBusy(false);   /* a code still on its way is ignored */
     note.dataset.state = ""; setLive(note, null);
     $("#email").setAttribute("aria-invalid", "false");
     ctx.email = "";
@@ -2265,6 +2326,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   $("#btn-signin-skip").addEventListener("click", skipSignin);
   $("#form-signin").addEventListener("submit", function (e) {
     e.preventDefault();
+    if (sending) return;
     var v = $("#email").value.trim();
     var note = $("#email-note");
     if (!v) { skipSignin(); return; }   /* email non obbligatoria */
@@ -2278,10 +2340,70 @@ html[data-motionbtn] main{padding-bottom:72px}
     note.dataset.state = ""; setLive(note, null);
     $("#email").setAttribute("aria-invalid", "false");
     ctx.email = v;
-    goto("otp");
+    if (!OTP.send) { otpWait = 30; goto("otp"); return; }   /* demo build: nothing is sent */
+    /* Production: the code goes out by e-mail before the next screen opens.
+       Anything short of a clean answer keeps the user here with a note and
+       the Salta button at hand: this leg is optional. A code sent moments
+       ago (too_soon) is still valid, so the screen opens all the same and
+       the countdown runs out the remaining wait. */
+    var seq = ++sendSeq;
+    signinBusy(true); setLive(note, "signin.sending");
+    otpPost(OTP.send, { email: v, lang: ctx.lang })
+      .then(function (r) { return r; }, function () { return null; })
+      .then(function (r) {
+        signinBusy(false);
+        if (seq !== sendSeq || ctx.step !== "signin") return;
+        var j = r && r.json;
+        if (r && (r.status === 200 && j && j.ok || r.status === 429 && j && j.error === "too_soon")) {
+          otpWait = otpSecs(j.retry_in);
+          setLive(note, null); goto("otp"); return;
+        }
+        note.dataset.state = "error";
+        if (r && r.status === 400) {
+          announce(note, "signin.err");
+          $("#email").setAttribute("aria-invalid", "true"); $("#email").focus();
+          return;
+        }
+        announce(note, "signin.sendFail");
+      });
   });
 
   var otpBoxes = Array.prototype.slice.call(document.querySelectorAll(".otp__box"));
+  /* The prototype line belongs to the demo build only. */
+  $("#otp-demo").hidden = !!OTP.send;
+  var checkSeq = 0, resendSeq = 0;
+  function otpSetBusy(on) {
+    otpBoxes.forEach(function (b) { b.disabled = !!on; });
+    $("#otp-group").setAttribute("aria-busy", on ? "true" : "false");
+  }
+  function otpClear(focus) {
+    otpBoxes.forEach(function (b) { b.value = ""; });
+    if (focus) otpBoxes[0].focus();
+  }
+  function otpSay(key, error) {
+    var note = $("#otp-note");
+    note.dataset.state = error ? "error" : "";
+    if (key) announce(note, key); else setLive(note, null);
+  }
+  /* The resend link at once, without waiting for the countdown: the code
+     the user holds can no longer be used. */
+  function otpAllowResend() {
+    stopOtpCountdown();
+    $("#otp-wait").textContent = "";
+    $("#otp-resend").hidden = false;
+  }
+  function otpReset() {
+    checkSeq++; resendSeq++;
+    otpSetBusy(false);
+    otpClear(false);
+    otpSay(null);
+    $("#otp-resend").disabled = false;
+  }
+  function otpPass() {
+    ctx.otpOk = true;
+    stopOtpCountdown();
+    goto(ctx.consentDone ? "phototag" : "consent");
+  }
   function renderOtpBody() {
     $("#otp-body").textContent = t("otp.body", { email: ctx.email || "" });
     otpBoxes.forEach(function (b, i) { b.setAttribute("aria-label", t("otp.digit", { n: i + 1 })); });
@@ -2289,12 +2411,31 @@ html[data-motionbtn] main{padding-bottom:72px}
   }
   function otpMaybeDone() {
     var code = otpBoxes.map(function (b) { return b.value; }).join("");
-    if (/^\d{4}$/.test(code)) {
-      /* SIMULATION: any 4-digit code passes; no email is ever sent. */
-      ctx.otpOk = true;
-      stopOtpCountdown();
-      goto(ctx.consentDone ? "phototag" : "consent");
+    if (!/^\d{6}$/.test(code)) return;
+    if (!OTP.check) {
+      /* SIMULATION (demo build): any 6-digit code passes; no email is ever sent. */
+      otpPass(); return;
     }
+    /* The authenticator decides. The boxes are held while it answers; on
+       any failure they are emptied and focus returns to the first, so the
+       user can type again at once. Expired or locked: the code is dead,
+       the resend link appears without waiting for the countdown. */
+    var seq = ++checkSeq;
+    otpSetBusy(true); otpSay(null);
+    otpPost(OTP.check, { email: ctx.email, code: code })
+      .then(function (r) { return r; }, function () { return null; })
+      .then(function (r) {
+        if (seq !== checkSeq || ctx.step !== "otp") return;
+        otpSetBusy(false);
+        var j = r && r.status === 200 ? r.json : null;
+        if (j && j.ok) { otpPass(); return; }
+        otpClear(true);
+        var why = j && j.ok === false ? j.reason : "";
+        if (why === "wrong") { otpSay("otp.wrong", true); return; }
+        if (why === "expired") { otpSay("otp.expired", true); otpAllowResend(); return; }
+        if (why === "locked") { otpSay("otp.locked", true); otpAllowResend(); return; }
+        otpSay("otp.checkFail", true);
+      });
   }
   otpBoxes.forEach(function (b, i) {
     b.addEventListener("input", function () {
@@ -2309,14 +2450,14 @@ html[data-motionbtn] main{padding-bottom:72px}
       var cb = e.clipboardData || window.clipboardData;
       if (!cb) return;
       e.preventDefault();
-      var d = (cb.getData("text") || "").replace(/\D+/g, "").slice(0, 4);
+      var d = (cb.getData("text") || "").replace(/\D+/g, "").slice(0, 6);
       otpBoxes.forEach(function (o, j) { o.value = d[j] || ""; });
-      if (d.length === 4) otpMaybeDone(); else if (d.length) otpBoxes[Math.min(d.length, 3)].focus();
+      if (d.length === 6) otpMaybeDone(); else if (d.length) otpBoxes[Math.min(d.length, 5)].focus();
     });
   });
-  function startOtpCountdown() {
+  function startOtpCountdown(secs) {
     stopOtpCountdown();
-    var left = 30, wait = $("#otp-wait"), resend = $("#otp-resend");
+    var left = otpSecs(secs), wait = $("#otp-wait"), resend = $("#otp-resend");
     resend.hidden = true;
     function tick() {
       if (left > 0) { wait.textContent = t("otp.wait", { s: left }); left--; }
@@ -2334,12 +2475,28 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (ctx.otpTimer) { clearInterval(ctx.otpTimer); ctx.otpTimer = null; }
   }
   $("#otp-resend").addEventListener("click", function () {
-    /* Not written into #otp-wait: the countdown's first tick would overwrite
-       it in the same task, so it was never visible nor announced. */
-    announce("#otp-status", "otp.resent");
-    startOtpCountdown();
+    var resend = $("#otp-resend");
+    if (resend.disabled) return;
+    /* The confirmation goes to the note under the boxes, not #otp-wait: the
+       countdown's first tick would overwrite it in the same task. */
+    if (!OTP.send) {
+      /* Demo build: nothing to send, the countdown simply restarts. */
+      otpSay("otp.resent"); startOtpCountdown(otpWait); return;
+    }
+    var seq = ++resendSeq;
+    resend.disabled = true; otpSay(null);
+    otpPost(OTP.send, { email: ctx.email, lang: ctx.lang })
+      .then(function (r) { return r; }, function () { return null; })
+      .then(function (r) {
+        if (seq !== resendSeq || ctx.step !== "otp") return;
+        resend.disabled = false;
+        var j = r && r.json;
+        if (r && r.status === 200 && j && j.ok) { otpSay("otp.resent"); startOtpCountdown(otpSecs(j.retry_in)); return; }
+        if (r && r.status === 429 && j && j.error === "too_soon") { startOtpCountdown(otpSecs(j.retry_in)); return; }
+        otpSay("otp.sendFail", true);
+      });
   });
-  $("#otp-edit").addEventListener("click", function () { goto("signin"); });
+  $("#otp-edit").addEventListener("click", function () { otpReset(); goto("signin"); });
 
   /* --------------------------------------------------------------- consent */
   Array.prototype.forEach.call(document.querySelectorAll(".switch"), function (sw) {
@@ -2748,7 +2905,7 @@ html[data-motionbtn] main{padding-bottom:72px}
     $("#verdict-lede").textContent = "";
     $("#verdict-steps").textContent = "";
     setLive("#consent-note", null);
-    Array.prototype.forEach.call(document.querySelectorAll(".otp__box"), function (b) { b.value = ""; });
+    otpReset();
     /* Retire the finished run's history entries: unwind to the first entry
        and change generation, so Back and Forward can no longer re-enter it.
        showStep, not goto - goto would push yet another entry; and paint

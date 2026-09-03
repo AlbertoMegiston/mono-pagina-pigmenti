@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """
 Test del backend: schema e migrazione, lettura dell'Excel del brand, regola
-di verifica con scan, importazione da clgadmin e dal pannello.
+di verifica con scan, importazione da clgadmin e dal pannello, codice di
+verifica via email (con un Mailgun finto locale).
 
     cd backend/vps && python3 -m unittest -v test_clg
 
 Nessun servizio in ascolto e' richiesto: il database e' temporaneo (CLG_DB e
 CLG_SALT_FILE vengono impostate prima di importare i moduli, che le leggono
 all'import) e il server di verifica viene avviato su una porta libera solo
-per i test HTTP. I test sull'Excel reale saltano se il file non c'e' o se
-Pillow/zxing-cpp non sono installati; il confronto con la regola JavaScript
-della pagina salta senza node.
+per i test HTTP. Nessuna email parte davvero: MAILGUN_API_BASE punta a un
+http.server locale che registra le richieste. I test sull'Excel reale
+saltano se il file non c'e' o se Pillow/zxing-cpp non sono installati; il
+confronto con la regola JavaScript della pagina salta senza node.
 """
 
 import base64
@@ -20,16 +22,18 @@ import json
 import os
 import re
 import shutil
+import socket
 import sqlite3
 import subprocess
 import sys
 import tempfile
 import threading
 import unittest
+import urllib.parse
 import urllib.request
 import zipfile
 from argparse import Namespace
-from http.server import ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 QUI = os.path.dirname(os.path.abspath(__file__))
 TMP = tempfile.mkdtemp(prefix="clg-test-")
@@ -41,6 +45,7 @@ sys.path.insert(0, QUI)
 import admin_server  # noqa: E402
 import clg_excel  # noqa: E402
 import clg_import  # noqa: E402
+import clg_mail  # noqa: E402
 import verify_server  # noqa: E402
 
 EXCEL = os.path.normpath(os.path.join(QUI, "..", "..", "riferimenti",
@@ -260,6 +265,10 @@ class TestMigrazione(unittest.TestCase):
         self.assertIn("scanned", colonne("checks"))
         self.assertIn("payload_ok", colonne("checks"))
         self.assertTrue(query("SELECT 1 FROM sqlite_master WHERE type='index' AND name='idx_codes_payload'"))
+        # La tabella dei codici via email nasce con la stessa migrazione.
+        self.assertTrue(query("SELECT 1 FROM sqlite_master WHERE type='table' AND name='otp'"))
+        self.assertEqual(colonne("otp"), ["email_hash", "code_hash", "created_at", "expires_at",
+                                          "attempts", "sends", "first_send_at", "ip_hash"])
         # I dati esistenti restano, con i default per le colonne nuove.
         self.assertEqual(query("SELECT status, batch, payload FROM codes"), [("revoked", "v1", None)])
         self.assertEqual(query("SELECT scanned, payload_ok FROM checks"), [(0, None)])
@@ -586,6 +595,26 @@ class TestImportazione(unittest.TestCase):
         # Reimportare una lista pulita non segnala nulla.
         self.assertNotIn("ATTENZIONE", importa_cli(EXCEL))
 
+    def test_pannello_non_importa_dalla_colonna_e_senza_conferma(self):
+        # Immagini non lette: il pannello si ferma e chiede conferma; con
+        # forza importa dalla colonna E come prima.
+        with open(EXCEL, "rb") as f:
+            dati = f.read()
+        vecchio = clg_excel.DECODIFICA_DISPONIBILE
+        clg_excel.DECODIFICA_DISPONIBILE = False
+        try:
+            prima = query("SELECT COUNT(*) FROM codes")
+            imp = admin_server.importa_file("b.xlsm", dati, "barcode", "valid", True, "", False)
+            self.assertTrue(imp.get("serve_conferma"))
+            self.assertIn("95 immagini", imp["errore"])
+            self.assertEqual(query("SELECT COUNT(*) FROM codes"), prima)  # niente scritto
+            imp = admin_server.importa_file("b.xlsm", dati, "barcode", "valid", True, "", False,
+                                            forza=True)
+            self.assertNotIn("errore", imp)
+            self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 0)])
+        finally:
+            clg_excel.DECODIFICA_DISPONIBILE = vecchio
+
     def test_pannello_rifiuta_file_non_excel(self):
         self.assertIn("errore", admin_server.importa_file("lista.txt", b"123456789012\n", "barcode",
                                                           "valid", False, "", True))
@@ -796,6 +825,480 @@ class TestServerHTTP(unittest.TestCase):
         # Cifre a larghezza piena: non sono un codice.
         st, r = self.post({"code": "\uff11\uff12\uff13\uff14\uff15\uff16\uff17\uff18\uff19\uff10\uff11\uff12"})
         self.assertEqual(r, {"outcome": "invalid"})
+
+
+class MailgunFinto:
+    """Al posto di api.mailgun.net: un http.server locale che registra ogni
+    richiesta (percorso, intestazioni, campi del modulo) e risponde con lo
+    stato impostato in .stato (200 come Mailgun, 500 per simulare un guasto)."""
+
+    def __init__(self):
+        finto = self
+
+        class H(BaseHTTPRequestHandler):
+            def log_message(self, *a):
+                pass
+
+            def do_POST(self):
+                n = int(self.headers.get("Content-Length") or 0)
+                corpo = self.rfile.read(n).decode()
+                finto.richieste.append({
+                    "path": self.path,
+                    "auth": self.headers.get("Authorization"),
+                    "content_type": self.headers.get("Content-Type"),
+                    "form": {k: v[0] for k, v in
+                             urllib.parse.parse_qs(corpo, keep_blank_values=True).items()},
+                })
+                if finto.stato == 200:
+                    body = json.dumps({"id": "<x@finto>", "message": "Queued. Thank you."}).encode()
+                else:
+                    body = json.dumps({"message": "guasto simulato"}).encode()
+                self.send_response(finto.stato)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(body)))
+                self.end_headers()
+                self.wfile.write(body)
+
+        self.richieste, self.stato = [], 200
+        self.srv = ThreadingHTTPServer(("127.0.0.1", 0), H)
+        self.srv.daemon_threads = True
+        threading.Thread(target=self.srv.serve_forever, daemon=True).start()
+        self.base = "http://127.0.0.1:%d/v3" % self.srv.server_address[1]
+
+    def stop(self):
+        self.srv.shutdown()
+        self.srv.server_close()
+
+    @property
+    def ultima(self):
+        return self.richieste[-1]
+
+    def codice(self):
+        """Il codice a 6 cifre nel testo dell'ultima email."""
+        m = re.search(r"(?<!\d)(\d{6})(?!\d)", self.ultima["form"]["text"], re.ASCII)
+        return m.group(1) if m else None
+
+
+def porta_chiusa():
+    """Una porta su cui nessuno ascolta (per simulare Mailgun irraggiungibile)."""
+    with socket.socket() as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+VAR_MAIL = ("MAILGUN_API_KEY", "MAILGUN_DOMAIN", "MAILGUN_API_BASE", "MAIL_FROM")
+
+
+def salva_ambiente():
+    return {n: os.environ.get(n) for n in VAR_MAIL}
+
+
+def ripristina_ambiente(salvato):
+    for n, v in salvato.items():
+        if v is None:
+            os.environ.pop(n, None)
+        else:
+            os.environ[n] = v
+
+
+class TestOTP(unittest.TestCase):
+    """Codice di verifica via email: il servizio vero su una porta libera, un
+    Mailgun finto al posto di api.mailgun.net."""
+
+    CHIAVE = "chiave-finta-solo-per-i-test"
+    EMAIL = "mario.rossi@example.com"
+    LIMITI = ("OTP_TTL", "OTP_MAX_ATTEMPTS", "OTP_RESEND_AFTER",
+              "OTP_MAX_PER_EMAIL_HOUR", "OTP_MAX_PER_IP_HOUR")
+
+    @classmethod
+    def setUpClass(cls):
+        db_nuovo()
+        cls.ambiente = salva_ambiente()
+        cls.mg = MailgunFinto()
+        os.environ["MAILGUN_API_BASE"] = cls.mg.base
+        os.environ["MAILGUN_DOMAIN"] = "crtilogo.com"
+        os.environ.pop("MAIL_FROM", None)
+        cls.srv = ThreadingHTTPServer(("127.0.0.1", 0), verify_server.Handler)
+        cls.srv.daemon_threads = True
+        threading.Thread(target=cls.srv.serve_forever, daemon=True).start()
+        cls.base = "http://127.0.0.1:%d" % cls.srv.server_address[1]
+        # Gli esiti vanno nel journal: qui sarebbero solo rumore.
+        cls.log_vero = verify_server.log
+        verify_server.log = lambda *a, **k: None
+
+    @classmethod
+    def tearDownClass(cls):
+        verify_server.log = cls.log_vero
+        cls.srv.shutdown()
+        cls.srv.server_close()
+        cls.mg.stop()
+        ripristina_ambiente(cls.ambiente)
+
+    def setUp(self):
+        with sqlite3.connect(DB) as cx:
+            cx.execute("DELETE FROM otp")
+        self.mg.richieste.clear()
+        self.mg.stato = 200
+        os.environ["MAILGUN_API_KEY"] = self.CHIAVE
+        os.environ["MAILGUN_API_BASE"] = self.mg.base
+        self.limiti = {n: getattr(verify_server, n) for n in self.LIMITI}
+
+    def tearDown(self):
+        for n, v in self.limiti.items():
+            setattr(verify_server, n, v)
+
+    def post(self, path, corpo=None, ip="10.0.0.1", raw=None):
+        dati = raw if raw is not None else json.dumps(corpo).encode()
+        req = urllib.request.Request(self.base + path, data=dati,
+                                     headers={"Content-Type": "application/json",
+                                              "X-Forwarded-For": ip}, method="POST")
+        try:
+            with urllib.request.urlopen(req, timeout=5) as r:
+                return r.status, json.loads(r.read())
+        except urllib.error.HTTPError as e:
+            return e.code, json.loads(e.read())
+
+    def invia(self, email=EMAIL, ip="10.0.0.1", lang="it"):
+        return self.post("/api/otp/invia", {"email": email, "lang": lang}, ip)
+
+    def verifica(self, code, email=EMAIL, ip="10.0.0.1"):
+        return self.post("/api/otp/verifica", {"email": email, "code": code}, ip)
+
+    def riga(self, email=EMAIL):
+        r = query("SELECT attempts, sends, created_at, expires_at, first_send_at, ip_hash "
+                  "FROM otp WHERE email_hash = ?", (verify_server.hash_email(email),))
+        return dict(zip(("attempts", "sends", "created_at", "expires_at", "first_send_at", "ip_hash"),
+                        r[0])) if r else None
+
+    @staticmethod
+    def sbagliato(code):
+        return "%06d" % ((int(code) + 1) % 1000000)
+
+    def test_invio_ok(self):
+        st, r = self.invia()
+        self.assertEqual((st, r), (200, {"ok": True, "ttl": 600, "retry_in": 30}))
+        self.assertEqual(len(self.mg.richieste), 1)
+        rq = self.mg.ultima
+        self.assertEqual(rq["path"], "/v3/crtilogo.com/messages")
+        self.assertEqual(rq["auth"], "Basic " + base64.b64encode(b"api:" + self.CHIAVE.encode()).decode())
+        self.assertTrue(rq["content_type"].startswith("application/x-www-form-urlencoded"))
+        f = rq["form"]
+        self.assertEqual(f["from"], "Stone Island Autenticazione <verifica@crtilogo.com>")
+        self.assertEqual(f["to"], self.EMAIL)
+        self.assertEqual(f["o:tracking"], "no")
+        code = self.mg.codice()
+        self.assertIsNotNone(code)
+        self.assertRegex(code, r"^[0-9]{6}$")
+        self.assertEqual(f["subject"], "Il tuo codice di verifica: " + code)
+        self.assertEqual(f["text"], "Il tuo codice per la verifica dell'autenticit\u00e0 \u00e8 %s. Vale 10 minuti. "
+                                    "Se non l'hai richiesto tu, ignora questa email." % code)
+        riga = self.riga()
+        self.assertEqual((riga["attempts"], riga["sends"]), (0, 1))
+        self.assertEqual(riga["expires_at"] - riga["created_at"], 600)
+        self.assertEqual(riga["ip_hash"], verify_server.hash_ip("10.0.0.1"))
+
+    def test_invio_in_inglese(self):
+        st, r = self.invia(lang="en")
+        self.assertEqual(st, 200)
+        code = self.mg.codice()
+        self.assertEqual(self.mg.ultima["form"]["subject"], "Your verification code: " + code)
+        self.assertIn("valid for 10 minutes", self.mg.ultima["form"]["text"])
+        # Lingua sconosciuta: italiano.
+        with sqlite3.connect(DB) as cx:
+            cx.execute("DELETE FROM otp")
+        self.invia(lang="de")
+        self.assertTrue(self.mg.ultima["form"]["subject"].startswith("Il tuo codice"))
+
+    def test_email_non_valida(self):
+        for email in ("", "mario", "mario@", "@example.com", "mario@example", "ma rio@example.com",
+                      "a@b." + "c" * 251, None, 12, ["a@b.cd"]):  # 255 caratteri: uno di troppo
+            with self.subTest(email=email):
+                st, r = self.post("/api/otp/invia", {"email": email, "lang": "it"})
+                self.assertEqual((st, r), (400, {"error": "invalid_email"}))
+        self.assertEqual(self.mg.richieste, [])
+        self.assertEqual(query("SELECT COUNT(*) FROM otp"), [(0,)])
+        # Anche la verifica pretende un indirizzo e un codice ben formati.
+        self.assertEqual(self.verifica("123456", email="mario")[1], {"error": "invalid_email"})
+        self.assertEqual(self.verifica("12")[1], {"error": "invalid_code"})
+        self.assertEqual(self.verifica(123456)[1], {"error": "invalid_code"})
+        self.assertEqual(self.verifica("\uff11\uff12\uff13\uff14\uff15\uff16")[1], {"error": "invalid_code"})
+
+    def test_non_configurato(self):
+        os.environ["MAILGUN_API_KEY"] = ""
+        self.assertEqual(self.invia(), (503, {"error": "not_configured"}))
+        del os.environ["MAILGUN_API_KEY"]
+        self.assertEqual(self.invia(), (503, {"error": "not_configured"}))
+        # Modulo di invio assente (installazione incompleta): stesso esito.
+        os.environ["MAILGUN_API_KEY"] = self.CHIAVE
+        modulo = verify_server.clg_mail
+        verify_server.clg_mail = None
+        try:
+            self.assertEqual(self.invia(), (503, {"error": "not_configured"}))
+        finally:
+            verify_server.clg_mail = modulo
+        self.assertEqual(self.mg.richieste, [])
+        self.assertIsNone(self.riga())
+        # Un indirizzo non valido viene detto prima della configurazione.
+        os.environ["MAILGUN_API_KEY"] = ""
+        self.assertEqual(self.invia(email="x")[1], {"error": "invalid_email"})
+
+    def test_troppo_presto(self):
+        self.assertEqual(self.invia()[0], 200)
+        code = self.mg.codice()
+        st, r = self.invia()
+        self.assertEqual(st, 429)
+        self.assertEqual(r["error"], "too_soon")
+        self.assertTrue(1 <= r["retry_in"] <= 30, r)
+        self.assertEqual(len(self.mg.richieste), 1)
+        self.assertEqual(self.riga()["sends"], 1)
+        # Il codice gia' inviato vale ancora.
+        self.assertEqual(self.verifica(code), (200, {"ok": True}))
+
+    def test_maiuscole_e_spazi_sono_lo_stesso_indirizzo(self):
+        self.assertEqual(self.invia(email="  Mario.Rossi@Example.COM ")[0], 200)
+        self.assertEqual(self.mg.ultima["form"]["to"], "Mario.Rossi@Example.COM")
+        self.assertEqual(self.invia()[1]["error"], "too_soon")
+        self.assertEqual(query("SELECT COUNT(*) FROM otp"), [(1,)])
+        # E il codice si verifica anche scrivendo l'indirizzo in un altro modo.
+        self.assertEqual(self.verifica(self.mg.codice(), email="MARIO.ROSSI@example.com"), (200, {"ok": True}))
+
+    def test_troppi_per_indirizzo(self):
+        verify_server.OTP_RESEND_AFTER = 0
+        verify_server.OTP_MAX_PER_EMAIL_HOUR = 3
+        for _ in range(3):
+            self.assertEqual(self.invia()[0], 200)
+        self.assertEqual(self.invia(), (429, {"error": "too_many"}))
+        self.assertEqual(len(self.mg.richieste), 3)
+        self.assertEqual(self.riga()["sends"], 3)
+        # Un altro indirizzo non c'entra.
+        self.assertEqual(self.invia(email="altra@example.com")[0], 200)
+        # Passata l'ora dal primo invio il contatore riparte.
+        with sqlite3.connect(DB) as cx:
+            cx.execute("UPDATE otp SET first_send_at = first_send_at - 3601 WHERE email_hash = ?",
+                       (verify_server.hash_email(self.EMAIL),))
+        self.assertEqual(self.invia()[0], 200)
+        self.assertEqual(self.riga()["sends"], 1)
+
+    def test_troppi_per_ip(self):
+        verify_server.OTP_MAX_PER_IP_HOUR = 3
+        for i in range(3):
+            self.assertEqual(self.invia(email="utente%d@example.com" % i, ip="10.9.9.9")[0], 200)
+        self.assertEqual(self.invia(email="utente3@example.com", ip="10.9.9.9"), (429, {"error": "too_many"}))
+        self.assertIsNone(self.riga("utente3@example.com"))
+        self.assertEqual(len(self.mg.richieste), 3)
+        # Da un altro indirizzo IP si puo'.
+        self.assertEqual(self.invia(email="utente3@example.com", ip="10.9.9.10")[0], 200)
+        # I reinvii contano come invii, non come indirizzi.
+        verify_server.OTP_RESEND_AFTER = 0
+        verify_server.OTP_MAX_PER_IP_HOUR = 4
+        self.assertEqual(self.invia(email="utente0@example.com", ip="10.9.9.9")[0], 200)  # 4 invii
+        self.assertEqual(self.invia(email="utente4@example.com", ip="10.9.9.9")[1], {"error": "too_many"})
+
+    def test_invio_fallito_non_conta(self):
+        # Indirizzo nuovo: Mailgun risponde 500, nessuna riga resta e si puo'
+        # riprovare subito (niente too_soon).
+        self.mg.stato = 500
+        self.assertEqual(self.invia(), (503, {"error": "send_failed"}))
+        self.assertIsNone(self.riga())
+        self.mg.stato = 200
+        self.assertEqual(self.invia()[0], 200)
+        code = self.mg.codice()
+        # Indirizzo con un codice gia' valido: il tentativo fallito non tocca
+        # ne' il contatore ne' il codice precedente, che vale ancora.
+        verify_server.OTP_RESEND_AFTER = 0
+        self.mg.stato = 500
+        self.assertEqual(self.invia(), (503, {"error": "send_failed"}))
+        self.assertEqual((self.riga()["sends"], self.riga()["attempts"]), (1, 0))
+        self.assertEqual(self.verifica(code), (200, {"ok": True}))
+        # Mailgun irraggiungibile (connessione rifiutata): stesso esito.
+        self.mg.stato = 200
+        os.environ["MAILGUN_API_BASE"] = "http://127.0.0.1:%d/v3" % porta_chiusa()
+        self.assertEqual(self.invia(), (503, {"error": "send_failed"}))
+        self.assertIsNone(self.riga())
+
+    def test_verifica_giusta(self):
+        self.invia()
+        code = self.mg.codice()
+        self.assertEqual(self.verifica(code), (200, {"ok": True}))
+        # La riga se ne va: un secondo uso dello stesso codice non passa.
+        self.assertIsNone(self.riga())
+        self.assertEqual(self.verifica(code), (200, {"ok": False, "reason": "expired"}))
+
+    def test_verifica_sbagliata_poi_bloccata(self):
+        verify_server.OTP_MAX_ATTEMPTS = 3
+        self.invia()
+        code = self.mg.codice()
+        sbagliato = self.sbagliato(code)
+        for left in (2, 1, 0):
+            self.assertEqual(self.verifica(sbagliato), (200, {"ok": False, "reason": "wrong", "left": left}))
+        self.assertEqual(self.riga()["attempts"], 3)
+        self.assertEqual(self.verifica(sbagliato), (200, {"ok": False, "reason": "locked"}))
+        # Bloccato anche con il codice giusto: serve un codice nuovo.
+        self.assertEqual(self.verifica(code), (200, {"ok": False, "reason": "locked"}))
+        verify_server.OTP_RESEND_AFTER = 0
+        self.assertEqual(self.invia()[0], 200)
+        self.assertEqual(self.riga()["attempts"], 0)
+        self.assertEqual(self.verifica(self.mg.codice()), (200, {"ok": True}))
+
+    def test_verifica_scaduta(self):
+        # Nessun codice mai chiesto: per la pagina e' come scaduto.
+        self.assertEqual(self.verifica("123456"), (200, {"ok": False, "reason": "expired"}))
+        self.invia()
+        code = self.mg.codice()
+        with sqlite3.connect(DB) as cx:
+            cx.execute("UPDATE otp SET expires_at = ?", (int(verify_server.time.time()) - 1,))
+        self.assertEqual(self.verifica(code), (200, {"ok": False, "reason": "expired"}))
+        self.assertIsNone(self.riga())  # la riga scaduta viene tolta
+        # Con OTP_TTL a zero il codice nasce gia' scaduto.
+        verify_server.OTP_TTL = 0
+        verify_server.OTP_RESEND_AFTER = 0
+        st, r = self.invia()
+        self.assertEqual((st, r["ttl"]), (200, 0))
+        self.assertEqual(self.verifica(self.mg.codice())[1], {"ok": False, "reason": "expired"})
+
+    def test_pulizia_righe_vecchie(self):
+        now = int(verify_server.time.time())
+        with sqlite3.connect(DB) as cx:
+            for nome, scad in (("vecchia", now - 3601), ("recente", now - 10)):
+                cx.execute("INSERT INTO otp (email_hash, code_hash, created_at, expires_at, first_send_at) "
+                           "VALUES (?,?,?,?,?)", (nome, "x", scad - 600, scad, scad - 600))
+        self.assertEqual(self.invia()[0], 200)
+        self.assertEqual(query("SELECT email_hash FROM otp WHERE email_hash IN ('vecchia','recente')"),
+                         [("recente",)])
+        # Anche una richiesta rifiutata (too_soon) fa pulizia.
+        with sqlite3.connect(DB) as cx:
+            cx.execute("INSERT INTO otp (email_hash, code_hash, created_at, expires_at, first_send_at) "
+                       "VALUES ('vecchia2','x',1,?,1)", (now - 4000,))
+        self.assertEqual(self.invia()[0], 429)
+        self.assertEqual(query("SELECT COUNT(*) FROM otp WHERE email_hash = 'vecchia2'"), [(0,)])
+
+    def test_niente_email_ne_codice_in_chiaro(self):
+        self.invia(email="Mario.Rossi@Example.COM")
+        code = self.mg.codice()
+        dump = repr(query("SELECT * FROM otp")).lower()
+        self.assertNotIn("mario", dump)
+        self.assertNotIn("example", dump)
+        self.assertNotIn(code, dump)
+        # Le impronte dipendono dal sale e dall'indirizzo normalizzato.
+        h = verify_server.hash_email("Mario.Rossi@Example.COM")
+        self.assertEqual(h, verify_server.hash_email(" mario.rossi@example.com "))
+        self.assertNotEqual(h, verify_server.hash_email("maria.rossi@example.com"))
+        self.assertNotEqual(verify_server.hash_code(h, code), verify_server.hash_code("altro", code))
+        self.assertIn(verify_server.hash_code(h, code), repr(query("SELECT code_hash FROM otp")))
+
+    def test_codice_generato_con_secrets(self):
+        codici = {verify_server.new_code() for _ in range(300)}
+        for c in codici:
+            self.assertRegex(c, r"^[0-9]{6}$")
+        self.assertGreater(len(codici), 200)
+        with open(os.path.join(QUI, "verify_server.py"), encoding="utf-8") as f:
+            self.assertIn("secrets.randbelow", f.read())
+
+    def test_corpo_troppo_grande_o_malformato(self):
+        grande = json.dumps({"email": self.EMAIL, "lang": "it", "x": "a" * 2500}).encode()
+        self.assertEqual(self.post("/api/otp/invia", raw=grande), (413, {"error": "too_large"}))
+        self.assertEqual(self.post("/api/otp/verifica", raw=grande), (413, {"error": "too_large"}))
+        for raw in (b"{", b"[1,2]", b'"x"', b""):
+            with self.subTest(raw=raw):
+                self.assertEqual(self.post("/api/otp/invia", raw=raw), (400, {"error": "bad_request"}))
+        self.assertEqual(self.mg.richieste, [])
+        self.assertEqual(self.post("/api/otp/altro", {"email": self.EMAIL})[0], 404)
+        # /api/verify accetta ancora fino a 4 KB (contratto invariato).
+        corpo = json.dumps({"code": "000000000001", "context": {"x": "a" * 3000}}).encode()
+        self.assertEqual(self.post("/api/verify", raw=corpo), (200, {"outcome": "not_found", "via": "code"}))
+        corpo = json.dumps({"code": "000000000001", "context": {"x": "a" * 5000}}).encode()
+        self.assertEqual(self.post("/api/verify", raw=corpo), (400, {"outcome": "invalid"}))
+
+
+class TestMailTest(unittest.TestCase):
+    """clgadmin mail-test e la lettura di /etc/autenticatore/mail.env."""
+
+    CHIAVE = "chiave-finta-di-mail-test"
+
+    @classmethod
+    def setUpClass(cls):
+        cls.mg = MailgunFinto()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.mg.stop()
+
+    def setUp(self):
+        self.ambiente = salva_ambiente()
+        for n in VAR_MAIL:
+            os.environ.pop(n, None)
+        os.environ["MAILGUN_API_BASE"] = self.mg.base
+        self.mg.richieste.clear()
+        self.mg.stato = 200
+        self.env_file = clg_mail.ENV_FILE
+        clg_mail.ENV_FILE = os.path.join(TMP, "mail.env.assente")
+
+    def tearDown(self):
+        clg_mail.ENV_FILE = self.env_file
+        ripristina_ambiente(self.ambiente)
+
+    def mail_test(self, dest="prova@example.com"):
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            clg_import.cmd_mail_test(Namespace(db=DB, destinatario=dest))
+        return out.getvalue()
+
+    def test_carica_env(self):
+        percorso = os.path.join(TMP, "mail.env")
+        with open(percorso, "w", encoding="utf-8") as f:
+            f.write("# commento\n; altro commento\n\nMAILGUN_API_KEY = %s\n"
+                    "MAIL_FROM=\"Prova <p@example.com>\"\nMAILGUN_DOMAIN='esempio.it'\n"
+                    "riga senza uguale\nMAILGUN_API_BASE=http://gia.presente\n" % self.CHIAVE)
+        os.environ["MAILGUN_API_BASE"] = "http://dall-ambiente"
+        self.assertTrue(clg_mail.carica_env(percorso))
+        cfg = clg_mail.config()
+        self.assertEqual(cfg["api_key"], self.CHIAVE)
+        self.assertEqual(cfg["mail_from"], "Prova <p@example.com>")
+        self.assertEqual(cfg["domain"], "esempio.it")
+        self.assertEqual(cfg["api_base"], "http://dall-ambiente")  # l'ambiente vince sul file
+        self.assertFalse(clg_mail.carica_env(os.path.join(TMP, "non-esiste")))
+        # Valori predefiniti quando il file non dice nulla.
+        for n in VAR_MAIL:
+            os.environ.pop(n, None)
+        self.assertEqual(clg_mail.config(), {"api_key": "", "domain": "crtilogo.com",
+                                             "api_base": "https://api.mailgun.net/v3",
+                                             "mail_from": "Stone Island Autenticazione <verifica@crtilogo.com>"})
+        self.assertFalse(clg_mail.configurato())
+
+    def test_mail_test_legge_il_file_e_invia(self):
+        clg_mail.ENV_FILE = os.path.join(TMP, "mail-test.env")
+        with open(clg_mail.ENV_FILE, "w", encoding="utf-8") as f:
+            f.write("MAILGUN_API_KEY=%s\nMAILGUN_DOMAIN=crtilogo.com\n" % self.CHIAVE)
+        out = self.mail_test("io@example.com")
+        self.assertIn("inviata", out)
+        self.assertNotIn(self.CHIAVE, out)
+        rq = self.mg.ultima
+        self.assertEqual(rq["path"], "/v3/crtilogo.com/messages")
+        self.assertEqual(rq["auth"], "Basic " + base64.b64encode(b"api:" + self.CHIAVE.encode()).decode())
+        self.assertEqual(rq["form"]["to"], "io@example.com")
+        self.assertEqual(rq["form"]["subject"], "Prova di invio dall'autenticatore")
+        self.assertEqual(rq["form"]["o:tracking"], "no")
+
+    def test_mail_test_senza_chiave(self):
+        with self.assertRaises(SystemExit) as cm:
+            self.mail_test()
+        self.assertIn("MAILGUN_API_KEY non impostata", str(cm.exception))
+        self.assertEqual(self.mg.richieste, [])
+
+    def test_mail_test_fallito_non_mostra_la_chiave(self):
+        os.environ["MAILGUN_API_KEY"] = self.CHIAVE
+        self.mg.stato = 500
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out), self.assertRaises(SystemExit) as cm:
+            clg_import.cmd_mail_test(Namespace(db=DB, destinatario="io@example.com"))
+        self.assertIn("invio NON riuscito: stato 500", str(cm.exception))
+        self.assertNotIn(self.CHIAVE, str(cm.exception) + out.getvalue())
+        # Irraggiungibile: errore di connessione, sempre senza chiave.
+        os.environ["MAILGUN_API_BASE"] = "http://127.0.0.1:%d/v3" % porta_chiusa()
+        with self.assertRaises(clg_mail.MailError) as cm:
+            clg_mail.invia("io@example.com", "s", "t")
+        self.assertIn("connessione", str(cm.exception))
+        self.assertNotIn(self.CHIAVE, str(cm.exception))
 
 
 if __name__ == "__main__":

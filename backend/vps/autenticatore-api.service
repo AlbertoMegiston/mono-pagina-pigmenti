@@ -14,6 +14,12 @@ Environment=CLG_BIND_PORT=8787
 Environment=CLG_DUP_LIMIT=10
 Environment=CLG_DUP_DAYS=30
 Environment=CLG_RETENTION_DAYS=180
+# Chiave Mailgun, mittente e limiti dei codici via email: file fuori dal
+# repo, creato da setup.sh (root:autenticatore, 640). systemd lo legge prima
+# di applicare il sandbox qui sotto, quindi ProtectSystem non c'entra; il "-"
+# fa partire il servizio anche se il file manca (allora /api/otp/invia
+# risponde not_configured e la pagina offre di saltare il passaggio).
+EnvironmentFile=-/etc/autenticatore/mail.env
 Restart=on-failure
 RestartSec=2
 
