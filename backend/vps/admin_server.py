@@ -25,6 +25,8 @@ Configurazione via variabili d'ambiente (vedi autenticatore-pannello.service):
 """
 
 import base64
+import zipfile
+import io
 import json
 import os
 import re
@@ -33,6 +35,10 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlparse
 
+try:
+    import clg_datamatrix
+except ImportError:
+    clg_datamatrix = None
 try:
     import clg_excel
     import clg_import
@@ -44,6 +50,7 @@ HOST = os.environ.get("CLG_PANEL_HOST", "127.0.0.1")
 PORT = int(os.environ.get("CLG_PANEL_PORT", "8788"))
 
 CODE_RE = re.compile(r"^\d{12}$", re.ASCII)  # solo cifre 0-9, come la pagina
+MAX_DATAMATRIX_ZIP = 2000  # oltre, meglio clgadmin datamatrix-mancanti sul server
 STATI = ("valid", "suspicious", "revoked")
 # L'Excel del brand arriva in base64 dentro al JSON (+33%): 25 MB bastano
 # per qualche migliaio di DataMatrix. Lo stesso limite sta nella location
@@ -235,6 +242,80 @@ def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima, forz
     return risp
 
 
+def genera_datamatrix(codice, campi, sostituisci=False):
+    """Il DataMatrix di un codice in lista, registrato come barcode emesso.
+    Se un barcode c'e' gia' e non si chiede di sostituirlo, si ridisegna
+    quello (ristampa) e non si tocca nulla."""
+    if clg_datamatrix is None or clg_import is None:
+        return {"errore": "Generazione dei DataMatrix non disponibile su questo server "
+                          "(manca clg_datamatrix.py)."}
+    if not clg_datamatrix.GENERAZIONE_DISPONIBILE:
+        return {"errore": "Generazione dei DataMatrix non disponibile: mancano Pillow o "
+                          "zxing-cpp (setup.sh, passo 1b)."}
+    codice = re.sub(r"\D+", "", codice or "", flags=re.ASCII)
+    if not CODE_RE.match(codice):
+        return {"errore": "Il codice deve essere di 12 cifre."}
+    campi = {k: str((campi or {}).get(k) or "").strip()[:40] for k in clg_datamatrix.CAMPI}
+    cx = connect()
+    clg_import.assicura_colonne(cx)
+    try:
+        riga = cx.execute("SELECT payload FROM codes WHERE code = ?", (codice,)).fetchone()
+        if riga is None:
+            return {"errore": "Codice non in lista: importalo prima."}
+        if riga[0] and not sostituisci:
+            payload, esito = riga[0], "esistente"
+        else:
+            try:
+                payload = clg_datamatrix.componi_payload(codice, **campi)
+            except ValueError as e:
+                return {"errore": str(e)}
+            esito = "sostituito" if riga[0] else "nuovo"
+            clg_import.registra_barcode(cx, codice, payload, campi, sostituisci=True)
+    finally:
+        cx.close()
+    img = clg_datamatrix.genera(payload)
+    return {"ok": True, "code": codice, "payload": payload, "registrato": esito,
+            "png_b64": base64.b64encode(img["png"]).decode("ascii"), "svg": img["svg"]}
+
+
+def datamatrix_mancanti():
+    """Genera e registra i DataMatrix di tutti i codici senza barcode; li
+    restituisce in uno zip (PNG e SVG per codice), in base64."""
+    if clg_datamatrix is None or clg_import is None or not clg_datamatrix.GENERAZIONE_DISPONIBILE:
+        return {"errore": "Generazione dei DataMatrix non disponibile su questo server."}
+    cx = connect()
+    clg_import.assicura_colonne(cx)
+    try:
+        mancanti = clg_import.senza_barcode(cx)
+        if not mancanti:
+            return {"ok": True, "quanti": 0}
+        if len(mancanti) > MAX_DATAMATRIX_ZIP:
+            return {"errore": "Troppi codici senza barcode (%d): usa clgadmin datamatrix-mancanti "
+                              "sul server." % len(mancanti)}
+        buf = io.BytesIO()
+        n = 0
+        saltati = []
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as z:
+            for code, article, variant, size, internal_id in mancanti:
+                campi = {"article": article, "variant": variant, "size": size,
+                         "internal_id": internal_id}
+                try:
+                    payload = clg_datamatrix.componi_payload(code, **campi)
+                except ValueError:
+                    saltati.append(code)
+                    continue
+                if clg_import.registra_barcode(cx, code, payload, campi) != "ok":
+                    continue
+                img = clg_datamatrix.genera(payload)
+                z.writestr(f"{code}.png", img["png"])
+                z.writestr(f"{code}.svg", img["svg"])
+                n += 1
+    finally:
+        cx.close()
+    return {"ok": True, "quanti": n, "saltati": saltati,
+            "zip_b64": base64.b64encode(buf.getvalue()).decode("ascii")}
+
+
 def cambia_stato(codice, stato):
     codice = re.sub(r"\D+", "", codice or "", flags=re.ASCII)
     if not CODE_RE.match(codice):
@@ -374,6 +455,13 @@ PAGE = """<!doctype html>
     </div>
     <div class="scroll" style="margin-top:12px"><table id="tab-codici"><tbody></tbody></table></div>
     <div class="paginazione" id="pag-codici"></div>
+    <div class="anteprima" id="dm-box"></div>
+    <p class="hint" style="margin-top:12px">I codici del brand hanno gia' il loro DataMatrix (letto dall'Excel).
+       Per un codice caricato a mano puoi generarlo qui: viene registrato come barcode emesso, e da quel
+       momento allo scan vale solo quello. Il contenuto ha la stessa forma dei cartellini del brand:
+       articolo-variante-taglia-identificativo-codice (i campi vuoti si saltano).</p>
+    <div class="row"><div style="flex:0 0 auto"><button class="ghost" id="btn-dm-tutti">Genera i DataMatrix mancanti (zip)</button></div></div>
+    <div class="msg" id="msg-dm"></div>
   </section>
 
   <section>
@@ -448,7 +536,8 @@ PAGE = """<!doctype html>
         s.righe.map(function(r){
           return '<tr><td><code>'+esc(r.code)+'</code></td><td>'+pill(r.status)+'</td><td>'+esc(r.taglia)+'</td>'+
             '<td>'+esc(r.articolo)+'</td><td>'+esc(r.identificativo)+'</td>'+
-            '<td>'+(r.barcode?'presente':'<span class="quiet">no</span>')+'</td><td>'+esc(r.lotto)+'</td></tr>';}).join("");
+            '<td>'+(r.barcode?'<button class="ghost dm" data-code="'+esc(r.code)+'" data-has="1">Scarica</button>':'<button class="ghost dm" data-code="'+esc(r.code)+'" data-has="0" data-articolo="'+esc(r.articolo)+'" data-taglia="'+esc(r.taglia)+'" data-identificativo="'+esc(r.identificativo)+'">Genera DataMatrix</button>')+'</td><td>'+esc(r.lotto)+'</td></tr>';}).join("");
+      Array.prototype.forEach.call(tb.querySelectorAll('button.dm'), function(b){ b.addEventListener('click', function(){ apriDm(b.dataset); }); });
       var fine = Math.min(s.da+s.righe.length, s.totale);
       $("pag-codici").innerHTML = '<span>'+(s.da+1)+'–'+fine+' di '+s.totale+'</span>'+
         (s.da>0?'<button class="ghost" id="pag-prec">&larr; precedenti</button>':'')+
@@ -457,6 +546,61 @@ PAGE = """<!doctype html>
       if($("pag-succ")) $("pag-succ").onclick=function(){elenco(s.da+s.quanti);};
     }).catch(function(){});
   }
+  // DataMatrix di un codice: per uno del brand si ridisegna quello registrato
+  // (ristampa); per uno a mano si compone, si registra e si scarica.
+  function scarica(nome, mime, dati, b64){
+    var a=document.createElement("a"); a.href="data:"+mime+(b64?";base64,":";charset=utf-8,")+(b64?dati:encodeURIComponent(dati));
+    a.download=nome; document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  }
+  function apriDm(d){
+    var box=$("dm-box"), has=d.has==="1";
+    box.className="anteprima on";
+    box.innerHTML='<p><b>DataMatrix per <code>'+esc(d.code)+'</code></b>'+(has?' (barcode gia\\' registrato: qui lo ristampi)':'')+'</p>'+
+      (has?'':'<div class="row"><div><label>Articolo</label><input type="text" id="dm-articolo" value="'+esc(d.articolo||"")+'"></div>'+
+        '<div><label>Variante</label><input type="text" id="dm-variante" value=""></div>'+
+        '<div><label>Taglia</label><input type="text" id="dm-taglia" value="'+esc(d.taglia||"")+'"></div>'+
+        '<div><label>Identificativo</label><input type="text" id="dm-identificativo" value="'+esc(d.identificativo||"")+'"></div></div>'+
+        '<p class="hint">Campi facoltativi (lettere, cifre, punto, barra; niente spazi ne\\' trattini). Senza campi il DataMatrix contiene solo il codice.</p>')+
+      (has?'<div class="chk"><input type="checkbox" id="dm-sostituisci"><label for="dm-sostituisci" style="margin:0;font-weight:400">Rigenera con campi nuovi e sostituisci il barcode registrato (i cartellini gia\\' stampati non varranno piu\\')</label></div>'+
+        '<div class="row" id="dm-campi" style="display:none"><div><label>Articolo</label><input type="text" id="dm-articolo" value="'+esc(d.articolo||"")+'"></div>'+
+        '<div><label>Variante</label><input type="text" id="dm-variante" value=""></div>'+
+        '<div><label>Taglia</label><input type="text" id="dm-taglia" value="'+esc(d.taglia||"")+'"></div>'+
+        '<div><label>Identificativo</label><input type="text" id="dm-identificativo" value="'+esc(d.identificativo||"")+'"></div></div>':'')+
+      '<div class="row"><div style="flex:0 0 auto"><button id="dm-vai">'+(has?'Scarica':'Genera e registra')+'</button></div>'+
+      '<div style="flex:0 0 auto"><button class="ghost" id="dm-chiudi">Chiudi</button></div></div><div id="dm-esito"></div>';
+    if(has) $("dm-sostituisci").addEventListener("change", function(){ $("dm-campi").style.display=this.checked?"":"none"; $("dm-vai").textContent=this.checked?"Rigenera e sostituisci":"Scarica"; });
+    $("dm-chiudi").addEventListener("click", function(){ box.className="anteprima"; box.innerHTML=""; });
+    $("dm-vai").addEventListener("click", function(){
+      var self=this; self.disabled=true;
+      var sost=!!($("dm-sostituisci")&&$("dm-sostituisci").checked);
+      api("/datamatrix",{code:d.code, sostituisci:sost,
+        articolo:$("dm-articolo")?$("dm-articolo").value:"", variante:$("dm-variante")?$("dm-variante").value:"",
+        taglia:$("dm-taglia")?$("dm-taglia").value:"", identificativo:$("dm-identificativo")?$("dm-identificativo").value:""
+      }).then(function(res){
+        self.disabled=false;
+        if(res.errore){$("dm-esito").innerHTML='<p style="color:var(--bad)">'+esc(res.errore)+'</p>';return;}
+        var stato={nuovo:"registrato come barcode emesso",esistente:"barcode gia\\' registrato",sostituito:"barcode sostituito"}[res.registrato]||res.registrato;
+        $("dm-esito").innerHTML='<p>'+stato+'. Contenuto: <code>'+esc(res.payload)+'</code></p>'+
+          '<p><img alt="DataMatrix '+esc(res.code)+'" src="data:image/png;base64,'+res.png_b64+'" style="width:180px;height:180px;image-rendering:pixelated;border:1px solid #e5e7eb"></p>'+
+          '<div class="row"><div style="flex:0 0 auto"><button class="ghost" id="dm-png">Scarica PNG</button></div><div style="flex:0 0 auto"><button class="ghost" id="dm-svg">Scarica SVG (stampa)</button></div></div>';
+        $("dm-png").addEventListener("click", function(){ scarica(res.code+".png","image/png",res.png_b64,true); });
+        $("dm-svg").addEventListener("click", function(){ scarica(res.code+".svg","image/svg+xml",res.svg,false); });
+        if(res.registrato!=="esistente"){ elenco(pagina.da); carica(); }
+      }).catch(function(){self.disabled=false;$("dm-esito").innerHTML='<p style="color:var(--bad)">Errore di comunicazione.</p>';});
+    });
+    box.scrollIntoView({behavior:"smooth",block:"nearest"});
+  }
+  $("btn-dm-tutti").addEventListener("click", function(){
+    var self=this; self.disabled=true; show("msg-dm",true,"Generazione in corso...");
+    api("/datamatrix-mancanti",{}).then(function(res){
+      self.disabled=false;
+      if(res.errore){show("msg-dm",false,res.errore);return;}
+      if(!res.quanti){show("msg-dm",true,"Tutti i codici in lista hanno gia\\' un barcode registrato.");return;}
+      scarica("datamatrix-mancanti.zip","application/zip",res.zip_b64,true);
+      show("msg-dm",true,"Generati e registrati "+res.quanti+" DataMatrix"+(res.saltati&&res.saltati.length?" ("+res.saltati.length+" saltati per campi non validi)":"")+". Lo zip contiene PNG e SVG per ogni codice.");
+      elenco(pagina.da); carica();
+    }).catch(function(){self.disabled=false;show("msg-dm",false,"Errore di comunicazione.");});
+  });
   $("btn-cerca").addEventListener("click", function(){pagina.q=$("cerca").value; elenco(0);});
   $("cerca").addEventListener("keydown", function(e){if(e.key==="Enter"){pagina.q=$("cerca").value; elenco(0);}});
 
@@ -628,6 +772,13 @@ class Handler(BaseHTTPRequestHandler):
                                         str(dati.get("stato", ""))))
             elif self.path == "/pannello/api/svuota":
                 self._json(svuota())
+            elif self.path == "/pannello/api/datamatrix":
+                self._json(genera_datamatrix(str(dati.get("code", "")),
+                                             {"article": dati.get("articolo"), "variant": dati.get("variante"),
+                                              "size": dati.get("taglia"), "internal_id": dati.get("identificativo")},
+                                             bool(dati.get("sostituisci"))))
+            elif self.path == "/pannello/api/datamatrix-mancanti":
+                self._json(datamatrix_mancanti())
             else:
                 self._json({"errore": "non trovato"}, 404)
         except sqlite3.Error as e:

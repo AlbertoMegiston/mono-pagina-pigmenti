@@ -41,6 +41,10 @@ import sys
 import time
 
 try:
+    import clg_datamatrix  # accanto a questo script; DataMatrix per i codici a mano
+except ImportError:
+    clg_datamatrix = None
+try:
     import clg_excel  # accanto a questo script; serve solo per gli Excel
 except ImportError:
     clg_excel = None
@@ -113,6 +117,41 @@ def parametri(codice, stato, lotto, nota, ora, riga=None):
         "size": r.get("size") or None, "internal_id": r.get("internal_id") or None,
         "sheet": r.get("sheet") or None,
     }
+
+
+def normalizza_payload(payload):
+    """Come verify_server.normalize_payload: bianchi ripetuti ridotti a uno."""
+    return " ".join(str(payload).split())
+
+
+def registra_barcode(cx, codice, payload, campi=None, sostituisci=False):
+    """Registra payload come barcode emesso per codice: da quel momento allo
+    scan vale solo quello. Ritorna "ok", "assente" (codice non in lista) o
+    "gia_registrato" (c'e' gia' un barcode e sostituisci e' falso: i
+    cartellini gia' stampati con il vecchio smetterebbero di valere)."""
+    campi = campi or {}
+    riga = cx.execute("SELECT payload FROM codes WHERE code = ?", (codice,)).fetchone()
+    if riga is None:
+        return "assente"
+    if riga[0] and not sostituisci:
+        return "gia_registrato"
+    with cx:
+        cx.execute(
+            "UPDATE codes SET payload = ?, payload_norm = ?, "
+            "article = COALESCE(?, article), variant = COALESCE(?, variant), "
+            "size = COALESCE(?, size), internal_id = COALESCE(?, internal_id) "
+            "WHERE code = ?",
+            (payload, normalizza_payload(payload),
+             campi.get("article") or None, campi.get("variant") or None,
+             campi.get("size") or None, campi.get("internal_id") or None, codice))
+    return "ok"
+
+
+def senza_barcode(cx):
+    """[(code, article, variant, size, internal_id)] dei codici senza barcode."""
+    return cx.execute(
+        "SELECT code, article, variant, size, internal_id FROM codes "
+        "WHERE payload_norm IS NULL ORDER BY code").fetchall()
 
 
 def residui_senza_barcode(cx, righe):
@@ -299,6 +338,67 @@ def cmd_riepilogo(args):
         print("  (nessuna)")
 
 
+def cmd_datamatrix(args):
+    """Genera (e registra) il DataMatrix di un codice caricato a mano."""
+    if clg_datamatrix is None or not clg_datamatrix.GENERAZIONE_DISPONIBILE:
+        sys.exit("generazione dei DataMatrix non disponibile: servono clg_datamatrix.py, "
+                 "Pillow e zxing-cpp (vedi setup.sh, passo 1b)")
+    codice = re.sub(r"\D+", "", args.codice, flags=re.ASCII)
+    if not CODE_RE.match(codice):
+        sys.exit("il codice deve essere di 12 cifre")
+    campi = {"article": args.articolo, "variant": args.variante,
+             "size": args.taglia, "internal_id": args.identificativo}
+    cx = connect(args.db)
+    assicura_colonne(cx)
+    riga = cx.execute("SELECT payload FROM codes WHERE code = ?", (codice,)).fetchone()
+    if riga is None:
+        sys.exit(f"{codice} non e' in lista: importalo prima (clgadmin importa)")
+    if riga[0] and not args.sostituisci and not any(campi.values()):
+        payload = riga[0]        # ristampa del barcode gia' registrato
+        esito = "esistente"
+    else:
+        try:
+            payload = clg_datamatrix.componi_payload(codice, **campi)
+        except ValueError as e:
+            sys.exit(str(e))
+        esito = registra_barcode(cx, codice, payload, campi, sostituisci=args.sostituisci)
+        if esito == "gia_registrato":
+            sys.exit(f"{codice} ha gia' un barcode registrato ({riga[0]}): per sostituirlo "
+                     "aggiungi --sostituisci (i cartellini gia' stampati non varranno piu')")
+    img = clg_datamatrix.genera(payload)
+    out = args.out or f"{codice}.png"
+    with open(out, "wb") as f:
+        f.write(img["svg"].encode("utf-8") if out.lower().endswith(".svg") else img["png"])
+    print(f"{codice}: barcode {esito}\n  contenuto: {payload}\n  file: {out}")
+
+
+def cmd_datamatrix_mancanti(args):
+    """Un DataMatrix (PNG e SVG) per ogni codice senza barcode, in una cartella."""
+    if clg_datamatrix is None or not clg_datamatrix.GENERAZIONE_DISPONIBILE:
+        sys.exit("generazione dei DataMatrix non disponibile: servono clg_datamatrix.py, "
+                 "Pillow e zxing-cpp (vedi setup.sh, passo 1b)")
+    cx = connect(args.db)
+    assicura_colonne(cx)
+    os.makedirs(args.cartella, exist_ok=True)
+    n = 0
+    for code, article, variant, size, internal_id in senza_barcode(cx):
+        campi = {"article": article, "variant": variant, "size": size, "internal_id": internal_id}
+        try:
+            payload = clg_datamatrix.componi_payload(code, **campi)
+        except ValueError as e:
+            print(f"  {code} saltato: {e}", file=sys.stderr)
+            continue
+        if registra_barcode(cx, code, payload, campi) != "ok":
+            continue
+        img = clg_datamatrix.genera(payload)
+        with open(os.path.join(args.cartella, f"{code}.png"), "wb") as f:
+            f.write(img["png"])
+        with open(os.path.join(args.cartella, f"{code}.svg"), "w", encoding="utf-8") as f:
+            f.write(img["svg"])
+        n += 1
+    print(f"generati e registrati {n} DataMatrix in {args.cartella}")
+
+
 def cmd_mail_test(args):
     """Una email di prova con la stessa funzione del servizio: se arriva,
     arrivano anche i codici di verifica. La chiave non viene mai stampata."""
@@ -351,6 +451,22 @@ def main():
 
     ri = sub.add_parser("stato-lista", help="riepilogo di lista e verifiche")
     ri.set_defaults(func=cmd_riepilogo)
+
+    dm = sub.add_parser("datamatrix", help="genera e registra il DataMatrix di un codice caricato a mano")
+    dm.add_argument("codice")
+    dm.add_argument("--articolo", default=None)
+    dm.add_argument("--variante", default=None)
+    dm.add_argument("--taglia", default=None)
+    dm.add_argument("--identificativo", default=None)
+    dm.add_argument("--out", default=None, help="file da scrivere (.png, oppure .svg per la stampa)")
+    dm.add_argument("--sostituisci", action="store_true",
+                    help="sostituisce un barcode gia' registrato (i cartellini stampati non varranno piu')")
+    dm.set_defaults(func=cmd_datamatrix)
+
+    dmm = sub.add_parser("datamatrix-mancanti",
+                         help="un DataMatrix (PNG e SVG) per ogni codice senza barcode, in una cartella")
+    dmm.add_argument("cartella")
+    dmm.set_defaults(func=cmd_datamatrix_mancanti)
 
     mt = sub.add_parser("mail-test", help="invia una email di prova con Mailgun")
     mt.add_argument("destinatario")

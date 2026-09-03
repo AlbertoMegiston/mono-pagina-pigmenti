@@ -97,6 +97,8 @@ install -m 755 "$QUI/api/clg_import.py" "$APPDIR/clg_import.py"
 install -m 644 "$QUI/api/clg_excel.py" "$APPDIR/clg_excel.py"
 # Invio email con Mailgun, condiviso dal servizio e da "clgadmin mail-test".
 install -m 644 "$QUI/api/clg_mail.py" "$APPDIR/clg_mail.py"
+# DataMatrix per i codici caricati a mano (pannello e "clgadmin datamatrix").
+install -m 644 "$QUI/api/clg_datamatrix.py" "$APPDIR/clg_datamatrix.py"
 # clgadmin gira come root: cosi' puo' leggere un file di codici ovunque si trovi
 # (anche in /root, che e' 0700), e alla fine restituisce la proprieta' del
 # database all'utente del servizio, che deve poterci scrivere.

@@ -43,6 +43,7 @@ os.environ["CLG_SALT_FILE"] = os.path.join(TMP, "ip-salt")
 sys.path.insert(0, QUI)
 
 import admin_server  # noqa: E402
+import clg_datamatrix  # noqa: E402
 import clg_excel  # noqa: E402
 import clg_import  # noqa: E402
 import clg_mail  # noqa: E402
@@ -620,6 +621,93 @@ class TestImportazione(unittest.TestCase):
                                                           "valid", False, "", True))
         self.assertIn("errore", admin_server.importa_file("x.xlsx", b"PK\x03\x04rotto", "barcode",
                                                           "valid", False, "", True))
+
+
+class TestDataMatrix(unittest.TestCase):
+    """DataMatrix per i codici a mano: stessa forma dei cartellini del brand,
+    registrati come barcode emesso, letti dalla stessa regola."""
+    C = "555666777888"
+
+    def setUp(self):
+        db_nuovo()
+        with sqlite3.connect(DB) as cx:
+            cx.execute("INSERT INTO codes (code, status, created_at, article, size) "
+                       "VALUES (?, 'valid', 1, 'ART01', 'M')", (self.C,))
+            cx.execute("INSERT INTO codes (code, status, created_at, payload, payload_norm) "
+                       "VALUES ('739184173203', 'valid', 1, ?, ?)", (PAYLOAD_ESEMPIO, PAYLOAD_ESEMPIO))
+
+    def test_payload_nella_forma_del_brand(self):
+        self.assertEqual(clg_datamatrix.componi_payload(self.C), "555 666 777 888")
+        self.assertEqual(clg_datamatrix.componi_payload(self.C, "L1S156100062S0051-", "V0024", "M", "99PROI20250017229"),
+                         "L1S156100062S0051-V0024-M-99PROI20250017229-555 666 777 888")
+        self.assertEqual(clg_datamatrix.componi_payload(self.C, article="", size="XL"), "XL-555 666 777 888")
+        for p in (clg_datamatrix.componi_payload(self.C), clg_datamatrix.componi_payload(self.C, "A", "B", "C", "D")):
+            self.assertEqual(verify_server.extract_code(p), self.C)
+        with self.assertRaises(ValueError):
+            clg_datamatrix.componi_payload(self.C, article="con spazio")
+        with self.assertRaises(ValueError):
+            clg_datamatrix.componi_payload(self.C, size="M-L")
+        with self.assertRaises(ValueError):
+            clg_datamatrix.componi_payload("12345")
+
+    @unittest.skipUnless(clg_datamatrix.GENERAZIONE_DISPONIBILE, "servono Pillow e zxing-cpp")
+    def test_immagine_quadrata_e_rileggibile(self):
+        p = clg_datamatrix.componi_payload(self.C, "L1S156100062S0051", "V0024", "M", "99PROI20250017229")
+        img = clg_datamatrix.genera(p)
+        self.assertTrue(img["png"].startswith(b"\x89PNG"))
+        self.assertIn("<svg", img["svg"])
+        from PIL import Image
+        im = Image.open(io.BytesIO(img["png"]))
+        self.assertEqual(im.width, im.height)
+        self.assertTrue(clg_datamatrix.rilegge(img["png"], p))
+        # e la lettura generica dell'importazione (formato incluso) lo capisce
+        payload, formato, motivo = clg_excel.decodifica_immagine(img["png"])
+        self.assertEqual((payload, formato, motivo), (p, "data_matrix", None))
+
+    def test_registrazione_e_regola_di_verifica(self):
+        cx = sqlite3.connect(DB)
+        p = clg_datamatrix.componi_payload(self.C, "ART01", size="M")
+        self.assertEqual(clg_import.registra_barcode(cx, "000000000000", p), "assente")
+        self.assertEqual(clg_import.registra_barcode(cx, self.C, p, {"article": "ART01", "size": "M"}), "ok")
+        self.assertEqual(clg_import.registra_barcode(cx, self.C, "altro"), "gia_registrato")
+        self.assertEqual(query("SELECT payload, payload_norm FROM codes WHERE code = ?", (self.C,)), [(p, p)])
+        # Allo scan vale solo quel barcode: giusto -> genuine via scan;
+        # un altro DataMatrix con dentro lo stesso codice -> fake.
+        self.assertEqual(verify_server.verdict(self.C, "h1", p)[:2], ("genuine", "scan"))
+        self.assertEqual(verify_server.verdict(self.C, "h1", "X-" + p)[:2], ("fake", "scan"))
+        self.assertEqual(clg_import.registra_barcode(cx, self.C, "X-" + p, sostituisci=True), "ok")
+        self.assertEqual(verify_server.verdict(self.C, "h1", "X-" + p)[:2], ("genuine", "scan"))
+        cx.close()
+
+    @unittest.skipUnless(clg_datamatrix.GENERAZIONE_DISPONIBILE, "servono Pillow e zxing-cpp")
+    def test_pannello_genera_registra_e_ristampa(self):
+        r = admin_server.genera_datamatrix(self.C, {"article": "ART01", "size": "M"})
+        self.assertEqual((r.get("ok"), r["registrato"], r["payload"]), (True, "nuovo", "ART01-M-555 666 777 888"))
+        self.assertTrue(base64.b64decode(r["png_b64"]).startswith(b"\x89PNG"))
+        # seconda volta senza sostituisci: ristampa, campi ignorati, niente cambia
+        r2 = admin_server.genera_datamatrix(self.C, {"article": "ALTRO"})
+        self.assertEqual((r2["registrato"], r2["payload"]), ("esistente", "ART01-M-555 666 777 888"))
+        # con sostituisci: nuovo contenuto
+        r3 = admin_server.genera_datamatrix(self.C, {"article": "ALTRO"}, sostituisci=True)
+        self.assertEqual((r3["registrato"], r3["payload"]), ("sostituito", "ALTRO-555 666 777 888"))
+        self.assertEqual(query("SELECT payload FROM codes WHERE code = ?", (self.C,)), [("ALTRO-555 666 777 888",)])
+        # un codice del brand: si ristampa il suo
+        rb = admin_server.genera_datamatrix("739184173203", {})
+        self.assertEqual((rb["registrato"], rb["payload"]), ("esistente", PAYLOAD_ESEMPIO))
+        self.assertIn("errore", admin_server.genera_datamatrix("000000000000", {}))
+        self.assertIn("errore", admin_server.genera_datamatrix(self.C, {"size": "M L"}, sostituisci=True))
+
+    @unittest.skipUnless(clg_datamatrix.GENERAZIONE_DISPONIBILE, "servono Pillow e zxing-cpp")
+    def test_pannello_zip_dei_mancanti(self):
+        with sqlite3.connect(DB) as cx:
+            cx.execute("INSERT INTO codes (code, status, created_at) VALUES ('111222333444', 'valid', 1)")
+        r = admin_server.datamatrix_mancanti()
+        self.assertEqual((r.get("ok"), r["quanti"], r["saltati"]), (True, 2, []))
+        z = zipfile.ZipFile(io.BytesIO(base64.b64decode(r["zip_b64"])))
+        self.assertEqual(sorted(z.namelist()), ["111222333444.png", "111222333444.svg", self.C + ".png", self.C + ".svg"])
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE payload_norm IS NULL"), [(0,)])
+        self.assertEqual(verify_server.verdict("111222333444", "h", "111 222 333 444")[:2], ("genuine", "scan"))
+        self.assertEqual(admin_server.datamatrix_mancanti(), {"ok": True, "quanti": 0})
 
 
 class TestVerdetti(unittest.TestCase):

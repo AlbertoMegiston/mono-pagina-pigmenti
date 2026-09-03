@@ -165,6 +165,48 @@ clgadmin stato 558420726815 revoked
 
 Stati possibili: `valid`, `suspicious`, `revoked`.
 
+## DataMatrix per i codici caricati a mano
+
+I codici del brand arrivano dall'Excel con il loro DataMatrix gia' letto e
+registrato. Un codice caricato da txt, csv o dal riquadro del pannello non ha
+nessun barcode: finche' resta cosi', allo scan vale come il codice digitato.
+Per stamparlo su un cartellino con la stessa regola dei prodotti del brand
+("solo il barcode emesso e' valido") il DataMatrix si genera qui, e nel
+farlo viene registrato come barcode emesso per quel codice.
+
+Il contenuto ha la stessa forma dei cartellini del brand:
+`articolo-variante-taglia-identificativo-codice`, con il codice a gruppi di
+tre cifre ("555 666 777 888"). I campi sono facoltativi e si saltano se
+vuoti: senza campi il DataMatrix contiene solo il codice. Nei campi vanno
+lettere, cifre, punto e barra; niente spazi ne' trattini (separano i campi).
+
+**Dal pannello.** Nella tabella "Codici in lista" ogni codice senza barcode
+ha il bottone "Genera DataMatrix": si compilano i campi, si preme "Genera e
+registra" e si scaricano il PNG (anteprima, 12 px per modulo) o l'SVG (per
+la stampa, si ridimensiona senza perdere nitidezza). I codici che il barcode
+ce l'hanno gia' mostrano "Scarica": ridisegna quello registrato per una
+ristampa, senza cambiare nulla. Per cambiarne il contenuto bisogna spuntare
+"Rigenera e sostituisci": i cartellini gia' stampati con il vecchio barcode
+smettono di valere, per questo serve la spunta. Il bottone "Genera i
+DataMatrix mancanti (zip)" fa tutto in una volta per i codici senza barcode
+(campi presi da quelli gia' salvati, se ci sono) e scarica uno zip con PNG e
+SVG per ogni codice.
+
+**Dalla riga di comando.**
+
+```
+clgadmin datamatrix 555666777888 --articolo ART01 --taglia M --out /root/555666777888.svg
+clgadmin datamatrix 555666777888                      # ristampa quello registrato
+clgadmin datamatrix 555666777888 --taglia L --sostituisci
+clgadmin datamatrix-mancanti /root/datamatrix         # PNG e SVG per ogni codice senza barcode
+```
+
+Servono le stesse librerie facoltative dell'importazione degli Excel (Pillow
+e zxing-cpp, installate dal passo 1b di setup.sh). Il simbolo e' quadrato,
+con la zona quieta gia' inclusa; ogni immagine viene riletta prima di essere
+consegnata. Stampa consigliata: almeno 1 mm per modulo (un simbolo di 26
+moduli misura circa 3 cm con i margini).
+
 ## Come vengono decisi gli esiti
 
 | Situazione | Esito mostrato |
