@@ -11,10 +11,11 @@ Esempi:
     # carica una lista (txt con un codice per riga, oppure csv con colonna "code")
     sudo clgadmin importa /root/codici-lotto-A.csv --lotto "lotto-A"
 
-    # carica l'Excel del brand (.xlsx/.xlsm): il codice viene letto dal
-    # DataMatrix in colonna F, la colonna E vale solo come ripiego
+    # carica l'Excel del brand (.xlsx/.xlsm): il codice e' quello della
+    # colonna E, il DataMatrix in colonna F diventa il barcode di quel codice
     sudo clgadmin importa /root/Barcode_DataMatrix.xlsm --lotto "lotto-A"
-    sudo clgadmin importa /root/Barcode_DataMatrix.xlsm --codice-da colonna
+    # (oppure il codice dal numero dentro al DataMatrix, E solo come ripiego)
+    sudo clgadmin importa /root/Barcode_DataMatrix.xlsm --codice-da barcode
 
     # marca un codice come revocato (da quel momento l'esito è "falso")
     sudo clgadmin stato 558420726815 revoked
@@ -156,10 +157,11 @@ def senza_barcode(cx):
 
 def residui_senza_barcode(cx, righe):
     """Codici gia' in lista degli stessi fogli, senza barcode registrato e non
-    toccati da questa importazione. Sono quasi sempre i codici casuali della
-    colonna E lasciati da un'importazione fatta senza Pillow/zxing-cpp: hanno
-    un codice diverso da quello dei barcode, quindi l'upsert non li aggiorna e
-    resterebbero in lista come validi. Chi importa deve saperlo."""
+    toccati da questa importazione. Restano da un'importazione fatta con
+    l'altra origine del codice (colonna E oppure numero nel DataMatrix) o da
+    un file diverso: hanno un codice che questo file non porta, quindi
+    l'upsert non li aggiorna e resterebbero in lista come validi. Chi importa
+    deve saperlo."""
     fogli = sorted({r["sheet"] for r in righe if r["valido"] and r["sheet"]})
     if not fogli:
         return 0
@@ -171,15 +173,24 @@ def residui_senza_barcode(cx, righe):
 
 
 AVVISO_RESIDUI = ("ATTENZIONE: {n} codici degli stessi fogli restano in lista senza barcode "
-                  "(importazione precedente senza lettura dei DataMatrix?): non coincidono "
-                  "con quelli dei barcode, quindi non sono stati aggiornati. Per toglierli: "
-                  "clgadmin svuota --conferma, poi reimporta")
-AVVISO_SENZA_DECODIFICA = (
-    "ATTENZIONE: Pillow/zxing-cpp non installati: i barcode non sono stati letti e i "
-    "codici vengono dalla colonna E, che sono casuali (vedi deploy/setup.sh). Quando le "
-    "librerie ci saranno, svuota la lista (clgadmin svuota --conferma) prima di "
-    "reimportare: i codici presi da E non coincidono con quelli dei barcode e "
-    "resterebbero in lista")
+                  "(importazione precedente con un'altra origine del codice, o senza lettura "
+                  "dei DataMatrix?): questo file non li porta, quindi non sono stati "
+                  "aggiornati. Per toglierli: clgadmin svuota --conferma, poi reimporta")
+# Senza Pillow/zxing-cpp l'avviso dipende dall'origine: con la colonna E i
+# codici restano gli stessi e basta reimportare; con il numero nel DataMatrix
+# i codici presi da E come ripiego sono altri e vanno tolti prima.
+AVVISO_SENZA_DECODIFICA = {
+    "colonna": (
+        "ATTENZIONE: Pillow/zxing-cpp non installati: i DataMatrix non sono stati letti, "
+        "quindi i codici sono in lista senza il loro barcode e allo scan i cartellini non "
+        "risulteranno autentici (vedi deploy/setup.sh). Quando le librerie ci saranno, "
+        "reimporta lo stesso file: i codici restano gli stessi e i barcode vengono aggiunti"),
+    "barcode": (
+        "ATTENZIONE: Pillow/zxing-cpp non installati: i barcode non sono stati letti e i "
+        "codici vengono dalla colonna E (vedi deploy/setup.sh). Quando le librerie ci "
+        "saranno, svuota la lista (clgadmin svuota --conferma) prima di reimportare: i "
+        "codici presi da E non coincidono con quelli dei barcode e resterebbero in lista"),
+}
 
 
 def e_excel(percorso):
@@ -213,8 +224,10 @@ def leggi_righe(percorso):
 
 def importa_excel(cx, args):
     """Excel del brand: un prodotto per riga, DataMatrix in colonna F.
-    Il codice viene dal barcode (o da E con --codice-da colonna); la riga
-    salva anche payload, articolo, variante, taglia e identificativo."""
+    Il codice e' quello della colonna E (o il numero dentro al DataMatrix con
+    --codice-da barcode); la riga salva anche il testo del DataMatrix, che da
+    quel momento e' il barcode emesso per quel codice, e articolo, variante,
+    taglia e identificativo."""
     try:
         righe, riep = clg_excel.analizza_file(args.file, origine_codice=args.codice_da)
     except clg_excel.ExcelNonValido as e:
@@ -238,13 +251,13 @@ def importa_excel(cx, args):
         residui = residui_senza_barcode(cx, righe)
     print(f"fogli: {len(riep['fogli'])}   righe: {riep['totale']}")
     print(f"importati: {nuovi}   aggiornati: {aggiornati}   scartati: {riep['scartati']}")
-    print(f"discordanti (colonna E diversa dal barcode): {riep['discordanti']}   "
+    print(f"discordanti (numero nel DataMatrix diverso dalla colonna E): {riep['discordanti']}   "
           f"senza immagine: {riep['senza_immagine']}   "
           f"non decodificabili: {riep['non_decodificabili']}")
     if residui:
         print(AVVISO_RESIDUI.format(n=residui))
     if not riep["decodifica_disponibile"]:
-        print(AVVISO_SENZA_DECODIFICA)
+        print(AVVISO_SENZA_DECODIFICA[args.codice_da])
     if scarti:
         print("righe scartate:", ", ".join(scarti))
 
@@ -434,10 +447,12 @@ def main():
     imp.add_argument("--stato", default=None, choices=STATI,
                      help="stato per le righe che non lo indicano (senza: valid per "
                           "i codici nuovi, invariato per quelli gia' in lista)")
-    imp.add_argument("--codice-da", dest="codice_da", default="barcode",
-                     choices=("barcode", "colonna"),
-                     help="solo Excel: codice dal DataMatrix (default, con ripiego "
-                          "sulla colonna E) oppure sempre dalla colonna E")
+    imp.add_argument("--codice-da", dest="codice_da", default="colonna",
+                     choices=("colonna", "barcode"),
+                     help="solo Excel: 'colonna' (default) prende il codice dalla colonna E "
+                          "e registra il DataMatrix della riga come suo barcode; 'barcode' "
+                          "prende il codice dal numero dentro al DataMatrix (colonna E solo "
+                          "se manca)")
     imp.set_defaults(func=cmd_importa)
 
     st = sub.add_parser("stato", help="cambia lo stato di un codice")

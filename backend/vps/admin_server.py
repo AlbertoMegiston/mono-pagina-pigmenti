@@ -178,8 +178,8 @@ def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima, forz
     con lo stesso upsert di clgadmin. In entrambi i casi la risposta porta i
     conteggi (totale, discordanti, senza immagine, non decodificabili) e
     residui_senza_barcode: i codici degli stessi fogli gia' in lista senza
-    barcode che questa importazione non tocca (di norma i codici casuali della
-    colonna E di un'importazione fatta senza Pillow/zxing-cpp)."""
+    barcode che questa importazione non tocca (lasciati da un'importazione
+    con l'altra origine del codice o senza lettura dei DataMatrix)."""
     if clg_excel is None or clg_import is None:
         return {"errore": "Lettura degli Excel non disponibile su questo server "
                           "(mancano clg_excel.py o clg_import.py)."}
@@ -187,21 +187,23 @@ def importa_file(nome, dati, origine, stato, sostituisci, lotto, anteprima, forz
         return {"errore": "Il file non e' un Excel (.xlsx/.xlsm). "
                           "Per txt e csv usa il riquadro dei codici."}
     if origine not in clg_excel.ORIGINI:
-        origine = "barcode"
+        origine = "colonna"
     if stato not in STATI:
         stato = "valid"
     try:
         righe, riep = clg_excel.analizza_file(dati, origine_codice=origine)
     except clg_excel.ExcelNonValido as e:
         return {"errore": "File non leggibile: %s" % e}
-    # Immagini presenti ma non lette (librerie mancanti, errore): importare
-    # dalla colonna E in silenzio metterebbe in lista numeri casuali. Fuori
-    # dall'anteprima serve la conferma esplicita dell'operatore (forza).
+    # Immagini presenti ma non lette (librerie mancanti, errore): quei codici
+    # entrerebbero in lista senza il loro barcode e allo scan il cartellino
+    # non risulterebbe autentico. Fuori dall'anteprima serve la conferma
+    # esplicita dell'operatore (forza), con qualunque origine del codice.
     non_letti = riep.get("non_decodificabili", 0)
-    if not anteprima and not forza and origine == "barcode" and non_letti:
-        return {"errore": ("%d immagini DataMatrix non sono state lette: i loro codici "
-                           "verrebbero presi dalla colonna E, che e' casuale. Guarda il "
-                           "motivo nell'anteprima e, per importare comunque, spunta "
+    if not anteprima and not forza and non_letti:
+        return {"errore": ("%d immagini DataMatrix non sono state lette: quei codici "
+                           "entrerebbero in lista senza il loro barcode, e allo scan i "
+                           "cartellini non risulterebbero autentici. Guarda il motivo "
+                           "nell'anteprima e, per importare comunque, spunta "
                            "\"Importa comunque\".") % non_letti,
                 "serve_conferma": True}
     risp = dict(riep, ok=True, anteprima=bool(anteprima), origine=origine)
@@ -407,8 +409,9 @@ PAGE = """<!doctype html>
     <h2>Carica codici</h2>
     <p class="hint">Incolla i codici (uno per riga) oppure scegli un file .txt/.csv
        (un CSV puo' avere le colonne <code>code,status,note</code>) o l'<b>Excel del
-       brand</b> (.xlsx/.xlsm): dall'Excel il codice viene letto dal DataMatrix di ogni
-       riga, e insieme si salvano articolo, variante, taglia e identificativo.</p>
+       brand</b> (.xlsx/.xlsm): dall'Excel il codice e' quello della colonna E, il DataMatrix
+       della riga viene registrato come suo barcode (cosi' scansionarlo o digitare il codice
+       danno lo stesso esito) e insieme si salvano articolo, variante, taglia e identificativo.</p>
     <label for="file">Da file (facoltativo)</label>
     <input type="file" id="file" accept=".txt,.csv,.xlsx,.xlsm">
     <p class="hint" id="file-info" style="margin-top:6px"></p>
@@ -426,8 +429,8 @@ PAGE = """<!doctype html>
       <div>
         <label for="origine">Codice (solo Excel)</label>
         <select id="origine">
-          <option value="barcode">dal DataMatrix (colonna E solo se manca)</option>
-          <option value="colonna">sempre dalla colonna E</option>
+          <option value="colonna">dalla colonna E (il DataMatrix della riga e' il suo barcode)</option>
+          <option value="barcode">dal numero dentro al DataMatrix (colonna E solo se manca)</option>
         </select>
       </div>
       <div>
@@ -630,12 +633,12 @@ PAGE = """<!doctype html>
       if(res.errore){show("msg-importa",false,res.errore);return;}
       var box=$("anteprima"), h="";
       h+='<p><b>'+res.totale+'</b> righe in '+res.fogli.length+' fogli ('+esc(res.fogli.join(", "))+'): '+
-         '<b>'+res.validi+'</b> con codice, '+res.scartati+' scartate, <b>'+res.discordanti+'</b> con colonna E diversa dal barcode, '+
+         '<b>'+res.validi+'</b> con codice, '+res.scartati+' scartate, <b>'+res.discordanti+'</b> con il numero nel DataMatrix diverso dalla colonna E, '+
          res.senza_immagine+' senza immagine, '+res.non_decodificabili+' non decodificabili.</p>';
-      if(!res.decodifica_disponibile) h+='<p style="color:var(--warn)">Su questo server la lettura dei DataMatrix non e\\' disponibile (mancano Pillow/zxing-cpp): i codici vengono presi dalla colonna E, che sono casuali. Quando le librerie saranno installate, reimporta con "Sostituisci": i codici presi da E non coincidono con quelli dei barcode e resterebbero in lista.</p>';
-      if(res.residui_senza_barcode) h+='<p style="color:var(--warn)">In lista ci sono gia\\' <b>'+res.residui_senza_barcode+'</b> codici di questi fogli senza barcode (importazione precedente senza lettura dei DataMatrix?) che questa importazione non aggiorna: per toglierli spunta "Sostituisci" e reimporta.</p>';
-      if(anteprima && res.non_decodificabili) h+='<p style="color:var(--warn)"><b>'+res.non_decodificabili+'</b> immagini DataMatrix non lette (il motivo e nella colonna Codice DataMatrix). Senza conferma non si importa nulla. <label><input type="checkbox" id="forza"> Importa comunque, usando per quelle righe il codice della colonna E (casuale)</label></p>';
-      h+='<div class="scroll"><table><tr><th>Foglio</th><th>Riga</th><th>Codice colonna E</th><th>Codice DataMatrix</th><th>Taglia</th><th>Articolo</th></tr>'+
+      if(!res.decodifica_disponibile) h+='<p style="color:var(--warn)">Su questo server la lettura dei DataMatrix non e\\' disponibile (mancano Pillow/zxing-cpp): i codici entrano in lista senza il loro barcode, e allo scan i cartellini non risulterebbero autentici. '+(res.origine==="barcode"?'Quando le librerie saranno installate, reimporta con "Sostituisci": i codici presi da E non coincidono con quelli dei barcode e resterebbero in lista.':'Quando le librerie saranno installate, reimporta lo stesso file: i codici restano gli stessi e i barcode vengono aggiunti.')+'</p>';
+      if(res.residui_senza_barcode) h+='<p style="color:var(--warn)">In lista ci sono gia\\' <b>'+res.residui_senza_barcode+'</b> codici di questi fogli senza barcode (importazione precedente con un\\'altra origine del codice, o senza lettura dei DataMatrix?) che questa importazione non aggiorna: per toglierli spunta "Sostituisci" e reimporta.</p>';
+      if(anteprima && res.non_decodificabili) h+='<p style="color:var(--warn)"><b>'+res.non_decodificabili+'</b> immagini DataMatrix non lette (il motivo e\\' nella colonna "Numero nel DataMatrix"). Senza conferma non si importa nulla. <label><input type="checkbox" id="forza"> Importa comunque: quelle righe entrano con il codice della colonna E ma senza barcode (allo scan il loro DataMatrix non risultera\\' autentico)</label></p>';
+      h+='<div class="scroll"><table><tr><th>Foglio</th><th>Riga</th><th>Codice (colonna E)</th><th>Numero nel DataMatrix</th><th>Taglia</th><th>Articolo</th></tr>'+
         res.righe.map(function(r){
           return '<tr><td>'+esc(r.foglio)+'</td><td>'+r.riga+'</td><td><code>'+esc(r.codice_colonna||"—")+'</code></td>'+
             '<td class="'+(r.discordante?'diff':'')+'"><code>'+esc(r.codice_barcode||(r.motivo||"—"))+'</code></td>'+
@@ -761,7 +764,7 @@ class Handler(BaseHTTPRequestHandler):
                     self._json({"errore": "file non leggibile (base64 non valido)"}, 400)
                     return
                 self._json(importa_file(str(dati.get("nome", "")), contenuto,
-                                        str(dati.get("origine_codice", "barcode")),
+                                        str(dati.get("origine_codice", "colonna")),
                                         str(dati.get("stato", "valid")),
                                         bool(dati.get("sostituisci")),
                                         str(dati.get("lotto") or "").strip()[:80],

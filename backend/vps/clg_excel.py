@@ -3,20 +3,26 @@
 Lettura degli Excel del brand (.xlsx/.xlsm) con i DataMatrix dei cartellini.
 
 Ogni riga prodotto ha: A articolo, B variante, C taglia, D identificativo
-interno, E codice a 12 cifre ("639 516 540 959"), F l'immagine PNG del
-DataMatrix. Il DataMatrix contiene A+B+C+D+codice e' la fonte affidabile: la
-colonna E e' una formula casuale che cambia a ogni ricalcolo, quindi in
-quasi tutte le righe non coincide con il codice stampato sul cartellino.
+interno, E il codice CLG a 12 cifre ("639 516 540 959"), F l'immagine PNG
+del DataMatrix stampato sul cartellino. Il codice e' quello della colonna E:
+e' quello che il cliente digita. Il DataMatrix della stessa riga viene
+registrato come barcode emesso per quel codice, cosi' scansionarlo o
+digitare il codice portano allo stesso esito. Il testo del DataMatrix e'
+A+B+C+D+numero: nel file del brand quel numero spesso non coincide con E
+(la colonna E e' una formula RANDBETWEEN che cambia a ogni ricalcolo); il
+flag "discordante" lo segnala, ma il codice resta E.
 
 Il file e' uno zip di XML: lo leggiamo con la sola libreria standard
 (zipfile + xml.etree). Pillow e zxing-cpp servono solo a decodificare le
 immagini e sono facoltativi: se mancano, le righe tornano con payload=None e
-motivo "decodifica non disponibile", e chi importa ripiega sulla colonna E.
+motivo "decodifica non disponibile", e i codici entrano in lista senza il
+loro barcode (si aggiunge reimportando lo stesso file a librerie installate).
 
 Modulo condiviso da clg_import.py (riga di comando) e admin_server.py
 (pannello). Uso tipico:
 
-    righe, riepilogo = analizza_file(dati_o_percorso, origine_codice="barcode")
+    righe, riepilogo = analizza_file(dati_o_percorso)                 # codice da E
+    righe, riepilogo = analizza_file(dati, origine_codice="barcode")  # dal numero nel DataMatrix
 """
 
 import io
@@ -411,13 +417,14 @@ def _senza_trattino(s):
     return re.sub(r"-+$", "", (s or "").strip())
 
 
-def analizza(righe, origine_codice="barcode"):
+def analizza(righe, origine_codice="colonna"):
     """Da ogni riga letta ricava il codice da importare e i campi del prodotto.
 
-    origine_codice="barcode": codice dal payload; se manca l'immagine o non
-    si decodifica, ripiego sulla colonna E. "colonna": sempre E (il payload
-    viene comunque conservato). Il flag "discordante" segnala che E e il
-    barcode portano codici diversi.
+    origine_codice="colonna" (predefinita): il codice e' quello della colonna
+    E e il payload del DataMatrix, se letto, si conserva come barcode di quel
+    codice. "barcode": codice dal numero dentro al payload; se manca
+    l'immagine o non si decodifica, ripiego sulla colonna E. Il flag
+    "discordante" segnala che E e il numero nel DataMatrix sono diversi.
     """
     if origine_codice not in ORIGINI:
         raise ValueError("origine_codice deve essere una di %s" % (ORIGINI,))
@@ -431,6 +438,9 @@ def analizza(righe, origine_codice="barcode"):
             code = da_barcode or da_colonna
         else:
             code = da_colonna
+        motivo = r["motivo"]
+        if not code and not motivo:
+            motivo = "colonna E vuota o non valida"
         out.append({
             "foglio": r["foglio"], "riga": r["riga"],
             "code": code,
@@ -447,7 +457,7 @@ def analizza(righe, origine_codice="barcode"):
             "codice_barcode": da_barcode,
             "discordante": bool(da_colonna and da_barcode and da_colonna != da_barcode),
             "immagine": r["immagine"] is not None,
-            "motivo": r["motivo"],
+            "motivo": motivo,
         })
     return out
 
@@ -471,7 +481,7 @@ def riepilogo(analizzate):
     }
 
 
-def analizza_file(dati, origine_codice="barcode", colonna_codice="E", colonna_barcode="F"):
+def analizza_file(dati, origine_codice="colonna", colonna_codice="E", colonna_barcode="F"):
     """Lettura + analisi in un colpo solo: (righe analizzate, riepilogo)."""
     righe = analizza(leggi_excel(dati, colonna_codice, colonna_barcode), origine_codice)
     return righe, riepilogo(righe)

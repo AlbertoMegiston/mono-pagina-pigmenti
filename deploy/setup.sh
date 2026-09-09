@@ -44,8 +44,10 @@ apt-get install -y -qq nginx certbot python3-certbot-nginx python3 ufw curl open
 echo "==> 1b/8 lettura dei DataMatrix dagli Excel (facoltativa)"
 # Pillow e zxing-cpp servono solo a leggere le immagini DataMatrix negli
 # Excel del brand. Se non si installano tutto il resto funziona lo stesso
-# (txt/csv, ed Excel con il codice preso dalla colonna E): per questo qui
-# niente e' fatale, e a un rilancio non si reinstalla cio' che c'e' gia'.
+# (txt/csv; dagli Excel i codici della colonna E entrano comunque, ma senza
+# il loro barcode finche' non si reimporta a librerie installate): per
+# questo qui niente e' fatale, e a un rilancio non si reinstalla cio' che
+# c'e' gia'.
 if python3 -c 'import PIL' 2>/dev/null; then
   echo "    Pillow gia' presente"
 elif apt-get install -y -qq python3-pil >/dev/null 2>&1; then

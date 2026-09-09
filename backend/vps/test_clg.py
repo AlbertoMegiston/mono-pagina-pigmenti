@@ -127,7 +127,7 @@ def con_voce(dati_zip, nome, nuovo):
 
 def importa_cli(file, **kw):
     args = Namespace(db=DB, file=file, lotto=kw.get("lotto", "test"),
-                     stato=kw.get("stato"), codice_da=kw.get("codice_da", "barcode"))
+                     stato=kw.get("stato"), codice_da=kw.get("codice_da", "colonna"))
     out = io.StringIO()
     with contextlib.redirect_stdout(out):
         clg_import.cmd_importa(args)
@@ -313,13 +313,28 @@ class TestExcelSintetico(unittest.TestCase):
         self.assertEqual(r["immagine"], png)
         if atteso:
             self.assertEqual(r["payload"], atteso)
-        an = clg_excel.analizza(righe)[0]
+        an = clg_excel.analizza(righe)[0]  # origine predefinita: colonna E
         self.assertEqual((an["article"], an["variant"], an["size"], an["internal_id"]),
                          ("ART", "V1", "S", "ID1"))
-        self.assertEqual(an["codice_colonna"], "000000000001")
+        self.assertEqual((an["codice_colonna"], an["code"]), ("000000000001", "000000000001"))
         if atteso:
-            self.assertEqual(an["code"], clg_excel.estrai_codice(atteso))
+            self.assertEqual(an["payload"], atteso)
             self.assertTrue(an["discordante"])
+            self.assertEqual(clg_excel.analizza(righe, "barcode")[0]["code"],
+                             clg_excel.estrai_codice(atteso))
+
+    def test_colonna_e_non_valida_con_datamatrix_letto(self):
+        # Origine predefinita: senza un codice valido in E la riga si scarta
+        # anche se il DataMatrix si legge, e il motivo lo dice.
+        png, atteso = self._png_datamatrix()
+        if not atteso:
+            self.skipTest("servono l'Excel del brand e Pillow/zxing-cpp")
+        dati = xlsx_sintetico({"E1": "abc"}, [(5, 0, 0, 0, 781050, png)])
+        an = clg_excel.analizza(clg_excel.leggi_excel(dati))
+        self.assertEqual((an[0]["valido"], an[0]["code"], an[0]["codice_barcode"], an[0]["motivo"]),
+                         (False, "", "739184173203", "colonna E vuota o non valida"))
+        self.assertEqual(clg_excel.analizza(clg_excel.leggi_excel(dati), "barcode")[0]["code"],
+                         "739184173203")
 
     def test_due_immagini_vince_la_colonna_del_barcode(self):
         dati = xlsx_sintetico({"E1": "000 000 000 001"},
@@ -353,7 +368,9 @@ class TestExcelSintetico(unittest.TestCase):
         self.assertEqual([r["valido"] for r in an], [True, False])
         rp = clg_excel.riepilogo(an)
         self.assertEqual((rp["totale"], rp["validi"], rp["scartati"], rp["senza_immagine"]), (2, 1, 1, 1))
-        self.assertEqual(clg_excel.analizza(righe, "colonna")[0]["code"], "111222333444")
+        col = clg_excel.analizza(righe, "colonna")
+        self.assertEqual([r["code"] for r in col], ["111222333444", ""])
+        self.assertEqual([r["code"] for r in clg_excel.analizza(righe)], ["111222333444", ""])  # predefinita
         with self.assertRaises(ValueError):
             clg_excel.analizza(righe, "altro")
 
@@ -443,7 +460,8 @@ class TestExcelReale(unittest.TestCase):
 
     @unittest.skipUnless(DECODIFICA, "Pillow/zxing-cpp non installati")
     def test_decodifica_e_analisi(self):
-        righe, rp = clg_excel.analizza_file(EXCEL)
+        # Con origine "barcode" il codice e' il numero dentro al DataMatrix.
+        righe, rp = clg_excel.analizza_file(EXCEL, origine_codice="barcode")
         self.assertEqual(rp["totale"], 95)
         self.assertEqual(rp["validi"], 95)
         self.assertEqual(rp["con_payload"], 95)
@@ -489,6 +507,17 @@ class TestExcelReale(unittest.TestCase):
         self.assertTrue(all(r["code"] == r["codice_colonna"] for r in righe))
         self.assertEqual(rp["con_payload"], 95)  # il barcode si salva comunque
 
+    @unittest.skipUnless(DECODIFICA, "Pillow/zxing-cpp non installati")
+    def test_predefinita_e_la_colonna_e(self):
+        # Senza indicare l'origine il codice e' quello della colonna E e il
+        # DataMatrix della riga resta come suo barcode: e' il caso del brand.
+        righe, rp = clg_excel.analizza_file(EXCEL)
+        self.assertEqual((rp["validi"], rp["con_payload"], rp["discordanti"]), (95, 95, 90))
+        self.assertTrue(all(r["code"] == r["codice_colonna"] for r in righe))
+        r2 = next(r for r in righe if r["foglio"] == "6100062" and r["riga"] == 2)
+        self.assertEqual((r2["code"], r2["codice_barcode"], r2["discordante"], r2["payload"]),
+                         ("678104772975", "739184173203", True, PAYLOAD_ESEMPIO))
+
 
 @unittest.skipUnless(HA_EXCEL and DECODIFICA, "servono l'Excel del brand e Pillow/zxing-cpp")
 class TestImportazione(unittest.TestCase):
@@ -496,52 +525,90 @@ class TestImportazione(unittest.TestCase):
         db_nuovo()
 
     def test_clgadmin_importa_excel(self):
+        # Origine predefinita: il codice e' quello della colonna E e il
+        # DataMatrix della riga e' registrato come suo barcode.
         out = importa_cli(EXCEL, lotto="lotto-A")
         self.assertIn("importati: 95   aggiornati: 0   scartati: 0", out)
-        self.assertIn("discordanti (colonna E diversa dal barcode): 90", out)
+        self.assertIn("discordanti (numero nel DataMatrix diverso dalla colonna E): 90", out)
         self.assertIn("senza immagine: 0", out)
         self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 95)])
         riga = query("SELECT status, batch, payload, payload_norm, article, variant, size, "
-                     "internal_id, sheet FROM codes WHERE code = '739184173203'")[0]
+                     "internal_id, sheet FROM codes WHERE code = '678104772975'")[0]
         self.assertEqual(riga, ("valid", "lotto-A", PAYLOAD_ESEMPIO, PAYLOAD_ESEMPIO,
                                 "L1S156100062S0051", "V0024", "M", "99PROI20250017229", "6100062"))
+        # Il numero dentro al DataMatrix non e' un codice della lista.
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '739184173203'"), [(0,)])
         # Secondo passaggio: tutto aggiornato, niente doppioni.
         out = importa_cli(EXCEL, lotto="lotto-B")
         self.assertIn("importati: 0   aggiornati: 95", out)
         self.assertEqual(query("SELECT COUNT(*) FROM codes"), [(95,)])
-        self.assertEqual(query("SELECT batch FROM codes WHERE code = '739184173203'"), [("lotto-B",)])
+        self.assertEqual(query("SELECT batch FROM codes WHERE code = '678104772975'"), [("lotto-B",)])
+
+    def test_clgadmin_importa_excel_codice_dal_barcode(self):
+        out = importa_cli(EXCEL, lotto="lotto-A", codice_da="barcode")
+        self.assertIn("importati: 95   aggiornati: 0   scartati: 0", out)
+        self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 95)])
+        self.assertEqual(query("SELECT payload FROM codes WHERE code = '739184173203'"), [(PAYLOAD_ESEMPIO,)])
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '678104772975'"), [(0,)])
+
+    def test_scan_e_codice_digitato_danno_lo_stesso_esito(self):
+        # Il caso del brand: il cliente scansiona il DataMatrix del cartellino
+        # oppure digita il codice della colonna E, e in entrambi i casi
+        # l'esito e' "autentico". La pagina, allo scan, manda il payload e il
+        # numero che ne ha estratto (quello dentro al DataMatrix): decide la
+        # riga del payload, non quel numero.
+        importa_cli(EXCEL)
+        self.assertEqual(verify_server.verdict("739184173203", "h1", PAYLOAD_ESEMPIO),
+                         ("genuine", "scan", "678104772975", 1))
+        self.assertEqual(verify_server.verdict("678104772975", "h2"),
+                         ("genuine", "code", "678104772975", None))
+        # Il numero dentro al DataMatrix, digitato da solo, non e' in lista.
+        self.assertEqual(verify_server.verdict("739184173203", "h3")[0], "not_found")
+        # Un altro DataMatrix con dentro il codice di una riga registrata: falso.
+        self.assertEqual(verify_server.verdict("678104772975", "h4", "ALTRO-678 104 772 975"),
+                         ("fake", "scan", "678104772975", 0))
 
     def test_reimportare_non_cambia_lo_stato_se_non_indicato(self):
         importa_cli(EXCEL)
         with sqlite3.connect(DB) as cx:
-            cx.execute("UPDATE codes SET status = 'revoked' WHERE code = '739184173203'")
+            cx.execute("UPDATE codes SET status = 'revoked' WHERE code = '678104772975'")
         importa_cli(EXCEL)
-        self.assertEqual(query("SELECT status FROM codes WHERE code = '739184173203'"), [("revoked",)])
+        self.assertEqual(query("SELECT status FROM codes WHERE code = '678104772975'"), [("revoked",)])
         importa_cli(EXCEL, stato="valid")
-        self.assertEqual(query("SELECT status FROM codes WHERE code = '739184173203'"), [("valid",)])
+        self.assertEqual(query("SELECT status FROM codes WHERE code = '678104772975'"), [("valid",)])
 
     def test_importare_da_testo_non_cancella_il_barcode(self):
         importa_cli(EXCEL)
         txt = os.path.join(TMP, "lista.txt")
         with open(txt, "w") as f:
-            f.write("739184173203\n000000000009\nabc\n")
+            f.write("678104772975\n000000000009\nabc\n")
         out = importa_cli(txt)
         self.assertIn("inseriti: 1   aggiornati: 1   saltati: 1", out)
-        self.assertEqual(query("SELECT payload FROM codes WHERE code = '739184173203'"), [(PAYLOAD_ESEMPIO,)])
+        self.assertEqual(query("SELECT payload FROM codes WHERE code = '678104772975'"), [(PAYLOAD_ESEMPIO,)])
         self.assertEqual(query("SELECT status, payload FROM codes WHERE code = '000000000009'"),
                          [("valid", None)])
 
-    def test_codice_da_colonna(self):
-        importa_cli(EXCEL, codice_da="colonna")
-        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '678104772975'"), [(1,)])
-        self.assertEqual(query("SELECT payload FROM codes WHERE code = '678104772975'"), [(PAYLOAD_ESEMPIO,)])
+    def test_cli_predefinita_dalla_colonna_e(self):
+        # Il default vero di argparse (clgadmin senza --codice-da), non quello
+        # del Namespace usato dagli altri test.
+        r = subprocess.run([sys.executable, os.path.join(QUI, "clg_import.py"), "--db", DB,
+                            "importa", EXCEL, "--lotto", "cli"],
+                           capture_output=True, text=True,
+                           env=dict(os.environ, PYTHONDONTWRITEBYTECODE="1"))
+        self.assertEqual(r.returncode, 0, r.stderr)
+        self.assertIn("importati: 95", r.stdout)
+        self.assertEqual(query("SELECT payload, batch FROM codes WHERE code = '678104772975'"),
+                         [(PAYLOAD_ESEMPIO, "cli")])
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '739184173203'"), [(0,)])
 
     def test_pannello_anteprima_poi_importa(self):
         with open(EXCEL, "rb") as f:
             dati = f.read()
-        ant = admin_server.importa_file("Barcode.xlsm", dati, "barcode", "valid", False, "lotto-P", True)
+        # Origine non indicata (o sconosciuta): vale la colonna E.
+        ant = admin_server.importa_file("Barcode.xlsm", dati, "", "valid", False, "lotto-P", True)
         self.assertTrue(ant.get("ok"), ant)
         self.assertTrue(ant["anteprima"])
+        self.assertEqual(ant["origine"], "colonna")
         self.assertEqual((ant["totale"], ant["validi"], ant["discordanti"], ant["senza_immagine"],
                           ant["non_decodificabili"]), (95, 95, 90, 0, 0))
         self.assertEqual(len(ant["righe"]), 10)
@@ -550,10 +617,11 @@ class TestImportazione(unittest.TestCase):
         self.assertEqual(ant["righe"][1]["taglia"], "M")
         self.assertEqual(ant["righe"][1]["articolo"], "L1S156100062S0051")
         self.assertEqual(query("SELECT COUNT(*) FROM codes"), [(0,)])  # niente scritto
-        imp = admin_server.importa_file("Barcode.xlsm", dati, "barcode", "valid", False, "lotto-P", False)
+        imp = admin_server.importa_file("Barcode.xlsm", dati, "colonna", "valid", False, "lotto-P", False)
         self.assertEqual((imp["nuovi"], imp["aggiornati"]), (95, 0))
         self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes WHERE batch = 'lotto-P'"),
                          [(95, 95)])
+        self.assertEqual(query("SELECT payload FROM codes WHERE code = '678104772975'"), [(PAYLOAD_ESEMPIO,)])
         # Elenco e statistiche mostrano i campi nuovi.
         el = admin_server.elenco_codici("99PROI20250017229")
         self.assertEqual(el["totale"], 1)
@@ -561,27 +629,29 @@ class TestImportazione(unittest.TestCase):
         self.assertTrue(el["righe"][0]["barcode"])
         self.assertEqual(admin_server.elenco_codici("", 90)["righe"].__len__(), 5)
         self.assertEqual(admin_server.stato_lista()["con_barcode"], 95)
-        # Sostituisci: svuota e ricarica.
-        imp = admin_server.importa_file("b.xlsm", dati, "colonna", "suspicious", True, "", False)
+        # Sostituisci: svuota e ricarica (qui con il numero nel DataMatrix come codice).
+        imp = admin_server.importa_file("b.xlsm", dati, "barcode", "suspicious", True, "", False)
         self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE status = 'suspicious' AND batch = 'pannello'"),
                          [(95,)])
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '739184173203'"), [(1,)])
+        self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '678104772975'"), [(0,)])
 
     def test_reimportare_dopo_aver_installato_la_decodifica(self):
-        # Prima importazione senza Pillow/zxing-cpp: i codici vengono dalla
-        # colonna E (casuali). Reimportando con la decodifica attiva i codici
-        # dei barcode sono altri: l'upsert non tocca i vecchi, che resterebbero
-        # in lista come validi. L'importazione deve dirlo, e "Sostituisci" li
-        # toglie.
+        # Origine "barcode". Prima importazione senza Pillow/zxing-cpp: i
+        # codici vengono dalla colonna E come ripiego. Reimportando con la
+        # decodifica attiva i codici dei barcode sono altri: l'upsert non
+        # tocca i vecchi, che resterebbero in lista come validi.
+        # L'importazione deve dirlo, e "Sostituisci" li toglie.
         vecchio = clg_excel.DECODIFICA_DISPONIBILE
         clg_excel.DECODIFICA_DISPONIBILE = False
         try:
-            out = importa_cli(EXCEL)
+            out = importa_cli(EXCEL, codice_da="barcode")
         finally:
             clg_excel.DECODIFICA_DISPONIBILE = vecchio
         self.assertIn("non decodificabili: 95", out)
         self.assertIn("svuota la lista (clgadmin svuota --conferma) prima di reimportare", out)
         self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 0)])
-        out = importa_cli(EXCEL)
+        out = importa_cli(EXCEL, codice_da="barcode")
         self.assertIn("importati: 90   aggiornati: 5", out)
         self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE payload_norm IS NULL"), [(90,)])
         self.assertIn("ATTENZIONE: 90 codici degli stessi fogli restano in lista senza barcode", out)
@@ -594,25 +664,49 @@ class TestImportazione(unittest.TestCase):
         self.assertEqual(imp["residui_senza_barcode"], 0)
         self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 95)])
         # Reimportare una lista pulita non segnala nulla.
-        self.assertNotIn("ATTENZIONE", importa_cli(EXCEL))
+        self.assertNotIn("ATTENZIONE", importa_cli(EXCEL, codice_da="barcode"))
 
-    def test_pannello_non_importa_dalla_colonna_e_senza_conferma(self):
-        # Immagini non lette: il pannello si ferma e chiede conferma; con
-        # forza importa dalla colonna E come prima.
+    def test_reimportare_dopo_aver_installato_la_decodifica_colonna(self):
+        # Origine predefinita: i codici (colonna E) sono gli stessi con o
+        # senza lettura dei DataMatrix, quindi reimportando lo stesso file i
+        # barcode si aggiungono alle righe esistenti, senza svuotare nulla.
+        vecchio = clg_excel.DECODIFICA_DISPONIBILE
+        clg_excel.DECODIFICA_DISPONIBILE = False
+        try:
+            out = importa_cli(EXCEL)
+        finally:
+            clg_excel.DECODIFICA_DISPONIBILE = vecchio
+        self.assertIn("non decodificabili: 95", out)
+        self.assertIn("reimporta lo stesso file", out)
+        self.assertNotIn("svuota la lista", out)
+        self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 0)])
+        out = importa_cli(EXCEL)
+        self.assertIn("importati: 0   aggiornati: 95", out)
+        self.assertNotIn("ATTENZIONE", out)
+        self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 95)])
+        self.assertEqual(query("SELECT payload FROM codes WHERE code = '678104772975'"), [(PAYLOAD_ESEMPIO,)])
+
+    def test_pannello_non_importa_senza_conferma_se_i_datamatrix_non_si_leggono(self):
+        # Immagini non lette: il pannello si ferma e chiede conferma, con
+        # qualunque origine del codice; con forza importa, senza barcode.
         with open(EXCEL, "rb") as f:
             dati = f.read()
         vecchio = clg_excel.DECODIFICA_DISPONIBILE
         clg_excel.DECODIFICA_DISPONIBILE = False
         try:
-            prima = query("SELECT COUNT(*) FROM codes")
-            imp = admin_server.importa_file("b.xlsm", dati, "barcode", "valid", True, "", False)
-            self.assertTrue(imp.get("serve_conferma"))
-            self.assertIn("95 immagini", imp["errore"])
-            self.assertEqual(query("SELECT COUNT(*) FROM codes"), prima)  # niente scritto
-            imp = admin_server.importa_file("b.xlsm", dati, "barcode", "valid", True, "", False,
+            for origine in ("colonna", "barcode"):
+                with self.subTest(origine=origine):
+                    prima = query("SELECT COUNT(*) FROM codes")
+                    imp = admin_server.importa_file("b.xlsm", dati, origine, "valid", True, "", False)
+                    self.assertTrue(imp.get("serve_conferma"))
+                    self.assertIn("95 immagini", imp["errore"])
+                    self.assertIn("senza il loro barcode", imp["errore"])
+                    self.assertEqual(query("SELECT COUNT(*) FROM codes"), prima)  # niente scritto
+            imp = admin_server.importa_file("b.xlsm", dati, "colonna", "valid", True, "", False,
                                             forza=True)
             self.assertNotIn("errore", imp)
             self.assertEqual(query("SELECT COUNT(*), COUNT(payload_norm) FROM codes"), [(95, 0)])
+            self.assertEqual(query("SELECT COUNT(*) FROM codes WHERE code = '678104772975'"), [(1,)])
         finally:
             clg_excel.DECODIFICA_DISPONIBILE = vecchio
 

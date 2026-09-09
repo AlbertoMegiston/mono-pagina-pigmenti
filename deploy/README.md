@@ -90,8 +90,8 @@ brand con i DataMatrix), vedi le statistiche e l'elenco dei codici con taglia,
 articolo e identificativo, revochi un singolo codice, svuoti la lista.
 
 Con un Excel il pannello mostra prima un'**anteprima** (quante righe, quante
-con il codice della colonna E diverso da quello nel DataMatrix, quante senza
-immagine, le prime dieci righe) e scrive solo quando premi **Importa**.
+con il numero dentro al DataMatrix diverso dal codice della colonna E, quante
+senza immagine, le prime dieci righe) e scrive solo quando premi **Importa**.
 
 È protetto da **utente e password** (su HTTPS), con un limite ai tentativi di
 accesso. All'installazione viene creata una password casuale, salvata sul
@@ -137,25 +137,31 @@ che non venga indicato, nel CSV o con `--stato`.
 
 Il brand fornisce un Excel (`.xlsx`/`.xlsm`) con un foglio per modello e, per
 ogni riga: articolo (A), variante (B), taglia (C), identificativo interno (D),
-codice a 12 cifre (E) e l'**immagine del DataMatrix** (F) che finisce sul
-cartellino. Il DataMatrix contiene `A+B+C+D+codice`, ed è lui la fonte
-affidabile: la colonna E è una formula casuale che cambia a ogni ricalcolo e
-in quasi tutte le righe non coincide con il codice stampato.
+il **codice CLG** a 12 cifre (E) e l'**immagine del DataMatrix** (F) che
+finisce sul cartellino. Il codice è quello della colonna E: è quello che il
+cliente digita. Il DataMatrix della stessa riga viene registrato come barcode
+emesso per quel codice, così scansionare il cartellino o digitare il codice
+danno lo stesso esito.
 
 ```bash
 clgadmin importa /root/Barcode_DataMatrix.xlsm --lotto "lotto-2026-01"
 ```
 
-Per ogni riga viene letto il DataMatrix (ripiegando su E solo se l'immagine
-manca o non si decodifica) e si salvano codice, testo del barcode, articolo,
+Per ogni riga si salvano codice (E), testo del DataMatrix (F), articolo,
 variante, taglia e identificativo. Alla fine il riepilogo dice quante righe
-sono state importate, aggiornate o scartate, quante hanno E diverso dal
-barcode, quante sono senza immagine o non decodificabili. Con
-`--codice-da colonna` il codice viene sempre da E (il barcode si salva lo
-stesso). Per leggere le immagini servono Pillow e zxing-cpp, che `setup.sh`
-installa; senza, l'importazione avvisa e prende i codici dalla colonna E, che
-sono casuali: una volta installate le librerie va **svuotata la lista** prima
-di reimportare (vedi "Se qualcosa non va").
+sono state importate, aggiornate o scartate, quante sono senza immagine o non
+decodificabili, e quante sono "discordanti": il DataMatrix contiene
+`A+B+C+D+numero`, e nel file del brand quel numero spesso non coincide con E
+(la colonna E è una formula che cambia a ogni ricalcolo). È solo un avviso:
+il codice resta E, e il numero dentro al DataMatrix, digitato da solo, non
+risulta in lista. Chi volesse invece il codice dal numero nel DataMatrix (E
+solo se manca) usa `--codice-da barcode`.
+
+Per leggere le immagini servono Pillow e zxing-cpp, che `setup.sh` installa;
+senza, l'importazione avvisa e i codici entrano in lista senza il loro
+barcode (allo scan i cartellini non risulterebbero autentici): una volta
+installate le librerie basta **reimportare lo stesso file**, i barcode si
+aggiungono ai codici già in lista (vedi "Se qualcosa non va").
 
 Per bruciare un singolo codice (da lì in poi l'esito è "falso"):
 
@@ -444,13 +450,15 @@ dominio; "stato 404" o "stato 400" quasi sempre vuol dire dominio sbagliato in
 `MAILGUN_DOMAIN` oppure regione diversa (per un dominio creato nella regione
 EU serve `MAILGUN_API_BASE=https://api.eu.mailgun.net/v3`).
 
-Se l'importazione di un Excel dice che i barcode non sono stati letti, manca
-una delle due librerie: `apt-get install python3-pil` e
-`pip3 install --break-system-packages zxing-cpp`. Poi **svuota la lista**
-(`clgadmin svuota --conferma`, oppure la casella "Sostituisci" nel pannello) e
-rilancia l'importazione: i codici presi dalla colonna E non coincidono con
-quelli dei barcode, quindi un semplice rilancio li lascerebbe in lista come
-validi (l'importazione lo segnala, contando i codici senza barcode rimasti).
+Se l'importazione di un Excel dice che i DataMatrix non sono stati letti,
+manca una delle due librerie: `apt-get install python3-pil` e
+`pip3 install --break-system-packages zxing-cpp`. Poi rilancia l'importazione
+dello stesso file: i codici (colonna E) sono gli stessi e i barcode si
+aggiungono. Solo con `--codice-da barcode` i codici cambiano tra le due
+importazioni: in quel caso prima **svuota la lista** (`clgadmin svuota
+--conferma`, oppure la casella "Sostituisci" nel pannello), altrimenti i
+codici presi da E resterebbero in lista come validi (l'importazione lo
+segnala, contando i codici senza barcode rimasti).
 
 Se il certificato non è stato rilasciato al primo colpo, quasi sempre è il DNS
 che non puntava ancora al server. Sistemato quello:
