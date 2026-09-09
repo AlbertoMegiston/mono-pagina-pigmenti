@@ -1,0 +1,194 @@
+<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0}img{max-width:100%}</style><title>Guida al file dei codici</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#1b2230; --ink-2:#5a6472; --rule:#d7dde5;
+  --accent:#116f81; --accent-soft:#e1f1f4; --warn:#9a5a08; --warn-soft:#fbf0dd;
+  --ok:#2a7247; --ok-soft:#e3f3e8; --code-bg:#eceff3; --cell:#fafbfc; --head:#eef1f5;
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --body:"IBM Plex Sans",system-ui,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#13171d; --surface:#1b2129; --ink:#e7ebf0; --ink-2:#a1abb8; --rule:#2c343f;
+    --accent:#4fc0d1; --accent-soft:#152e35; --warn:#e2a54c; --warn-soft:#312516;
+    --ok:#74c493; --ok-soft:#16301f; --code-bg:#242b35; --cell:#1f262f; --head:#252d38;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#13171d; --surface:#1b2129; --ink:#e7ebf0; --ink-2:#a1abb8; --rule:#2c343f;
+  --accent:#4fc0d1; --accent-soft:#152e35; --warn:#e2a54c; --warn-soft:#312516;
+  --ok:#74c493; --ok-soft:#16301f; --code-bg:#242b35; --cell:#1f262f; --head:#252d38;
+}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:16px;line-height:1.55;-webkit-font-smoothing:antialiased}
+.page{max-width:760px;margin:0 auto;padding:40px 22px 72px}
+header.top{border-bottom:2px solid var(--ink);padding-bottom:22px;margin-bottom:34px}
+.eyebrow{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 12px}
+h1{font-family:var(--display);font-weight:700;font-size:clamp(30px,5vw,42px);line-height:1.08;letter-spacing:-.015em;margin:0 0 14px;text-wrap:balance}
+.lead{font-size:18px;color:var(--ink-2);margin:0;max-width:62ch}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin-top:16px;font-size:13px;color:var(--ink-2)}
+.meta b{color:var(--ink);font-weight:600}
+h2{font-family:var(--display);font-weight:700;font-size:24px;line-height:1.15;letter-spacing:-.01em;margin:44px 0 12px;text-wrap:balance}
+h3{font-family:var(--body);font-weight:600;font-size:16px;margin:24px 0 8px}
+p{margin:0 0 12px;max-width:66ch}
+ul,ol{margin:0 0 14px;padding-left:22px;max-width:66ch}
+li{margin:4px 0}
+code,.mono{font-family:var(--mono);font-size:.92em}
+code{background:var(--code-bg);padding:1px 6px;border-radius:4px;white-space:nowrap}
+.formula{display:block;white-space:pre-wrap;word-break:break-all;padding:12px 14px;border-radius:6px;background:var(--code-bg);margin:8px 0 14px;font-size:14px}
+.note{border-left:4px solid var(--accent);background:var(--accent-soft);padding:12px 16px;border-radius:0 6px 6px 0;margin:16px 0}
+.note.warn{border-color:var(--warn);background:var(--warn-soft)}
+.note.ok{border-color:var(--ok);background:var(--ok-soft)}
+.note p:last-child{margin-bottom:0}
+.note strong{font-weight:600}
+table{border-collapse:collapse;width:100%;font-size:15px}
+.wrap{overflow-x:auto;margin:12px 0 18px}
+th,td{text-align:left;vertical-align:top;padding:9px 12px;border-bottom:1px solid var(--rule)}
+th{font-weight:600;font-size:13px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-2)}
+td.col{font-family:var(--mono);font-weight:500;white-space:nowrap}
+/* the spreadsheet strip */
+.sheet{margin:16px 0 8px}
+.sheet table{font-size:13px;border:1px solid var(--rule);background:var(--surface)}
+.sheet th,.sheet td{border:1px solid var(--rule);padding:6px 10px;white-space:nowrap}
+.sheet th{background:var(--head);text-align:center;font-family:var(--mono);text-transform:none;letter-spacing:0;color:var(--ink-2)}
+.sheet td{background:var(--cell);font-family:var(--mono)}
+.sheet td.rown{background:var(--head);text-align:center;color:var(--ink-2)}
+.sheet td.img{padding:6px}
+.sheet img{display:block;width:64px;height:64px;image-rendering:pixelated;background:#fff}
+.sheet td.key{background:var(--accent-soft);font-weight:500}
+.cap{font-size:13px;color:var(--ink-2);margin:6px 0 0}
+.tabs{font-size:12px;color:var(--ink-2);margin:6px 0 0;font-family:var(--mono)}
+.tabs span{display:inline-block;border:1px solid var(--rule);border-top:0;padding:2px 10px;background:var(--surface);margin-right:2px}
+.tabs span.on{background:var(--cell);color:var(--ink);font-weight:500}
+/* checklist */
+.check{list-style:none;padding:0;margin:8px 0 16px}
+.check li{position:relative;padding-left:32px;margin:8px 0}
+.check li::before{content:"";position:absolute;left:0;top:3px;width:16px;height:16px;border:2px solid var(--accent);border-radius:3px}
+.split{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:12px 0 16px}
+.split>div{border:1px solid var(--rule);border-radius:6px;padding:14px 16px;background:var(--surface)}
+.split h4{margin:0 0 8px;font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.split .no h4{color:var(--warn)} .split .yes h4{color:var(--ok)}
+.split p{font-size:14.5px;margin:0}
+@media (max-width:600px){.split{grid-template-columns:1fr}}
+.status td:first-child{color:var(--ink-2);width:42%}
+footer{margin-top:52px;padding-top:16px;border-top:1px solid var(--rule);font-size:13px;color:var(--ink-2)}
+a{color:var(--accent)}
+@media print{
+  body{background:#fff;color:#111}
+  .page{max-width:none;padding:0}
+  h2{break-after:avoid}
+  .wrap,.sheet,.note,.split,table{break-inside:avoid}
+  .note{background:#f2f2f2;border-left-color:#555}
+}
+</style>
+
+</head><body><div class="page">
+<header class="top">
+  <p class="eyebrow">Autenticazione prodotto · guida per il brand</p>
+  <h1>Il file dei codici e dei DataMatrix</h1>
+  <p class="lead">Come deve essere fatto l'Excel che carichiamo sul sistema di verifica, perché ogni cartellino risulti autentico sia digitando il codice sia scansionando il DataMatrix.</p>
+  <div class="meta"><span>A cura di <b>Megiston</b></span><span>Versione <b>settembre 2026</b></span><span>Riferimento <b>Barcode_DataMatrix_colonnaE_bloccata.xlsm</b></span></div>
+</header>
+
+<h2>A cosa serve il file</h2>
+<p>Il file è la lista dei codici validi. Ogni riga è un cartellino: un <strong>codice a 12 cifre</strong> (colonna E) e il <strong>DataMatrix</strong> stampato sul cartellino (colonna F). Il cliente può verificare in due modi, e devono portare allo stesso risultato:</p>
+<ul>
+  <li><strong>digita il codice</strong>: il sistema lo cerca nella colonna E;</li>
+  <li><strong>scansiona il DataMatrix</strong>: il sistema riconosce l'immagine registrata e risale alla riga.</li>
+</ul>
+<p>Un codice assente dalla lista risponde "non trovato". Un DataMatrix diverso da quello registrato per un codice in lista risponde "falso". Per questo il DataMatrix di ogni riga deve contenere esattamente il codice di quella riga.</p>
+
+<h2>Com'è fatto il file</h2>
+<p>Formato <code>.xlsx</code> o <code>.xlsm</code> (le macro non danno fastidio). <strong>Un foglio per modello</strong>, con il codice del modello come nome del foglio. <strong>Nessuna riga di intestazione</strong>: i dati partono dalla riga 1. Una riga per cartellino.</p>
+
+<div class="sheet"><div class="wrap">
+<table aria-label="Esempio di riga del foglio 6100062">
+  <tr><th></th><th>A</th><th>B</th><th>C</th><th>D</th><th>E</th><th>F</th></tr>
+  <tr><td class="rown">1</td><td>L1S156100062S0051-</td><td>V0024-</td><td>S-</td><td>99PROI20250017228-</td><td class="key">639 516 540 959</td><td class="img"><img alt="DataMatrix della riga 1" src="data:image/png;base64,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"></td></tr>
+</table></div>
+<p class="tabs"><span class="on">6100062</span><span>6100001</span><span>6100060</span><span>2100027</span></p>
+<p class="cap">La prima riga del foglio 6100062 del file ricevuto: è una riga corretta, con il numero dentro al DataMatrix uguale alla colonna E.</p>
+</div>
+
+<div class="wrap"><table>
+  <tr><th>Colonna</th><th>Contenuto</th><th>Esempio</th></tr>
+  <tr><td class="col">A</td><td>Articolo</td><td class="mono">L1S156100062S0051-</td></tr>
+  <tr><td class="col">B</td><td>Variante</td><td class="mono">V0024-</td></tr>
+  <tr><td class="col">C</td><td>Taglia</td><td class="mono">S-</td></tr>
+  <tr><td class="col">D</td><td>Identificativo interno</td><td class="mono">99PROI20250017228-</td></tr>
+  <tr><td class="col">E</td><td><strong>Codice CLG</strong>: 12 cifre, scritto come numero fisso, con o senza spazi</td><td class="mono">639 516 540 959</td></tr>
+  <tr><td class="col">F</td><td><strong>Immagine del DataMatrix</strong> (PNG), inserita nella cella della stessa riga</td><td class="mono">—</td></tr>
+</table></div>
+<p>Il trattino finale nelle colonne A–D, se c'è, non conta: viene tolto in importazione. Le colonne A–D vengono mostrate nel pannello di gestione (articolo, taglia, identificativo) e finiscono dentro al DataMatrix.</p>
+
+<h2>Il codice (colonna E)</h2>
+<ul>
+  <li>Esattamente <strong>12 cifre</strong>, senza lettere. Gli spazi ogni tre cifre sono ammessi.</li>
+  <li><strong>Unico</strong> in tutto il file e rispetto ai lotti già caricati: due cartellini non possono avere lo stesso codice.</li>
+  <li>Deve essere un <strong>valore fisso</strong>, non una formula.</li>
+</ul>
+
+<div class="note warn">
+<p><strong>Il problema trovato nel file ricevuto.</strong> In 90 celle su 95 della colonna E non c'è un numero ma questa formula:</p>
+<span class="formula">=TESTO(CASUALE.TRA(0;999999999999);"000 000 000 000")</span>
+<p>La formula genera un numero a caso ogni volta che Excel ricalcola: all'apertura del file, a ogni modifica di una cella, premendo F9. Quindi i codici cambiano da soli, la lista caricata sul sistema non corrisponde più al file, e i DataMatrix generati in un certo momento contengono numeri che la colonna E poi non ha più. È esattamente quello che è successo: in 90 righe su 95 il numero dentro al DataMatrix è diverso dal codice della colonna E.</p>
+</div>
+
+<h3>Come bloccare la colonna E</h3>
+<p>Su ogni foglio: selezionare la colonna E, <strong>Copia</strong>, poi <strong>Incolla speciale → Valori</strong> nella stessa colonna. Da quel momento le celle contengono i numeri e non la formula. Controllo rapido: selezionando una cella, la barra della formula deve mostrare il numero e non un testo che inizia con <code>=</code>.</p>
+<p>In alternativa partite dalla copia che vi abbiamo mandato, <code>Barcode_DataMatrix_colonnaE_bloccata.xlsm</code>: ha già i 95 codici bloccati sui valori che sono caricati oggi sul sistema. Tutto il resto del file è identico.</p>
+
+<h2>Il DataMatrix (colonna F)</h2>
+<p>Il DataMatrix contiene, uniti da trattini, articolo, variante, taglia, identificativo e codice, con il codice scritto a gruppi di tre cifre:</p>
+<span class="formula">L1S156100062S0051-V0024-S-99PROI20250017228-639 516 540 959</span>
+<ul>
+  <li>Va generato <strong>dopo</strong> aver bloccato la colonna E. Il numero finale deve essere uguale alla colonna E della stessa riga: è questo il controllo che facciamo per prima cosa.</li>
+  <li><strong>Un'immagine per riga</strong>, inserita nella cella F di quella riga (non "fluttuante" tra due righe).</li>
+  <li>Moduli neri su fondo bianco, simbolo quadrato, con il margine bianco attorno (la "zona quieta"). Il formato attuale, PNG di 188 pixel, va bene; più grande va bene lo stesso.</li>
+  <li>In stampa: lato di almeno 12–15 mm, contrasto netto, materiale non lucido. Lo scanner del sito legge il DataMatrix anche piccolo e non centrato, ma una stampa sbiadita o riflettente non si legge con nessun sistema.</li>
+</ul>
+
+<div class="split">
+  <div class="no"><h4>Da evitare</h4><p>Generare i DataMatrix e poi riaprire o ricalcolare il file con la formula ancora attiva: la colonna E cambia, i DataMatrix restano vecchi, e da quel momento codice e cartellino non si corrispondono più.</p></div>
+  <div class="yes"><h4>Ordine giusto</h4><p>Prima si bloccano i codici (valori fissi), poi si generano i DataMatrix da quei codici, poi si stampa. Il file inviato a noi è quello da cui sono stati stampati i cartellini.</p></div>
+</div>
+
+<h2>Prima di inviarci il file</h2>
+<ul class="check">
+  <li>Colonna E con valori fissi su tutti i fogli (nessuna cella con <code>=</code>).</li>
+  <li>Ogni codice ha 12 cifre e non è ripetuto, nemmeno in altri fogli o in lotti precedenti.</li>
+  <li>Ogni riga ha il suo DataMatrix nella colonna F, uno solo, nella riga giusta.</li>
+  <li>Il numero dentro a ogni DataMatrix è uguale alla colonna E della stessa riga.</li>
+  <li>I DataMatrix sono stati generati dopo il blocco della colonna E e il file non è stato più ricalcolato.</li>
+  <li>Nome del file con lotto e data, per esempio <code>Codici_lotto-2026-10_2026-09-15.xlsm</code>.</li>
+</ul>
+
+<h2>Cosa facciamo noi</h2>
+<p>Importiamo il file e vi mandiamo il riepilogo: quante righe, quanti codici, quanti DataMatrix registrati e quante righe "discordanti", cioè con il numero dentro al DataMatrix diverso dalla colonna E. <strong>Per la produzione le righe discordanti devono essere zero.</strong> Poi facciamo una prova su due o tre righe, digitando il codice e scansionando il DataMatrix, e vi confermiamo che la lista è attiva.</p>
+<div class="note ok">
+<p>Ogni verifica fatta dai clienti viene registrata: quale codice, con quale esito, se è arrivata da uno scan. Se un codice viene verificato da troppi dispositivi diversi, il sistema lo segnala come "sospetto" da solo.</p>
+</div>
+
+<h2>Dopo la stampa</h2>
+<ul>
+  <li><strong>I codici stampati non si toccano più.</strong> Un cartellino stampato vale finché la sua riga resta in lista.</li>
+  <li>Un codice può essere <strong>revocato</strong> in qualunque momento (per esempio un lotto rubato): da quel momento risponde "falso".</li>
+  <li>Per un <strong>nuovo lotto</strong> mandate un nuovo file con le nuove righe, con codici mai usati prima. I codici già caricati restano validi; un codice ripetuto viene segnalato.</li>
+</ul>
+
+<h2>Il file ricevuto a settembre 2026</h2>
+<div class="wrap"><table class="status">
+  <tr><td>Fogli e righe</td><td>4 fogli (6100062, 6100001, 6100060, 2100027), 95 righe</td></tr>
+  <tr><td>Colonna E</td><td>90 celle con la formula casuale, 5 con valore fisso (la prima riga di ogni foglio)</td></tr>
+  <tr><td>DataMatrix</td><td>95 immagini, tutte leggibili; in 90 il numero finale è diverso dalla colonna E</td></tr>
+  <tr><td>Stato sul sistema</td><td>Caricata la copia con la colonna E bloccata: 95 codici, 95 DataMatrix registrati. Per i test funziona tutto, in entrambi i modi.</td></tr>
+  <tr><td>Da fare per la produzione</td><td>Rigenerare i 95 DataMatrix dalla colonna E bloccata (con la vostra macro) e rimandarci il file: i codici restano gli stessi, noi aggiorniamo solo i DataMatrix.</td></tr>
+</table></div>
+<div class="note">
+<p><strong>Se dei cartellini con i DataMatrix attuali fossero già stati stampati</strong>, ditecelo prima di rigenerare: in quel caso possiamo fare il contrario, cioè allineare la colonna E ai numeri già dentro ai DataMatrix, così quei cartellini restano validi.</p>
+</div>
+
+<footer>Per dubbi sul file o per un controllo prima della stampa, mandateci pure una bozza: l'importazione di prova non tocca la lista attiva.</footer>
+</div>
+</body></html>
