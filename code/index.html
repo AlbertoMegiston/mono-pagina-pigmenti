@@ -1596,6 +1596,11 @@ html[data-motionbtn] main{padding-bottom:72px}
      With url empty (the demo build) the simulation decides.
      ------------------------------------------------------------------------ */
   var VERIFY = { url: "" };
+  /* Flow switches. The store step ("where did you buy it": search of the
+     shop) is switched off for now at the brand's request: "where" goes
+     straight to sign-in and no history entry is ever made for it. Set
+     place to true to bring it back; nothing else needs to change. */
+  var FLOW = { place: false };
   /* The e-mail code endpoints live next to the verify one and follow it:
      empty in the demo build, where nothing is sent and any 6-digit code
      passes (see otpMaybeDone). */
@@ -1924,7 +1929,7 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "landing") return true;
     if (step === "when") return true;
     if (step === "where") return !!ctx.when;
-    if (step === "place") return !!ctx.where && ctx.where !== "gift";
+    if (step === "place") return FLOW.place && !!ctx.where && ctx.where !== "gift";
     if (step === "signin") return !!ctx.where;
     if (step === "otp") return !!ctx.where && !!ctx.email;
     if (step === "consent") return !!ctx.where && ctx.otpOk;
@@ -2113,10 +2118,10 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (step === "when") return "landing";
     if (step === "where") return "when";
     if (step === "place") return "where";
-    if (step === "signin") return ctx.where === "gift" ? "where" : "place";
+    if (step === "signin") return (ctx.where === "gift" || !FLOW.place) ? "where" : "place";
     if (step === "otp") return "signin";
     if (step === "consent") return "signin";
-    if (step === "phototag") return ctx.where === "gift" ? "where" : "place";
+    if (step === "phototag") return (ctx.where === "gift" || !FLOW.place) ? "where" : "place";
     if (step === "scan") return "phototag";
     if (step === "code") return "phototag";
     if (step === "processing") return "phototag";
@@ -2187,7 +2192,7 @@ html[data-motionbtn] main{padding-bottom:72px}
   function paintWhere() {
     renderOptions($("#opts-where"), whereItems(), function (v) {
       ctx.where = v; ctx.place = ""; ctx.placeNote = "";
-      goto(v === "gift" ? afterPlace() : "place");
+      goto((v === "gift" || !FLOW.place) ? afterPlace() : "place");
     });
   }
 
