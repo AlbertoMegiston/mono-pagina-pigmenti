@@ -2558,7 +2558,10 @@ html[data-motionbtn] main{padding-bottom:72px}
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       scanSay("scan.denied"); return;
     }
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+    /* A full-HD preview where the camera offers one: more pixels on the
+       symbol, which the centre crop of decodeLooks then keeps. "ideal"
+       never fails the request on a camera that cannot. */
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } } })
       .then(function (stream) {
         if (ctx.step !== "scan") { stream.getTracks().forEach(function (tr) { tr.stop(); }); return; }
         scanStream = stream;
@@ -2621,9 +2624,11 @@ html[data-motionbtn] main{padding-bottom:72px}
      The two dedicated readers, not the multi-format one: that one returned
      false positives (EAN) on labels. Never upscaled: nearest-neighbour
      enlargement breaks the DataMatrix grid. Returns { text, format } or
-     null; the readers are built once and reset after every attempt. */
+     null; the readers are built once and reset after every attempt.
+     `rect` (optional, {x, y, w, h} in source pixels) reads only that part
+     of the picture: see decodeLooks. */
   var zxReaders = null;
-  function decodeFrame(source, w, h, max) {
+  function decodeFrame(source, w, h, max, rect) {
     if (!window.ZXing || !w || !h) return null;
     var Z = window.ZXing;
     if (!zxReaders) {
@@ -2633,13 +2638,14 @@ html[data-motionbtn] main{padding-bottom:72px}
       };
     }
     if (!scanCanvas) scanCanvas = document.createElement("canvas");
-    var k = Math.min(1, max / Math.max(w, h));
-    var iw = Math.max(1, Math.round(w * k)), ih = Math.max(1, Math.round(h * k));
+    var sx = rect ? rect.x : 0, sy = rect ? rect.y : 0, sw = rect ? rect.w : w, sh = rect ? rect.h : h;
+    var k = Math.min(1, max / Math.max(sw, sh));
+    var iw = Math.max(1, Math.round(sw * k)), ih = Math.max(1, Math.round(sh * k));
     var m = Math.round(Math.max(iw, ih) * 0.06);
     scanCanvas.width = iw + 2 * m; scanCanvas.height = ih + 2 * m;
     var g = scanCanvas.getContext("2d", { willReadFrequently: true });
     g.fillStyle = "#fff"; g.fillRect(0, 0, scanCanvas.width, scanCanvas.height);
-    g.drawImage(source, m, m, iw, ih);
+    g.drawImage(source, sx, sy, sw, sh, m, m, iw, ih);
     var bmp = new Z.BinaryBitmap(new Z.HybridBinarizer(new Z.HTMLCanvasElementLuminanceSource(scanCanvas)));
     for (var i = 0; i < zxReaders.list.length; i++) {
       var reader = zxReaders.list[i][0], res = null;
@@ -2650,11 +2656,115 @@ html[data-motionbtn] main{padding-bottom:72px}
     }
     return null;
   }
+  /* The central part of a w x h picture, side fraction f. */
+  function centreRect(w, h, f) {
+    var cw = Math.max(1, Math.round(w * f)), ch = Math.max(1, Math.round(h * f));
+    return { x: Math.round((w - cw) / 2), y: Math.round((h - ch) / 2), w: cw, h: ch };
+  }
+  /* Where is the symbol? ZXing's DataMatrix detector grows a rectangle
+     from the centre of the picture it is given and gives up on any side
+     that never meets a dark pixel: it finds a symbol only when the centre
+     falls inside it (measured on the brand's labels: a 250 px symbol reads
+     at any offset up to 120 px from the centre, at none beyond). So the
+     picture is handed over centred on the likeliest spots. A DataMatrix is
+     a dense dark square inside a light quiet zone: on a thumbnail 96 px
+     long, square boxes of a few sizes are scored by their share of dark
+     pixels minus that of the ring around them; text scores low (sparse),
+     dark cloth scores nothing (solid, or ringed by more dark). The best
+     three, well apart, come back as centres and sizes in source pixels.
+     The thumbnail is tiny, so this costs about a millisecond per frame. */
+  var spotCanvas = null;
+  function darkSpots(source, w, h) {
+    var L = 96, tw = w >= h ? L : Math.max(6, Math.round(w * L / h)), th = w >= h ? Math.max(6, Math.round(h * L / w)) : L;
+    if (!spotCanvas) spotCanvas = document.createElement("canvas");
+    spotCanvas.width = tw; spotCanvas.height = th;
+    var g = spotCanvas.getContext("2d", { willReadFrequently: true });
+    g.drawImage(source, 0, 0, tw, th);
+    var d = g.getImageData(0, 0, tw, th).data, n = tw * th, gray = new Uint8Array(n), lo = 255, hi = 0, i, v;
+    for (i = 0; i < n; i++) {
+      v = (d[4 * i] * 77 + d[4 * i + 1] * 151 + d[4 * i + 2] * 28) >> 8;
+      gray[i] = v; if (v < lo) lo = v; if (v > hi) hi = v;
+    }
+    if (hi - lo < 40) return [];
+    var t = lo + (hi - lo) * 0.45, W1 = tw + 1, I = new Int32Array(W1 * (th + 1)), x, y, row;
+    for (y = 0; y < th; y++) {
+      row = 0;
+      for (x = 0; x < tw; x++) { row += gray[y * tw + x] < t ? 1 : 0; I[(y + 1) * W1 + x + 1] = I[y * W1 + x + 1] + row; }
+    }
+    function dark(x0, y0, x1, y1) {
+      x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(tw, x1); y1 = Math.min(th, y1);
+      if (x1 <= x0 || y1 <= y0) return 0;
+      return I[y1 * W1 + x1] - I[y0 * W1 + x1] - I[y1 * W1 + x0] + I[y0 * W1 + x0];
+    }
+    var found = [], sizes = [5, 8, 12, 17, 24], si, k, r, inner, ring, ra, rx0, ry0, rx1, ry1, scale = Math.max(w / tw, h / th);
+    for (si = 0; si < sizes.length; si++) {
+      k = sizes[si]; if (k > Math.min(tw, th)) break;
+      r = Math.max(1, Math.round(k / 3));
+      for (y = 0; y + k <= th; y++) for (x = 0; x + k <= tw; x++) {
+        inner = dark(x, y, x + k, y + k) / (k * k);
+        if (inner < 0.3 || inner > 0.8) continue;
+        rx0 = Math.max(0, x - r); ry0 = Math.max(0, y - r); rx1 = Math.min(tw, x + k + r); ry1 = Math.min(th, y + k + r);
+        ra = (rx1 - rx0) * (ry1 - ry0) - k * k;
+        ring = ra > 0 ? (dark(rx0, ry0, rx1, ry1) - dark(x, y, x + k, y + k)) / ra : 0;
+        if (ring > 0.3) continue;
+        found.push({ x: (x + k / 2) * scale, y: (y + k / 2) * scale, k: k * scale, score: inner - ring });
+      }
+    }
+    found.sort(function (p, q) { return q.score - p.score; });
+    var out = [], j;
+    for (i = 0; i < found.length && out.length < 3; i++) {
+      for (j = 0; j < out.length; j++) {
+        /* Same spot seen with two box sizes: judged on the smaller one, so
+           a big box astride symbol and text does not hide the tight one. */
+        var near = Math.min(out[j].k, found[i].k) * 0.6;
+        if (Math.abs(out[j].x - found[i].x) < near && Math.abs(out[j].y - found[i].y) < near) break;
+      }
+      if (j === out.length) out.push(found[i]);
+    }
+    return out;
+  }
+  /* Several looks at the same picture, likeliest first, until one reads.
+     A single frame shrunk to 800 px misses a symbol that does not fill the
+     reticle: shrinking eats its modules, and the detector wants the centre
+     inside the symbol (see darkSpots). Each look is [where, max side]:
+     "spots" reads a window around each spot darkSpots found, three times
+     the spot's size and at least 300 px, at (near) full resolution; a
+     fraction reads the centre crop of that size; 0 the whole picture.
+     Measured on the brand's 95 DataMatrix over synthetic frames: the whole
+     1920x1080 frame at 800 px read a symbol only when it spanned 280 px or
+     more and sat on the centre; with the spots it reads from about 130 px
+     anywhere in the frame. A chosen photo is a one-off, so it gets more
+     looks, up to full size. */
+  var LOOKS_VIDEO = [["spots", 1000], [0.5, 1000], [0, 800]];
+  var LOOKS_PHOTO = [["spots", 2400], [0.5, 1400], [0, 1400], [0.5, 2400], [0.3, 2400], [0, 2400]];
+  function tryDecode(source, w, h, max, rect) {
+    try { return decodeFrame(source, w, h, max, rect); } catch (_) { return null; }
+  }
+  function decodeLooks(source, w, h, looks) {
+    var i, j, hit, spots = null, side;
+    for (i = 0; i < looks.length; i++) {
+      if (looks[i][0] === "spots") {
+        if (!spots) { try { spots = darkSpots(source, w, h); } catch (_) { spots = []; } }
+        for (j = 0; j < spots.length; j++) {
+          side = Math.round(Math.max(300, spots[j].k * 3));
+          hit = tryDecode(source, w, h, looks[i][1],
+                          { x: Math.round(spots[j].x - side / 2), y: Math.round(spots[j].y - side / 2), w: side, h: side });
+          if (hit) return hit;
+        }
+      } else {
+        hit = tryDecode(source, w, h, looks[i][1], looks[i][0] ? centreRect(w, h, looks[i][0]) : null);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }
+  /* The test bench drives the decoder on synthetic frames through here. */
+  window.__clgScan = { looks: decodeLooks, spots: darkSpots, video: LOOKS_VIDEO, photo: LOOKS_PHOTO };
   function scanLoopJs() {
     if (ctx.step !== "scan" || !scanStream) return;
     var v = $("#scan-video"), hit = null;
     if (v.readyState >= 2) {
-      try { hit = decodeFrame(v, v.videoWidth, v.videoHeight, 800); } catch (_) {}
+      hit = decodeLooks(v, v.videoWidth, v.videoHeight, LOOKS_VIDEO);
       if (hit && scanFound(hit.text, hit.format)) return;
     }
     scanTimer = setTimeout(scanLoopJs, 150);
@@ -2704,7 +2814,7 @@ html[data-motionbtn] main{padding-bottom:72px}
     img.onload = function () {
       var viaZx = function () {
         var hit = null;
-        try { hit = decodeFrame(img, img.naturalWidth, img.naturalHeight, 1400); } catch (_) {}
+        hit = decodeLooks(img, img.naturalWidth, img.naturalHeight, LOOKS_PHOTO);
         return hit;
       };
       var done = function (hit) {
