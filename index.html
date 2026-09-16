@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
 html{scroll-behavior:smooth}
-body{margin:0;font-family:'Archivo',system-ui,sans-serif;color:#1C1C1C;background:#ffffff;-webkit-font-smoothing:antialiased}
+body{margin:0;font-family:'Archivo',system-ui,sans-serif;color:#1C1C1C;background:#ffffff;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:#003087;text-decoration:none}
 a:hover{color:#012169;text-decoration:underline}
 img{max-width:100%}
@@ -52,6 +52,14 @@ section[id]{scroll-margin-top:80px}
 .main-nav > a:not(.btn){color:#1C1C1C}
 .nav-phones{display:flex;flex-direction:column;gap:2px;font-size:12.5px;font-weight:700;line-height:1.3;text-align:right}
 .nav-phones a{color:#1C1C1C}
+.nav-toggle{display:none;width:44px;height:44px;border:0;background:transparent;border-radius:10px;cursor:pointer;padding:10px;flex-direction:column;justify-content:center;gap:5px}
+.nav-toggle span{display:block;height:2px;width:100%;background:#1C1C1C;border-radius:2px;transition:transform .2s,opacity .2s}
+.nav-toggle[aria-expanded="true"] span:nth-child(1){transform:translateY(7px) rotate(45deg)}
+.nav-toggle[aria-expanded="true"] span:nth-child(2){opacity:0}
+.nav-toggle[aria-expanded="true"] span:nth-child(3){transform:translateY(-7px) rotate(-45deg)}
+.header-actions{display:none;align-items:center;gap:6px}
+.btn-call{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;background:#0071CE;color:#fff;font-size:18px}
+.btn-call:hover{background:#003087;color:#fff;text-decoration:none}
 
 /* Hero */
 .hero{max-width:1140px;margin:0 auto;padding:64px 24px 48px;display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
@@ -95,14 +103,15 @@ section[id]{scroll-margin-top:80px}
 .location-hours{background:#f2f5f8;border-radius:12px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13.5px;line-height:1.6}
 .location-hours .hours-title{grid-column:1/-1;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#003087;margin-bottom:4px}
 .location-hours .day{font-weight:600}
-.location-card iframe{width:100%;height:200px;border:0;border-radius:12px}
+.location-card iframe{width:100%;height:200px;border:0;border-radius:12px;background:#e6ebf0}
 
 /* Marchi */
 .brands{max-width:1140px;margin:0 auto;padding:80px 24px}
 .brands .section-head{margin-bottom:36px}
-.brands-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:14px}
-.brand-tile{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:12px;aspect-ratio:2/1;display:flex;align-items:center;justify-content:center;padding:10px}
-.brand-tile img{max-width:85%;max-height:70%;object-fit:contain;display:block}
+.brands-grid{--cols:5;--gap:20px 24px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:var(--gap)}
+.brand-tile{flex:0 0 calc((100% - (var(--cols) - 1) * 24px) / var(--cols));height:96px;display:flex;align-items:center;justify-content:center;padding:6px 20px;box-sizing:border-box}
+.brand-tile img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
+.brand-tile--solid img{height:84px;width:84px;border-radius:16px}
 
 /* Recensioni */
 .reviews{background:#1C1C1C;padding:80px 24px}
@@ -110,7 +119,8 @@ section[id]{scroll-margin-top:80px}
 .reviews .kicker{color:#00A2E5}
 .reviews h2{color:#ffffff}
 .reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.review-card{background:rgba(255,255,255,.06);border:1px dashed rgba(255,255,255,.3);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:12px}
+.review-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:12px}
+.review-card .who{margin-top:auto}
 .review-card .stars{color:#00A2E5;font-size:16px;letter-spacing:2px}
 .review-card blockquote{margin:0;font-size:15px;line-height:1.65;color:rgba(255,255,255,.85);font-style:italic}
 .review-card .who{font-size:13.5px;font-weight:600;color:rgba(255,255,255,.6)}
@@ -150,17 +160,32 @@ section[id]{scroll-margin-top:80px}
 @media (max-width:1000px){
   .hero{grid-template-columns:1fr;gap:40px;padding-top:48px}
   .hero-copy h1{font-size:44px}
+  .hero-media{max-width:640px}
   .services-grid{grid-template-columns:repeat(2,1fr)}
-  .brands-grid{grid-template-columns:repeat(4,1fr)}
+  .brands-grid{--cols:4}
   .reviews-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:920px){
-  .main-nav > a:not(.btn),.nav-phones{display:none}
+  .header-actions{display:flex}
+  .nav-toggle{display:flex}
+  .main-nav{display:none;position:absolute;left:0;right:0;top:64px;flex-direction:column;align-items:stretch;gap:0;background:#fff;border-bottom:1px solid rgba(29,29,31,.1);box-shadow:0 16px 40px rgba(29,29,31,.12);padding:8px 24px 20px}
+  .main-nav.is-open{display:flex}
+  .main-nav > a:not(.btn){padding:14px 0;font-size:17px;font-weight:600;border-bottom:1px solid rgba(29,29,31,.08)}
+  .nav-phones{text-align:left;gap:10px;padding:16px 0;font-size:15px}
+  .nav-phones a::before{content:"☎ "}
+  .main-nav .btn-dark{text-align:center;padding:14px;font-size:15px}
 }
 @media (max-width:768px){
   .section-head h2{font-size:28px}
+  .hero{padding-top:40px;padding-bottom:40px;gap:32px}
   .hero-copy h1{font-size:36px}
   .hero-copy .lead{font-size:16.5px}
+  .hero-media::before{inset:auto -10px -10px auto}
+  .brands-grid{--cols:4;--gap:12px 16px}
+  .brand-tile{flex-basis:calc((100% - 3 * 16px) / 4);height:80px}
+  .brand-tile--solid img{height:60px;width:60px}
+  .location-card > img{height:200px}
+  .location-body{padding:22px}
   .intro{padding:56px 24px}
   .intro h2{font-size:26px}
   .services,.brands,.faq{padding:56px 24px}
@@ -173,9 +198,18 @@ section[id]{scroll-margin-top:80px}
   .footer-grid{grid-template-columns:1fr;gap:28px}
 }
 @media (max-width:520px){
-  .brands-grid{grid-template-columns:repeat(2,1fr)}
+  .brands-grid{--cols:3;--gap:8px 12px}
+  .brand-tile{flex-basis:calc((100% - 2 * 12px) / 3);height:72px;padding:6px 10px}
+  .brand-tile--solid img{height:56px;width:56px}
   .services-grid{grid-template-columns:1fr}
   .brand img{height:36px}
+  .hero-copy h1{font-size:32px}
+  .hero-ctas{flex-direction:column;align-items:stretch}
+  .hero-ctas .btn{text-align:center}
+  .hero-checks{gap:12px 20px}
+  .delivery-banner{padding:20px}
+  .delivery-banner .btn{width:100%;text-align:center}
+  .footer-bottom{flex-direction:column}
 }
 </style>
 <script type="application/ld+json">
@@ -198,7 +232,11 @@ section[id]{scroll-margin-top:80px}
     <a href="#top" class="brand">
       <img src="assets/logo-pigmenti.svg" alt="Colorificio Pigmenti">
     </a>
-    <nav class="main-nav" aria-label="Navigazione principale">
+    <div class="header-actions">
+      <a href="tel:+39049795580" class="btn-call" aria-label="Chiama Montegrotto Terme">☎</a>
+      <button class="nav-toggle" type="button" aria-label="Apri il menu" aria-expanded="false" aria-controls="main-nav"><span></span><span></span><span></span></button>
+    </div>
+    <nav class="main-nav" id="main-nav" aria-label="Navigazione principale">
       <a href="#servizi">Servizi</a>
       <a href="#sedi">Le sedi</a>
       <a href="#marchi">Marchi</a>
@@ -231,7 +269,7 @@ section[id]{scroll-margin-top:80px}
     </div>
   </div>
   <div class="hero-media">
-    <img src="uploads/photos-1785479527365.webp" width="875" height="656" alt="Interno del negozio Colorificio Pigmenti a Padova: pitture, pavimenti e attrezzatura">
+    <img src="uploads/photos-1785479527365.webp" width="875" height="656" fetchpriority="high" alt="Interno del negozio Colorificio Pigmenti a Padova: pitture, pavimenti e attrezzatura">
   </div>
 </section>
 
@@ -295,7 +333,7 @@ section[id]{scroll-margin-top:80px}
     <div class="locations-grid">
 
       <article class="location-card">
-        <img src="https://colorificiopigmenti.com/cdn/shop/files/sede-colorificio-pigmenti.jpg?v=1732786103&amp;width=700" alt="Sede Colorificio Pigmenti di Montegrotto Terme, Via del Commercio 9" loading="lazy">
+        <img src="assets/sedi/montegrotto.webp" width="1000" height="750" alt="Sede Colorificio Pigmenti di Montegrotto Terme, Via del Commercio 9" loading="lazy">
         <div class="location-body">
           <div class="location-title">
             <h3>Montegrotto Terme</h3>
@@ -318,7 +356,7 @@ section[id]{scroll-margin-top:80px}
       </article>
 
       <article class="location-card">
-        <img src="https://colorificiopigmenti.com/cdn/shop/files/20250612_084334.jpg?v=1749722444&amp;width=700" alt="Sede Colorificio Pigmenti di Selvazzano Dentro, Via Monte Grappa 28" loading="lazy">
+        <img src="assets/sedi/selvazzano.webp" width="1000" height="750" alt="Sede Colorificio Pigmenti di Selvazzano Dentro, Via Monte Grappa 28" loading="lazy">
         <div class="location-body">
           <div class="location-title">
             <h3>Selvazzano Dentro</h3>
@@ -350,25 +388,25 @@ section[id]{scroll-margin-top:80px}
     <h2>Solo brand di cui ci fidiamo</h2>
   </div>
   <div class="brands-grid">
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/snickers.jpg?v=1733483341&amp;width=240" alt="Snickers Workwear" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/caparol.jpg?v=1733487153&amp;width=240" alt="Caparol" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/borma-wachs.jpg?v=1733487273&amp;width=240" alt="Borma Wachs" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/hultafors.jpg?v=1733487358&amp;width=240" alt="Hultafors" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/mirka.jpg?v=1733487485&amp;width=240" alt="Mirka" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/storch.jpg?v=1733487605&amp;width=240" alt="Storch" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/base.jpg?v=1738313980&amp;width=240" alt="Base" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/calce-brenta.jpg?v=1738314010&amp;width=240" alt="La Calce del Brenta" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/cir.jpg?v=1738314024&amp;width=240" alt="CIR Chimica Italiana Restauri" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/dike.jpg?v=1738314039&amp;width=240" alt="Dike" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/dosteba.jpg?v=1738314051&amp;width=240" alt="Dosteba" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/linvea.jpg?v=1738314068&amp;width=240" alt="Linvea" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/solid-gear.jpg?v=1738314079&amp;width=240" alt="Solid Gear" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/spektra.jpg?v=1738314094&amp;width=240" alt="Spektra" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/tassani.jpg?v=1738314110&amp;width=240" alt="Tassani" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/utility-diadora.jpg?v=1738314140&amp;width=240" alt="Diadora Utility" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/valpaint.jpg?v=1738314152&amp;width=240" alt="Valpaint" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/virag.jpg?v=1738314164&amp;width=240" alt="Virag" loading="lazy"></div>
-    <div class="brand-tile"><img src="https://colorificiopigmenti.com/cdn/shop/files/wagner.jpg?v=1738314172&amp;width=240" alt="Wagner" loading="lazy"></div>
+    <div class="brand-tile brand-tile--solid"><img src="assets/brands/snickers.png" alt="Snickers Workwear" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/caparol.png" alt="Caparol" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/borma-wachs.png" alt="Borma Wachs" loading="lazy"></div>
+    <div class="brand-tile brand-tile--solid"><img src="assets/brands/hultafors.png" alt="Hultafors" loading="lazy"></div>
+    <div class="brand-tile brand-tile--solid"><img src="assets/brands/mirka.png" alt="Mirka" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/storch.png" alt="Storch" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/base.png" alt="Base" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/calce-brenta.png" alt="La Calce del Brenta" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/cir.png" alt="CIR Chimica Italiana Restauri" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/dike.png" alt="Dike" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/dosteba.png" alt="Dosteba" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/linvea.png" alt="Linvea" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/solid-gear.png" alt="Solid Gear" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/spektra.png" alt="Spektra" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/tassani.png" alt="Tassani" loading="lazy"></div>
+    <div class="brand-tile brand-tile--solid"><img src="assets/brands/utility-diadora.png" alt="Diadora Utility" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/valpaint.png" alt="Valpaint" loading="lazy"></div>
+    <div class="brand-tile"><img src="assets/brands/virag.png" alt="Virag" loading="lazy"></div>
+    <div class="brand-tile brand-tile--solid"><img src="assets/brands/wagner.png" alt="Wagner" loading="lazy"></div>
   </div>
 </section>
 
@@ -380,19 +418,19 @@ section[id]{scroll-margin-top:80px}
     </div>
     <div class="reviews-grid">
       <div class="review-card">
-        <span class="stars" aria-hidden="true">★★★★★</span>
-        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
-        <span class="who">— Nome cliente · Google</span>
+        <span class="stars" aria-label="5 stelle su 5">★★★★★</span>
+        <blockquote>Mi sono rivolto a Colorificio Pigmenti soprattutto per l’acquisto di materiale per la pulizia e sono rimasto pienamente soddisfatto. Ho trovato prodotti di ottima qualità, efficaci e adatti alle mie esigenze, con un eccellente rapporto qualità-prezzo. Il personale è stato molto disponibile e competente, consigliandomi le soluzioni più adatte con professionalità e cortesia. Un servizio attento e un’ampia scelta di prodotti fanno davvero la differenza. Lo consiglio vivamente a chi cerca qualità e affidabilità.</blockquote>
+        <span class="who">— Stefano Baraldo · Google</span>
       </div>
       <div class="review-card">
-        <span class="stars" aria-hidden="true">★★★★★</span>
-        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
-        <span class="who">— Nome cliente · Google</span>
+        <span class="stars" aria-label="5 stelle su 5">★★★★★</span>
+        <blockquote>In questo negozio ho trovato persone estremamente esperte del settore, disponibili e pronte ad aiutare i clienti con i loro consigli personalizzati a seconda delle specifiche esigenze e non standardizzati. Prodotti ottimi.</blockquote>
+        <span class="who">— Valentina Zorzan · Google</span>
       </div>
       <div class="review-card">
-        <span class="stars" aria-hidden="true">★★★★★</span>
-        <blockquote>[ Incolla qui una recensione reale da Google ]</blockquote>
-        <span class="who">— Nome cliente · Google</span>
+        <span class="stars" aria-label="5 stelle su 5">★★★★★</span>
+        <blockquote>Negozio a Tencarola ben fornito, con ottimi prodotti per pittura e carta da parati. Matteo è gentile e disponibile, sempre pronto a consigliare al meglio. Lo consiglio!</blockquote>
+        <span class="who">— Damiano Dision · Google</span>
       </div>
     </div>
   </div>
@@ -467,5 +505,20 @@ section[id]{scroll-margin-top:80px}
   </div>
 </footer>
 
+<script>
+(function(){
+  var t=document.querySelector('.nav-toggle'),n=document.getElementById('main-nav');
+  if(!t||!n)return;
+  function close(){n.classList.remove('is-open');t.setAttribute('aria-expanded','false');t.setAttribute('aria-label','Apri il menu');}
+  t.addEventListener('click',function(){
+    var open=n.classList.toggle('is-open');
+    t.setAttribute('aria-expanded',open?'true':'false');
+    t.setAttribute('aria-label',open?'Chiudi il menu':'Apri il menu');
+  });
+  n.addEventListener('click',function(e){if(e.target.closest('a'))close();});
+  document.addEventListener('keydown',function(e){if(e.key==='Escape')close();});
+  window.matchMedia('(min-width:921px)').addEventListener('change',function(m){if(m.matches)close();});
+})();
+</script>
 </body>
 </html>
