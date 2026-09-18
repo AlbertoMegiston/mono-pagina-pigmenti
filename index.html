@@ -10,22 +10,19 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
+/* CSS critico (above the fold): base, header, hero. Il resto è in assets/style.css */
 html{scroll-behavior:smooth}
 body{margin:0;font-family:'Archivo',system-ui,sans-serif;color:#1C1C1C;background:#ffffff;-webkit-font-smoothing:antialiased;overflow-x:clip}
 a{color:#003087;text-decoration:none}
 a:hover{color:#012169;text-decoration:underline}
 img{max-width:100%}
-details summary::-webkit-details-marker{display:none}
-details[open] .faq-chev{transform:rotate(45deg)}
 
 /* Layout */
 .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
 section[id]{scroll-margin-top:80px}
 
-/* Kickers & headings */
+/* Kickers */
 .kicker{font-size:13px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#003087}
-.section-head{display:flex;flex-direction:column;gap:12px;margin-bottom:40px}
-.section-head h2{margin:0;font-size:36px;font-weight:800;letter-spacing:-.02em}
 
 /* Buttons */
 .btn{display:inline-block;border-radius:999px;font-weight:700;text-decoration:none}
@@ -36,12 +33,6 @@ section[id]{scroll-margin-top:80px}
 .btn-primary:hover{background:#003087;color:#fff}
 .btn-outline{border:2px solid #1C1C1C;color:#1C1C1C;padding:12px 20px;font-size:14px}
 .btn-outline:hover{background:#1C1C1C;color:#fff}
-.btn-white-sm{background:#fff;color:#003087;padding:10px 22px;font-size:14px;white-space:nowrap}
-.btn-white-sm:hover{background:#1C1C1C;color:#fff}
-.btn-white-lg{background:#fff;color:#003087;padding:14px 26px;font-size:15px}
-.btn-white-lg:hover{background:#1C1C1C;color:#fff}
-.btn-directions{display:block;background:#1C1C1C;color:#fff;padding:13px;font-size:14.5px;text-align:center;margin-top:auto}
-.btn-directions:hover{background:#0071CE;color:#fff}
 
 /* Header */
 .site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-bottom:1px solid rgba(29,29,31,.1)}
@@ -72,98 +63,11 @@ section[id]{scroll-margin-top:80px}
 .hero-media::before{content:"";position:absolute;inset:auto -14px -14px auto;width:70%;height:70%;border-radius:20px;background:repeating-linear-gradient(135deg,#0071CE 0 14px,#00A2E5 14px 28px,#059DA4 28px 42px,#ffffff 42px 56px);opacity:.9;z-index:0}
 .hero-media img{position:relative;z-index:1;width:100%;height:auto;border-radius:20px;display:block;box-shadow:0 20px 50px rgba(29,29,31,.18);object-fit:cover;aspect-ratio:4/3}
 
-/* Descrizione */
-.intro{background:#1C1C1C;color:#ffffff;padding:72px 24px}
-.intro-inner{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
-.intro h2{margin:0;font-size:32px;font-weight:800;letter-spacing:-.02em;line-height:1.2;text-wrap:balance}
-.intro p{margin:0;font-size:17px;line-height:1.75;color:rgba(255,255,255,.82);text-wrap:pretty}
-.intro strong{color:#fff}
-
-/* Servizi */
-.services{max-width:1140px;margin:0 auto;padding:80px 24px}
-.services-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.service-card{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:10px}
-.service-card .dot{width:14px;height:14px;border-radius:50%;display:block}
-.service-card h3{margin:0;font-size:18px;font-weight:700}
-.service-card p{margin:0;font-size:14.5px;line-height:1.6;color:#2A2B2A}
-.delivery-banner{margin-top:20px;background:linear-gradient(90deg,#0071CE,#003087);border-radius:16px;padding:22px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px;flex-wrap:wrap}
-.delivery-banner p{margin:0;color:#fff;font-size:16px;font-weight:600}
-
-/* Sedi */
-.locations{background:#eef1f4;padding:80px 24px}
-.locations-inner{max-width:1140px;margin:0 auto}
-.locations-grid{display:grid;grid-template-columns:1fr 1fr;gap:28px}
-.location-card{background:#fff;border-radius:20px;overflow:hidden;border:1px solid rgba(29,29,31,.08);display:flex;flex-direction:column}
-.location-card > img{width:100%;height:220px;object-fit:cover;display:block}
-.location-body{padding:28px;display:flex;flex-direction:column;gap:16px;flex:1}
-.location-title{display:flex;flex-direction:column;gap:6px}
-.location-title h3{margin:0;font-size:24px;font-weight:800}
-.location-title p{margin:0;font-size:14.5px;line-height:1.6;color:#2A2B2A}
-.location-contacts{display:flex;flex-direction:column;gap:8px;font-size:14.5px}
-.location-hours{background:#f2f5f8;border-radius:12px;padding:16px 18px;display:grid;grid-template-columns:auto 1fr;gap:4px 16px;font-size:13.5px;line-height:1.6}
-.location-hours .hours-title{grid-column:1/-1;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:#003087;margin-bottom:4px}
-.location-hours .day{font-weight:600}
-.location-card iframe{width:100%;height:200px;border:0;border-radius:12px;background:#e6ebf0}
-
-/* Marchi */
-.brands{max-width:1140px;margin:0 auto;padding:80px 24px}
-.brands .section-head{margin-bottom:36px}
-.brands-grid{--cols:5;--gap:20px 24px;display:flex;flex-wrap:wrap;justify-content:center;align-items:center;gap:var(--gap)}
-.brand-tile{flex:0 0 calc((100% - (var(--cols) - 1) * 24px) / var(--cols));height:96px;display:flex;align-items:center;justify-content:center;padding:6px 20px;box-sizing:border-box}
-.brand-tile img{max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block}
-.brand-tile--solid img{height:84px;width:84px;border-radius:16px}
-
-/* Recensioni */
-.reviews{background:#1C1C1C;padding:80px 24px}
-.reviews-inner{max-width:1140px;margin:0 auto}
-.reviews .kicker{color:#00A2E5}
-.reviews h2{color:#ffffff}
-.reviews-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px}
-.review-card{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:16px;padding:26px;display:flex;flex-direction:column;gap:12px}
-.review-card .who{margin-top:auto}
-.review-card .stars{color:#00A2E5;font-size:16px;letter-spacing:2px}
-.review-card blockquote{margin:0;font-size:15px;line-height:1.65;color:rgba(255,255,255,.85);font-style:italic}
-.review-card .who{font-size:13.5px;font-weight:600;color:rgba(255,255,255,.6)}
-
-/* FAQ */
-.faq{max-width:860px;margin:0 auto;padding:80px 24px}
-.faq .section-head{margin-bottom:36px}
-.faq-list{display:flex;flex-direction:column;gap:12px}
-.faq-list details{background:#fff;border:1px solid rgba(29,29,31,.08);border-radius:14px;padding:20px 24px}
-.faq-list summary{cursor:pointer;font-size:16.5px;font-weight:700;display:flex;justify-content:space-between;align-items:center;gap:16px;list-style:none}
-.faq-chev{color:#0071CE;font-size:22px;font-weight:400;transition:transform .2s}
-.faq-list details p{margin:14px 0 0;font-size:15px;line-height:1.7;color:#2A2B2A}
-
-/* CTA finale */
-.final-cta{max-width:1140px;margin:0 auto;padding:0 24px 80px}
-.final-cta-box{background:linear-gradient(120deg,#0071CE,#003087 60%,#012169);border-radius:24px;padding:56px 48px;display:flex;flex-direction:column;gap:18px;align-items:flex-start}
-.final-cta-box h2{margin:0;font-size:34px;font-weight:800;letter-spacing:-.02em;color:#fff;text-wrap:balance}
-.final-cta-box p{margin:0;font-size:17px;line-height:1.6;color:rgba(255,255,255,.9);max-width:640px}
-.final-cta-box .cta-row{display:flex;gap:14px;flex-wrap:wrap;margin-top:6px}
-
-/* Footer */
-.site-footer{background:#1C1C1C;color:rgba(255,255,255,.75);padding:56px 24px 32px}
-.footer-grid{max-width:1140px;margin:0 auto;display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:40px}
-.footer-col{display:flex;flex-direction:column;gap:8px;font-size:14px;line-height:1.7}
-.footer-col.about{gap:14px}
-.footer-col .footer-brand{font-weight:800;font-size:17px;color:#ffffff}
-.footer-col strong{color:#ffffff;font-size:14px}
-.footer-col p{margin:0;font-size:14px;line-height:1.7}
-.footer-col a{color:rgba(255,255,255,.75)}
-.footer-col a:hover{color:#ffffff}
-.footer-bottom{max-width:1140px;margin:36px auto 0;padding-top:24px;border-top:1px solid rgba(255,255,255,.15);display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;font-size:13px}
-.footer-bottom .policies{display:flex;gap:18px}
-.footer-bottom .policies a{color:rgba(255,255,255,.6)}
-.footer-bottom .policies a:hover{color:#ffffff}
-
-/* Responsive */
+/* Responsive (header + hero) */
 @media (max-width:1000px){
   .hero{grid-template-columns:1fr;gap:40px;padding-top:48px}
   .hero-copy h1{font-size:44px}
   .hero-media{max-width:640px}
-  .services-grid{grid-template-columns:repeat(2,1fr)}
-  .brands-grid{--cols:4}
-  .reviews-grid{grid-template-columns:repeat(2,1fr)}
 }
 @media (max-width:920px){
   .header-actions{display:flex}
@@ -176,42 +80,21 @@ section[id]{scroll-margin-top:80px}
   .main-nav .btn-dark{text-align:center;padding:14px;font-size:15px}
 }
 @media (max-width:768px){
-  .section-head h2{font-size:28px}
   .hero{padding-top:40px;padding-bottom:40px;gap:32px}
   .hero-copy h1{font-size:36px}
   .hero-copy .lead{font-size:16.5px}
   .hero-media::before{inset:auto -10px -10px auto}
-  .brands-grid{--cols:4;--gap:12px 16px}
-  .brand-tile{flex-basis:calc((100% - 3 * 16px) / 4);height:80px}
-  .brand-tile--solid img{height:60px;width:60px}
-  .location-card > img{height:200px}
-  .location-body{padding:22px}
-  .intro{padding:56px 24px}
-  .intro h2{font-size:26px}
-  .services,.brands,.faq{padding:56px 24px}
-  .locations,.reviews{padding:56px 24px}
-  .locations-grid{grid-template-columns:1fr}
-  .reviews-grid{grid-template-columns:1fr}
-  .final-cta{padding-bottom:56px}
-  .final-cta-box{padding:40px 28px}
-  .final-cta-box h2{font-size:27px}
-  .footer-grid{grid-template-columns:1fr;gap:28px}
 }
 @media (max-width:520px){
-  .brands-grid{--cols:3;--gap:8px 12px}
-  .brand-tile{flex-basis:calc((100% - 2 * 12px) / 3);height:72px;padding:6px 10px}
-  .brand-tile--solid img{height:56px;width:56px}
-  .services-grid{grid-template-columns:1fr}
   .brand img{height:36px}
   .hero-copy h1{font-size:32px}
   .hero-ctas{flex-direction:column;align-items:stretch}
   .hero-ctas .btn{text-align:center}
   .hero-checks{gap:12px 20px}
-  .delivery-banner{padding:20px}
-  .delivery-banner .btn{width:100%;text-align:center}
-  .footer-bottom{flex-direction:column}
 }
 </style>
+<link rel="preload" href="assets/style.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="assets/style.css"></noscript>
 <script type="application/ld+json">
 {"@context":"https://schema.org","@graph":[
 {"@type":"HomeAndConstructionBusiness","@id":"#montegrotto","name":"Colorificio Pigmenti — Montegrotto Terme","description":"Colorificio a Montegrotto Terme (Padova): pitture professionali, tintometro, prodotti per restauro, antinfortunistica e attrezzatura per imprese e privati.","telephone":"+39049795580","email":"pigmentisrl@gmail.com","address":{"@type":"PostalAddress","streetAddress":"Via del Commercio, 9","addressLocality":"Montegrotto Terme","postalCode":"35036","addressRegion":"PD","addressCountry":"IT"},"openingHoursSpecification":[{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"07:30","closes":"12:15"},{"@type":"OpeningHoursSpecification","dayOfWeek":["Monday","Tuesday","Wednesday","Thursday","Friday"],"opens":"14:15","closes":"18:30"},{"@type":"OpeningHoursSpecification","dayOfWeek":"Saturday","opens":"08:00","closes":"12:00"}],"priceRange":"€€"},
