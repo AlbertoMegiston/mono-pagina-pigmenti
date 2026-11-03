@@ -118,6 +118,19 @@ def elenco_codici(q="", da=0, quanti=100):
     }
 
 
+def elenco_verifiche(q="", da=0, quanti=50):
+    """Una pagina del registro delle verifiche, dalla piu' recente, con
+    filtro per codice (anche parziale). Righe ed etichette le prepara
+    clg_import.ultime_verifiche; la data resta in secondi (ts) e la formatta
+    il browser, cosi' e' nell'ora di chi guarda."""
+    if clg_import is None:
+        return {"errore": "Registro non disponibile (manca clg_import.py accanto al pannello)."}
+    da = max(0, int(da or 0))
+    with connect() as cx:
+        tot, righe = clg_import.ultime_verifiche(cx, q, da, quanti)
+    return {"totale": tot, "da": da, "quanti": quanti, "righe": righe}
+
+
 def importa(testo, stato_default, sostituisci):
     """Carica codici incollati o da file. Accetta un elenco semplice (un codice
     per riga) o un CSV con intestazione code[,status][,note]. Ritorna il
@@ -494,6 +507,21 @@ PAGE = """<!doctype html>
   </section>
 
   <section>
+    <h2>Ultime verifiche</h2>
+    <p class="hint">Ogni verifica fatta dai clienti, dalla piu' recente: giorno e ora (nel fuso del tuo
+       dispositivo), codice, esito, se e' arrivata da una scansione o dal codice digitato, e se il
+       DataMatrix letto era quello registrato. Il registro conserva 180 giorni; chi ha verificato non
+       e' registrato.</p>
+    <div class="row">
+      <div><input type="text" id="cerca-ver" inputmode="numeric" placeholder="filtra per codice (anche parziale)"></div>
+      <div style="flex:0 0 auto"><button class="ghost" id="btn-cerca-ver">Filtra</button></div>
+      <div style="flex:0 0 auto"><button class="ghost" id="btn-aggiorna-ver">Aggiorna</button></div>
+    </div>
+    <div class="scroll" style="margin-top:12px"><table id="tab-ver"><tbody></tbody></table></div>
+    <div class="paginazione" id="pag-ver"></div>
+  </section>
+
+  <section>
     <h2>Svuota la lista</h2>
     <p class="hint">Rimuove <b>tutti</b> i codici. Il registro delle verifiche resta.
        Utile per togliere i codici demo prima di caricare quelli veri.</p>
@@ -527,7 +555,7 @@ PAGE = """<!doctype html>
       tb.innerHTML='<tr><th>Codice</th><th>Dispositivi</th></tr>'+s.piu_visti.map(function(v){
         return '<tr><td><code>'+v.code+'</code></td><td>'+v.dispositivi+'</td></tr>';}).join("");
     }).catch(function(){});
-    elenco(0);
+    elenco(0); verifiche(0);
   }
   var pagina = {q:"", da:0};
   function elenco(da){
@@ -547,6 +575,32 @@ PAGE = """<!doctype html>
         (fine<s.totale?'<button class="ghost" id="pag-succ">successivi &rarr;</button>':'');
       if($("pag-prec")) $("pag-prec").onclick=function(){elenco(Math.max(0,s.da-s.quanti));};
       if($("pag-succ")) $("pag-succ").onclick=function(){elenco(s.da+s.quanti);};
+    }).catch(function(){});
+  }
+  // Il registro delle verifiche: la data arriva in secondi e si scrive qui,
+  // nel fuso di chi guarda; etichette ed esiti li prepara il server.
+  var pagVer = {q:"", da:0};
+  function quando(ts){var d=new Date(ts*1000),p=function(n){return (n<10?"0":"")+n;};
+    return p(d.getDate())+"/"+p(d.getMonth()+1)+"/"+d.getFullYear()+" "+p(d.getHours())+":"+p(d.getMinutes());}
+  function esitoPill(e){var m={genuine:["v","autentico"],suspicious:["s","sospetto"],fake:["r","falso"]}[e];
+    return m?'<span class="pill '+m[0]+'">'+m[1]+'</span>':'<span class="quiet">'+(e==="not_found"?"non trovato":esc(e))+'</span>';}
+  function verifiche(da){
+    pagVer.da = da||0;
+    fetch(B+"/verifiche?q="+encodeURIComponent(pagVer.q)+"&da="+pagVer.da).then(function(r){return r.json();}).then(function(s){
+      var tb = document.querySelector("#tab-ver tbody");
+      if(s.errore){tb.innerHTML='<tr><td class="quiet">'+esc(s.errore)+'</td></tr>';$("pag-ver").innerHTML="";return;}
+      if(!s.righe.length){tb.innerHTML='<tr><td class="quiet">'+(pagVer.q?'Nessuna verifica per questo codice.':'Ancora nessuna verifica.')+'</td></tr>';$("pag-ver").innerHTML="";return;}
+      tb.innerHTML='<tr><th>Quando</th><th>Codice</th><th>Esito</th><th>Come</th><th>DataMatrix</th><th>Acquisto</th><th>Dove</th></tr>'+
+        s.righe.map(function(r){
+          return '<tr><td style="white-space:nowrap">'+quando(r.ts)+'</td><td><code>'+esc(r.code)+'</code></td><td style="white-space:nowrap">'+esitoPill(r.esito)+'</td>'+
+            '<td>'+(r.scan?'scansione':'digitato')+'</td><td style="white-space:nowrap">'+(r.dm===null?'<span class="quiet">\u2014</span>':(r.dm?'riconosciuto':'non registrato'))+'</td>'+
+            '<td>'+(r.acquisto?esc(r.acquisto):'<span class="quiet">\u2014</span>')+'</td><td>'+(r.dove?esc(r.dove):'<span class="quiet">\u2014</span>')+'</td></tr>';}).join("");
+      var fine = Math.min(s.da+s.righe.length, s.totale);
+      $("pag-ver").innerHTML = '<span>'+(s.da+1)+'\u2013'+fine+' di '+s.totale+'</span>'+
+        (s.da>0?'<button class="ghost" id="pagv-prec">&larr; pi&ugrave; recenti</button>':'')+
+        (fine<s.totale?'<button class="ghost" id="pagv-succ">meno recenti &rarr;</button>':'');
+      if($("pagv-prec")) $("pagv-prec").onclick=function(){verifiche(Math.max(0,s.da-s.quanti));};
+      if($("pagv-succ")) $("pagv-succ").onclick=function(){verifiche(s.da+s.quanti);};
     }).catch(function(){});
   }
   // DataMatrix di un codice: per uno del brand si ridisegna quello registrato
@@ -605,6 +659,9 @@ PAGE = """<!doctype html>
     }).catch(function(){self.disabled=false;show("msg-dm",false,"Errore di comunicazione.");});
   });
   $("btn-cerca").addEventListener("click", function(){pagina.q=$("cerca").value; elenco(0);});
+  $("btn-cerca-ver").addEventListener("click", function(){pagVer.q=$("cerca-ver").value; verifiche(0);});
+  $("cerca-ver").addEventListener("keydown", function(e){ if(e.key==="Enter"){ pagVer.q=this.value; verifiche(0); } });
+  $("btn-aggiorna-ver").addEventListener("click", function(){ verifiche(pagVer.da); });
   $("cerca").addEventListener("keydown", function(e){if(e.key==="Enter"){pagina.q=$("cerca").value; elenco(0);}});
 
   // Un Excel non passa dal riquadro di testo: viaggia in base64 verso
@@ -726,6 +783,14 @@ class Handler(BaseHTTPRequestHandler):
                 except ValueError:
                     da = 0
                 self._json(elenco_codici((qs.get("q") or [""])[0], da))
+                return
+            if u.path == "/pannello/api/verifiche":
+                qs = parse_qs(u.query)
+                try:
+                    da = int((qs.get("da") or ["0"])[0])
+                except ValueError:
+                    da = 0
+                self._json(elenco_verifiche((qs.get("q") or [""])[0], da))
                 return
         except sqlite3.Error as e:
             self._json({"errore": "database non disponibile: %s" % e}, 503)

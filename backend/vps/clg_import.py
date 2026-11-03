@@ -23,6 +23,10 @@ Esempi:
     # quanti codici ci sono e quante verifiche sono state fatte
     sudo clgadmin stato-lista
 
+    # le ultime verifiche: giorno e ora, codice, esito, scansione o digitato
+    sudo clgadmin verifiche --ultime 50
+    sudo clgadmin verifiche --codice 678104772975
+
     # prova l'invio email dei codici di verifica (chiave in /etc/autenticatore/mail.env)
     sudo clgadmin mail-test tua@email.it
 
@@ -34,7 +38,9 @@ Un codice già in lista mantiene il suo stato, a meno che non venga indicato
 
 import argparse
 import csv
+import datetime
 import io
+import json
 import os
 import re
 import sqlite3
@@ -351,6 +357,84 @@ def cmd_riepilogo(args):
         print("  (nessuna)")
 
 
+# Il registro delle verifiche, come lo leggono clgadmin e il pannello. Le
+# chiavi sono quelle del servizio (esiti) e della pagina (contesto when/where).
+ESITI = {"genuine": "autentico", "suspicious": "sospetto", "fake": "falso",
+         "not_found": "non trovato"}
+ACQUISTO = {"before": "prima dell'acquisto", "after": "dopo l'acquisto"}
+DOVE = {"online": "online", "store": "in negozio", "gift": "regalo"}
+
+
+def _etichetta(ctx, chiave, tabella):
+    v = ctx.get(chiave)
+    return tabella.get(v, v) if isinstance(v, str) else ""
+
+
+def ultime_verifiche(cx, codice="", da=0, quanti=50):
+    """Il registro delle verifiche dalla piu' recente: (totale, righe).
+
+    Ogni riga: ts (secondi epoch), code, esito (chiave di ESITI), scan (bool),
+    dm (None senza scan; True se il barcode letto era quello registrato,
+    False se no), acquisto e dove (etichette dal contesto mandato dalla
+    pagina) e codice_inviato quando la pagina aveva mandato un codice diverso
+    da quello su cui si e' deciso (lo scan di un DataMatrix registrato per
+    un'altra riga). Nessun dato personale: l'indirizzo e' solo un hash e non
+    esce di qui. codice filtra per sottostringa (anche parziale)."""
+    q = re.sub(r"\D+", "", codice or "", flags=re.ASCII)[:12]
+    filtro, par = ("WHERE code LIKE ?", ("%" + q + "%",)) if q else ("", ())
+    da = max(0, int(da or 0))
+    tot = cx.execute("SELECT COUNT(*) FROM checks " + filtro, par).fetchone()[0]
+    righe = []
+    for ts, code, outcome, scanned, payload_ok, ctx in cx.execute(
+            "SELECT ts, code, outcome, scanned, payload_ok, ctx FROM checks " + filtro +
+            " ORDER BY id DESC LIMIT ? OFFSET ?", par + (int(quanti), da)):
+        try:
+            c = json.loads(ctx) if ctx else {}
+        except ValueError:
+            c = {}
+        if not isinstance(c, dict):
+            c = {}
+        inviato = c.get("code_sent")
+        righe.append({
+            "ts": int(ts), "code": code, "esito": outcome, "scan": bool(scanned),
+            "dm": None if payload_ok is None else bool(payload_ok),
+            "acquisto": _etichetta(c, "when", ACQUISTO),
+            "dove": _etichetta(c, "where", DOVE),
+            "codice_inviato": inviato if isinstance(inviato, str) else "",
+        })
+    return tot, righe
+
+
+def ora_italiana(ts):
+    """'09/09/2026 11:27' nel fuso italiano, qualunque sia quello del server
+    (senza i dati dei fusi, ripiega sull'ora locale del server)."""
+    try:
+        from zoneinfo import ZoneInfo
+        tz = ZoneInfo("Europe/Rome")
+    except Exception:  # noqa: BLE001 - tzdata assente
+        tz = None
+    return datetime.datetime.fromtimestamp(ts, tz).strftime("%d/%m/%Y %H:%M")
+
+
+def cmd_verifiche(args):
+    cx = connect(args.db)
+    try:
+        tot, righe = ultime_verifiche(cx, args.codice, 0, max(1, args.ultime))
+    except sqlite3.OperationalError as e:
+        sys.exit(f"registro non leggibile ({e}): il servizio di verifica e' mai partito?")
+    per = f" per codici che contengono {args.codice}" if args.codice else ""
+    if not righe:
+        print("nessuna verifica" + per)
+        return
+    print(f"ultime {len(righe)} di {tot} verifiche{per} (ora italiana)")
+    print(f"{'quando':<16}  {'codice':<12}  {'esito':<11}  {'come':<9}  {'DataMatrix':<14}  acquisto / dove")
+    for r in righe:
+        dm = "" if r["dm"] is None else ("riconosciuto" if r["dm"] else "non registrato")
+        come = "scansione" if r["scan"] else "digitato"
+        print((f"{ora_italiana(r['ts']):<16}  {r['code']:<12}  {ESITI.get(r['esito'], r['esito']):<11}  "
+               f"{come:<9}  {dm:<14}  {r['acquisto']} / {r['dove']}").rstrip(" /"))
+
+
 def cmd_datamatrix(args):
     """Genera (e registra) il DataMatrix di un codice caricato a mano."""
     if clg_datamatrix is None or not clg_datamatrix.GENERAZIONE_DISPONIBILE:
@@ -466,6 +550,12 @@ def main():
 
     ri = sub.add_parser("stato-lista", help="riepilogo di lista e verifiche")
     ri.set_defaults(func=cmd_riepilogo)
+
+    ve = sub.add_parser("verifiche", help="le ultime verifiche dei clienti: giorno e ora, codice, "
+                                          "esito, scansione o digitato")
+    ve.add_argument("--codice", default=None, help="solo le verifiche di questo codice (anche parziale)")
+    ve.add_argument("--ultime", type=int, default=20, help="quante mostrarne (default 20)")
+    ve.set_defaults(func=cmd_verifiche)
 
     dm = sub.add_parser("datamatrix", help="genera e registra il DataMatrix di un codice caricato a mano")
     dm.add_argument("codice")

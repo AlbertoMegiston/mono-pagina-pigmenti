@@ -87,7 +87,11 @@ Alla fine il sito risponde su `https://iltuodominio.it`.
 Da `https://iltuodominio.it/pannello/` gestisci la lista **senza riga di
 comando**: carichi i codici (incollandoli, da file txt/csv o dall'Excel del
 brand con i DataMatrix), vedi le statistiche e l'elenco dei codici con taglia,
-articolo e identificativo, revochi un singolo codice, svuoti la lista.
+articolo e identificativo, revochi un singolo codice, svuoti la lista. Nella
+sezione **Ultime verifiche** c'è il registro: giorno e ora, codice, esito, se
+la verifica è arrivata da una scansione o dal codice digitato e se il
+DataMatrix letto era quello registrato, con un filtro per codice. Il registro
+conserva 180 giorni e non contiene chi ha verificato.
 
 Con un Excel il pannello mostra prima un'**anteprima** (quante righe, quante
 con il numero dentro al DataMatrix diverso dal codice della colonna E, quante
@@ -125,6 +129,10 @@ clgadmin importa /root/codici.csv --lotto "lotto-2026-01"
 
 # controlla
 clgadmin stato-lista
+
+# le ultime verifiche (giorno e ora italiana, codice, esito, scansione o digitato)
+clgadmin verifiche
+clgadmin verifiche --codice 678104772975 --ultime 50
 ```
 
 Il file può essere un elenco semplice (un codice per riga) oppure un CSV con

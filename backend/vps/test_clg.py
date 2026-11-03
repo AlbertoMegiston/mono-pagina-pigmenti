@@ -28,6 +28,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.parse
 import urllib.request
@@ -900,6 +901,87 @@ class TestVerdetti(unittest.TestCase):
             self.assertEqual(verify_server.verdict(self.C1, "a", self.P1)[0], "suspicious")
         finally:
             verify_server.DUP_LIMIT = vecchio
+
+
+class TestVerifiche(unittest.TestCase):
+    """Il registro delle verifiche, dal pannello (funzione e HTTP) e da
+    clgadmin: dalla piu' recente, con etichette, filtro e pagine, senza
+    dati personali."""
+
+    def setUp(self):
+        db_nuovo()
+        verify_server.log_check("678104772975", "genuine", "h1",
+                                json.dumps({"when": "after", "where": "gift", "place": ""}), 0, None)
+        verify_server.log_check("678104772975", "genuine", "h2",
+                                json.dumps({"when": "before", "where": "store", "code_sent": "739184173203"}), 1, 1)
+        verify_server.log_check("111222333444", "fake", "h3", "non json", 1, 0)
+        verify_server.log_check("000000000001", "not_found", None, None, 0, None)
+
+    def test_pannello_elenco(self):
+        s = admin_server.elenco_verifiche()
+        self.assertEqual((s["totale"], len(s["righe"]), s["da"], s["quanti"]), (4, 4, 0, 50))
+        r0, r1, r2, r3 = s["righe"]  # dalla piu' recente
+        self.assertEqual((r0["code"], r0["esito"], r0["scan"], r0["dm"], r0["acquisto"], r0["dove"]),
+                         ("000000000001", "not_found", False, None, "", ""))
+        self.assertEqual((r1["code"], r1["esito"], r1["scan"], r1["dm"], r1["acquisto"]),
+                         ("111222333444", "fake", True, False, ""))
+        self.assertEqual((r2["scan"], r2["dm"], r2["acquisto"], r2["dove"], r2["codice_inviato"]),
+                         (True, True, "prima dell'acquisto", "in negozio", "739184173203"))
+        self.assertEqual((r3["scan"], r3["dm"], r3["acquisto"], r3["dove"], r3["codice_inviato"]),
+                         (False, None, "dopo l'acquisto", "regalo", ""))
+        self.assertTrue(all(isinstance(r["ts"], int) and abs(r["ts"] - time.time()) < 60 for r in s["righe"]))
+        self.assertTrue(all("ip_hash" not in r and "ip" not in r for r in s["righe"]))
+        # Filtro per codice (anche parziale, con gli spazi) e pagine.
+        self.assertEqual([r["code"] for r in admin_server.elenco_verifiche("6781")["righe"]],
+                         ["678104772975", "678104772975"])
+        self.assertEqual(admin_server.elenco_verifiche("678 104 772 975")["totale"], 2)
+        self.assertEqual(admin_server.elenco_verifiche("999")["righe"], [])
+        p = admin_server.elenco_verifiche("", 1, 2)
+        self.assertEqual(([r["code"] for r in p["righe"]], p["totale"], p["da"], p["quanti"]),
+                         (["111222333444", "678104772975"], 4, 1, 2))
+
+    def test_clgadmin_verifiche(self):
+        def esegui(**kw):
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                clg_import.cmd_verifiche(Namespace(db=DB, codice=kw.get("codice"), ultime=kw.get("ultime", 20)))
+            return out.getvalue()
+        o = esegui()
+        self.assertIn("ultime 4 di 4 verifiche (ora italiana)", o)
+        righe = o.strip().splitlines()[2:]
+        self.assertEqual(len(righe), 4)
+        self.assertRegex(righe[0], r"^\d\d/\d\d/\d{4} \d\d:\d\d  000000000001  non trovato  digitato\s*$")
+        self.assertRegex(righe[1], r"111222333444\s+falso\s+scansione\s+non registrato\s*$")
+        self.assertRegex(righe[2], r"678104772975\s+autentico\s+scansione\s+riconosciuto\s+prima dell'acquisto / in negozio$")
+        self.assertRegex(righe[3], r"678104772975\s+autentico\s+digitato\s+dopo l'acquisto / regalo$")
+        import datetime
+        import zoneinfo
+        ts = admin_server.elenco_verifiche()["righe"][0]["ts"]
+        attesa = datetime.datetime.fromtimestamp(ts, zoneinfo.ZoneInfo("Europe/Rome")).strftime("%d/%m/%Y %H:%M")
+        self.assertTrue(righe[0].startswith(attesa), righe[0])
+        self.assertIn("ultime 1 di 1 verifiche per codici che contengono 1112", esegui(codice="1112"))
+        self.assertEqual(esegui(codice="999").strip(), "nessuna verifica per codici che contengono 999")
+        self.assertIn("ultime 2 di 4 verifiche", esegui(ultime=2))
+
+    def test_http(self):
+        srv = ThreadingHTTPServer(("127.0.0.1", 0), admin_server.Handler)
+        srv.daemon_threads = True
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
+        base = "http://127.0.0.1:%d" % srv.server_address[1]
+        try:
+            with urllib.request.urlopen(base + "/pannello/api/verifiche?q=6781&da=0", timeout=5) as r:
+                s = json.loads(r.read())
+                self.assertEqual((r.status, s["totale"], [x["code"] for x in s["righe"]]),
+                                 (200, 2, ["678104772975", "678104772975"]))
+            with urllib.request.urlopen(base + "/pannello/api/verifiche?da=abc", timeout=5) as r:
+                self.assertEqual(json.loads(r.read())["totale"], 4)
+            with urllib.request.urlopen(base + "/pannello/", timeout=5) as r:
+                html = r.read().decode("utf-8")
+            self.assertIn("Ultime verifiche", html)
+            self.assertIn('id="tab-ver"', html)
+        finally:
+            srv.shutdown()
+            srv.server_close()
 
 
 class TestServerHTTP(unittest.TestCase):
